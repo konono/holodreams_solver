@@ -1,0 +1,2939 @@
+{
+  "cards": [
+    {
+      "id": "tokino_sora_5",
+      "character": "ときのそら",
+      "card_name": "ひたむきに描く虹のうた",
+      "rarity": 5,
+      "type": "cute",
+      "group": "0期生",
+      "stats": {
+        "performance": 10909,
+        "technique": 7221,
+        "sense": 7844
+      },
+      "total": 25974,
+      "center_skill": {
+        "interval": 24,
+        "probability": "medium",
+        "duration": 10,
+        "score_up": 100,
+        "condition": null,
+        "conditional_score_up": null
+      },
+      "support_skill": {
+        "effect_type": "self_all_param",
+        "value": 33,
+        "condition": {
+          "type": "group_count",
+          "group": "0期生",
+          "min_count": 2
+        },
+        "target": "self"
+      },
+      "costume_skill": {
+        "condition": {
+          "type": "group_count",
+          "group": "0期生",
+          "min_count": 2
+        },
+        "effects": [
+          {
+            "target": "all",
+            "stat": "all",
+            "value": 50
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 10,
+        "score_support": 160
+      }
+    },
+    {
+      "id": "roboco_5",
+      "character": "ロボ子さん",
+      "card_name": "高性能なVサイン",
+      "rarity": 5,
+      "type": "happy",
+      "group": "0期生",
+      "stats": {
+        "performance": 11145,
+        "technique": 7828,
+        "sense": 6947
+      },
+      "total": 25920,
+      "center_skill": {
+        "interval": 18,
+        "probability": "high",
+        "duration": 8,
+        "score_up": 90,
+        "condition": null,
+        "conditional_score_up": null
+      },
+      "support_skill": {
+        "effect_type": "type_score_support",
+        "value": 11,
+        "condition": null,
+        "target": {
+          "type_match": "happy",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": {
+          "type": "type_count",
+          "type_name": "happy",
+          "min_count": 2
+        },
+        "effects": [
+          {
+            "target": "all",
+            "stat": "performance",
+            "value": 130
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 10,
+        "score_support": 145,
+        "skill_rate_up": 55,
+        "skill_rate_condition": "life_1000"
+      }
+    },
+    {
+      "id": "azki_5",
+      "character": "AZKi",
+      "card_name": "咲き誇る一途な花",
+      "rarity": 5,
+      "type": "pure",
+      "group": "0期生",
+      "stats": {
+        "performance": 6803,
+        "technique": 7682,
+        "sense": 11380
+      },
+      "total": 25865,
+      "center_skill": {
+        "interval": 20,
+        "probability": "high",
+        "duration": 7,
+        "score_up": 60,
+        "condition": "life_600",
+        "conditional_score_up": 120
+      },
+      "support_skill": {
+        "effect_type": "group_stat",
+        "stat": "sense",
+        "value": 43,
+        "condition": null,
+        "target": {
+          "group": "0期生",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": null,
+        "effects": [
+          {
+            "target": "all",
+            "stat": "sense",
+            "value": 120
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 10,
+        "score_support": 145,
+        "skill_rate_up": 50
+      }
+    },
+    {
+      "id": "sakura_miko_5",
+      "character": "さくらみこ",
+      "card_name": "サクラBloom",
+      "rarity": 5,
+      "type": "happy",
+      "group": "0期生",
+      "stats": {
+        "performance": 7682,
+        "technique": 6803,
+        "sense": 11380
+      },
+      "total": 25865,
+      "center_skill": {
+        "interval": 15,
+        "probability": "medium",
+        "duration": 6,
+        "score_up": 55,
+        "condition": "combo_40",
+        "conditional_score_up": 110
+      },
+      "support_skill": {
+        "effect_type": "type_score_support",
+        "value": 11,
+        "condition": null,
+        "target": {
+          "type_match": "happy",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": null,
+        "effects": [
+          {
+            "target": "all",
+            "stat": "sense",
+            "value": 120
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 10,
+        "score_support": 145,
+        "skill_rate_up": 50
+      }
+    },
+    {
+      "id": "hoshimachi_suisei_5",
+      "character": "星街すいせい",
+      "card_name": "心奪うComet Tune",
+      "rarity": 5,
+      "type": "pure",
+      "group": "0期生",
+      "stats": {
+        "performance": 6803,
+        "technique": 11380,
+        "sense": 7682
+      },
+      "total": 25865,
+      "center_skill": {
+        "interval": 29,
+        "probability": "high",
+        "duration": 10,
+        "score_up": 60,
+        "condition": "life_600",
+        "conditional_score_up": 120
+      },
+      "support_skill": {
+        "effect_type": "type_stat",
+        "stat": "technique",
+        "value": 41,
+        "condition": null,
+        "target": {
+          "type_match": "pure",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": null,
+        "effects": [
+          {
+            "target": "all",
+            "stat": "technique",
+            "value": 120
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 10,
+        "score_support": 145,
+        "skill_rate_up": 50
+      }
+    },
+    {
+      "id": "aki_rosenthal_5",
+      "character": "アキ・ローゼンタール",
+      "card_name": "艶帯びたハーフエルフ",
+      "rarity": 5,
+      "type": "cute",
+      "group": "1期生",
+      "stats": {
+        "performance": 6803,
+        "technique": 7682,
+        "sense": 11380
+      },
+      "total": 25865,
+      "center_skill": {
+        "interval": 21,
+        "probability": "medium",
+        "duration": 8,
+        "score_up": 55,
+        "condition": "life_600",
+        "conditional_score_up": 115
+      },
+      "support_skill": {
+        "effect_type": "group_stat",
+        "stat": "sense",
+        "value": 43,
+        "condition": null,
+        "target": {
+          "group": "1期生",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": null,
+        "effects": [
+          {
+            "target": "all",
+            "stat": "sense",
+            "value": 120
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 10,
+        "score_support": 145,
+        "skill_rate_up": 50
+      }
+    },
+    {
+      "id": "akai_haato_5",
+      "character": "赤井はあと",
+      "card_name": "let's freestyle おやつタイム",
+      "rarity": 5,
+      "type": "pure",
+      "group": "1期生",
+      "stats": {
+        "performance": 7682,
+        "technique": 11380,
+        "sense": 6803
+      },
+      "total": 25865,
+      "center_skill": {
+        "interval": 19,
+        "probability": "medium",
+        "duration": 7,
+        "score_up": 60,
+        "condition": "combo_40",
+        "conditional_score_up": 120
+      },
+      "support_skill": {
+        "effect_type": "type_score_support",
+        "value": 11,
+        "condition": null,
+        "target": {
+          "type_match": "pure",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": null,
+        "effects": [
+          {
+            "target": "all",
+            "stat": "technique",
+            "value": 120
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 12,
+        "score_support": 135
+      }
+    },
+    {
+      "id": "shirakami_fubuki_5",
+      "character": "白上フブキ",
+      "card_name": "狐のお宮でこんこんこん",
+      "rarity": 5,
+      "type": "pure",
+      "group": "1期生",
+      "stats": {
+        "performance": 10909,
+        "technique": 7221,
+        "sense": 7844
+      },
+      "total": 25974,
+      "center_skill": {
+        "interval": 30,
+        "probability": "high",
+        "duration": 11,
+        "score_up": 110,
+        "condition": null,
+        "conditional_score_up": null
+      },
+      "support_skill": {
+        "effect_type": "group_stat_conditional",
+        "stat": "performance",
+        "value": 45,
+        "condition": {
+          "type": "group_count",
+          "group": "1期生",
+          "min_count": 2
+        },
+        "target": {
+          "group": "1期生",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": {
+          "type": "group_count",
+          "group": "1期生",
+          "min_count": 2
+        },
+        "effects": [
+          {
+            "target": "all",
+            "stat": "all",
+            "value": 50
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 14,
+        "score_support": 115
+      }
+    },
+    {
+      "id": "natsuiro_matsuri_5",
+      "character": "夏色まつり",
+      "card_name": "ハジける快活チアリーダー",
+      "rarity": 5,
+      "type": "happy",
+      "group": "1期生",
+      "stats": {
+        "performance": 11380,
+        "technique": 7682,
+        "sense": 6803
+      },
+      "total": 25865,
+      "center_skill": {
+        "interval": 23,
+        "probability": "high",
+        "duration": 8,
+        "score_up": 60,
+        "condition": "life_600",
+        "conditional_score_up": 120
+      },
+      "support_skill": {
+        "effect_type": "group_stat",
+        "stat": "performance",
+        "value": 43,
+        "condition": null,
+        "target": {
+          "group": "1期生",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": null,
+        "effects": [
+          {
+            "target": "all",
+            "stat": "performance",
+            "value": 120
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 11,
+        "score_support": 145
+      }
+    },
+    {
+      "id": "nakiri_ayame_5",
+      "character": "百鬼あやめ",
+      "card_name": "隠世でのほほん、気ままな提灯",
+      "rarity": 5,
+      "type": "pure",
+      "group": "2期生",
+      "stats": {
+        "performance": 10433,
+        "technique": 7668,
+        "sense": 7981
+      },
+      "total": 26082,
+      "center_skill": {
+        "interval": 29,
+        "probability": "high",
+        "duration": 10,
+        "score_up": 60,
+        "condition": "pure_2",
+        "conditional_score_up": 120
+      },
+      "support_skill": {
+        "effect_type": "type_stat",
+        "stat": "performance",
+        "value": 41,
+        "condition": null,
+        "target": {
+          "type_match": "pure",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": null,
+        "effects": [
+          {
+            "target": "all",
+            "stat": "score_support",
+            "value": 60
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 10,
+        "score_support": 160
+      }
+    },
+    {
+      "id": "yuzuki_choco_5",
+      "character": "癒月ちょこ",
+      "card_name": "悪魔な魅惑に手玉にとられて",
+      "rarity": 5,
+      "type": "happy",
+      "group": "2期生",
+      "stats": {
+        "performance": 7366,
+        "technique": 7991,
+        "sense": 10672
+      },
+      "total": 26029,
+      "center_skill": {
+        "interval": 20,
+        "probability": "medium",
+        "duration": 7,
+        "score_up": 120,
+        "condition": null,
+        "conditional_score_up": null
+      },
+      "support_skill": {
+        "effect_type": "type_score_support",
+        "value": 11,
+        "condition": null,
+        "target": {
+          "type_match": "happy",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": {
+          "type": "type_count",
+          "type_name": "happy",
+          "min_count": 2
+        },
+        "effects": [
+          {
+            "target": "all",
+            "stat": "all",
+            "value": 30
+          },
+          {
+            "target": "all",
+            "stat": "score_support",
+            "value": 25
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 10,
+        "score_support": 160
+      }
+    },
+    {
+      "id": "oozora_subaru_5",
+      "character": "大空スバル",
+      "card_name": "クワッとじゃれ合うアヒルの午後",
+      "rarity": 5,
+      "type": "cute",
+      "group": "2期生",
+      "stats": {
+        "performance": 10909,
+        "technique": 7221,
+        "sense": 7844
+      },
+      "total": 25974,
+      "center_skill": {
+        "interval": 34,
+        "probability": "high",
+        "duration": 12,
+        "score_up": 115,
+        "condition": null,
+        "conditional_score_up": null
+      },
+      "support_skill": {
+        "effect_type": "group_stat_conditional",
+        "stat": "performance",
+        "value": 45,
+        "condition": {
+          "type": "group_count",
+          "group": "2期生",
+          "min_count": 2
+        },
+        "target": {
+          "group": "2期生",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": {
+          "type": "group_count",
+          "group": "2期生",
+          "min_count": 2
+        },
+        "effects": [
+          {
+            "target": "all",
+            "stat": "all",
+            "value": 50
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 12,
+        "score_support": 120,
+        "skill_rate_up": 40
+      }
+    },
+    {
+      "id": "ookami_mio_5",
+      "character": "大神ミオ",
+      "card_name": "ホッととろけるnightscape",
+      "rarity": 5,
+      "type": "cute",
+      "group": "ゲーマーズ",
+      "stats": {
+        "performance": 7844,
+        "technique": 7221,
+        "sense": 10909
+      },
+      "total": 25974,
+      "center_skill": {
+        "interval": 27,
+        "probability": "high",
+        "duration": 9,
+        "score_up": 120,
+        "condition": null,
+        "conditional_score_up": null
+      },
+      "support_skill": {
+        "effect_type": "group_score_support_conditional",
+        "value": 12,
+        "condition": {
+          "type": "group_count",
+          "group": "ゲーマーズ",
+          "min_count": 2
+        },
+        "target": {
+          "group": "ゲーマーズ",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": {
+          "type": "group_count",
+          "group": "ゲーマーズ",
+          "min_count": 2
+        },
+        "effects": [
+          {
+            "target": "all",
+            "stat": "all",
+            "value": 50
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 14,
+        "score_support": 115
+      }
+    },
+    {
+      "id": "nekomata_okayu_5",
+      "character": "猫又おかゆ",
+      "card_name": "宴の果てに、ナイショの戯れ",
+      "rarity": 5,
+      "type": "cute",
+      "group": "ゲーマーズ",
+      "stats": {
+        "performance": 7682,
+        "technique": 11380,
+        "sense": 6803
+      },
+      "total": 25865,
+      "center_skill": {
+        "interval": 25,
+        "probability": "medium",
+        "duration": 10,
+        "score_up": 55,
+        "condition": "life_600",
+        "conditional_score_up": 110
+      },
+      "support_skill": {
+        "effect_type": "type_stat",
+        "stat": "technique",
+        "value": 41,
+        "condition": null,
+        "target": {
+          "type_match": "cute",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": null,
+        "effects": [
+          {
+            "target": "all",
+            "stat": "technique",
+            "value": 120
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 10,
+        "score_support": 160
+      }
+    },
+    {
+      "id": "inugami_korone_5",
+      "character": "戌神ころね",
+      "card_name": "Go! Go! Laughing Skater",
+      "rarity": 5,
+      "type": "happy",
+      "group": "ゲーマーズ",
+      "stats": {
+        "performance": 7828,
+        "technique": 6947,
+        "sense": 11145
+      },
+      "total": 25920,
+      "center_skill": {
+        "interval": 17,
+        "probability": "medium",
+        "duration": 6,
+        "score_up": 120,
+        "condition": null,
+        "conditional_score_up": null
+      },
+      "support_skill": {
+        "effect_type": "type_score_support",
+        "value": 11,
+        "condition": null,
+        "target": {
+          "type_match": "happy",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": {
+          "type": "type_count",
+          "type_name": "happy",
+          "min_count": 2
+        },
+        "effects": [
+          {
+            "target": "all",
+            "stat": "sense",
+            "value": 130
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 10,
+        "score_support": 145,
+        "skill_rate_up": 55,
+        "skill_rate_condition": "combo_100"
+      }
+    },
+    {
+      "id": "usada_pekora_5",
+      "character": "兎田ぺこら",
+      "card_name": "愛嬌たっぷりビットフィールド",
+      "rarity": 5,
+      "type": "cute",
+      "group": "3期生",
+      "stats": {
+        "performance": 7366,
+        "technique": 10672,
+        "sense": 7991
+      },
+      "total": 26029,
+      "center_skill": {
+        "interval": 30,
+        "probability": "medium",
+        "duration": 12,
+        "score_up": 105,
+        "condition": null,
+        "conditional_score_up": null
+      },
+      "support_skill": {
+        "effect_type": "self_all_param_conditional",
+        "value": 32,
+        "condition": {
+          "type": "type_count",
+          "type_name": "cute",
+          "min_count": 2
+        },
+        "target": "self"
+      },
+      "costume_skill": {
+        "condition": {
+          "type": "type_count",
+          "type_name": "cute",
+          "min_count": 2
+        },
+        "effects": [
+          {
+            "target": "all",
+            "stat": "all",
+            "value": 30
+          },
+          {
+            "target": "all",
+            "stat": "score_support",
+            "value": 25
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 14,
+        "score_support": 115
+      }
+    },
+    {
+      "id": "shiranui_flare_5",
+      "character": "不知火フレア",
+      "card_name": "ハーフエルフの風渡るゴンドラ",
+      "rarity": 5,
+      "type": "pure",
+      "group": "3期生",
+      "stats": {
+        "performance": 11380,
+        "technique": 6803,
+        "sense": 7682
+      },
+      "total": 25865,
+      "center_skill": {
+        "interval": 26,
+        "probability": "high",
+        "duration": 9,
+        "score_up": 60,
+        "condition": "combo_40",
+        "conditional_score_up": 120
+      },
+      "support_skill": {
+        "effect_type": "group_stat",
+        "stat": "performance",
+        "value": 43,
+        "condition": null,
+        "target": {
+          "group": "3期生",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": null,
+        "effects": [
+          {
+            "target": "all",
+            "stat": "performance",
+            "value": 120
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 10,
+        "score_support": 145,
+        "skill_rate_up": 50
+      }
+    },
+    {
+      "id": "shirogane_noel_5",
+      "character": "白銀ノエル",
+      "card_name": "風薫るおっとり騎士",
+      "rarity": 5,
+      "type": "happy",
+      "group": "3期生",
+      "stats": {
+        "performance": 7668,
+        "technique": 7981,
+        "sense": 10433
+      },
+      "total": 26082,
+      "center_skill": {
+        "interval": 19,
+        "probability": "medium",
+        "duration": 7,
+        "score_up": 60,
+        "condition": "happy_2",
+        "conditional_score_up": 120
+      },
+      "support_skill": {
+        "effect_type": "self_all_param_conditional",
+        "value": 32,
+        "condition": {
+          "type": "type_count",
+          "type_name": "happy",
+          "min_count": 2
+        },
+        "target": "self"
+      },
+      "costume_skill": {
+        "condition": null,
+        "effects": [
+          {
+            "target": "all",
+            "stat": "score_support",
+            "value": 60
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 10,
+        "score_support": 160
+      }
+    },
+    {
+      "id": "houshou_marine_5",
+      "character": "宝鐘マリン",
+      "card_name": "妖艶あふれるマリンブルー",
+      "rarity": 5,
+      "type": "happy",
+      "group": "3期生",
+      "stats": {
+        "performance": 7221,
+        "technique": 10909,
+        "sense": 7844
+      },
+      "total": 25974,
+      "center_skill": {
+        "interval": 23,
+        "probability": "high",
+        "duration": 8,
+        "score_up": 115,
+        "condition": null,
+        "conditional_score_up": null
+      },
+      "support_skill": {
+        "effect_type": "group_score_support_conditional",
+        "value": 12,
+        "condition": {
+          "type": "group_count",
+          "group": "3期生",
+          "min_count": 2
+        },
+        "target": {
+          "group": "3期生",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": {
+          "type": "group_count",
+          "group": "3期生",
+          "min_count": 2
+        },
+        "effects": [
+          {
+            "target": "all",
+            "stat": "all",
+            "value": 50
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 12,
+        "score_support": 120,
+        "skill_rate_up": 40
+      }
+    },
+    {
+      "id": "tsunomaki_watame_5",
+      "character": "角巻わため",
+      "card_name": "Woolly Smile Festival",
+      "rarity": 5,
+      "type": "cute",
+      "group": "4期生",
+      "stats": {
+        "performance": 10672,
+        "technique": 7991,
+        "sense": 7366
+      },
+      "total": 26029,
+      "center_skill": {
+        "interval": 15,
+        "probability": "medium",
+        "duration": 6,
+        "score_up": 55,
+        "condition": "cute_2",
+        "conditional_score_up": 110
+      },
+      "support_skill": {
+        "effect_type": "type_score_support",
+        "value": 11,
+        "condition": null,
+        "target": {
+          "type_match": "cute",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": null,
+        "effects": [
+          {
+            "target": "all",
+            "stat": "all",
+            "value": 45
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 11,
+        "score_support": 145
+      }
+    },
+    {
+      "id": "tokoyami_towa_5",
+      "character": "常闇トワ",
+      "card_name": "ガチで終わらんチルい夜遊び",
+      "rarity": 5,
+      "type": "pure",
+      "group": "4期生",
+      "stats": {
+        "performance": 7844,
+        "technique": 7221,
+        "sense": 10909
+      },
+      "total": 25974,
+      "center_skill": {
+        "interval": 19,
+        "probability": "high",
+        "duration": 8,
+        "score_up": 95,
+        "condition": null,
+        "conditional_score_up": null
+      },
+      "support_skill": {
+        "effect_type": "group_stat_conditional",
+        "stat": "sense",
+        "value": 45,
+        "condition": {
+          "type": "group_count",
+          "group": "4期生",
+          "min_count": 2
+        },
+        "target": {
+          "group": "4期生",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": {
+          "type": "group_count",
+          "group": "4期生",
+          "min_count": 2
+        },
+        "effects": [
+          {
+            "target": "all",
+            "stat": "all",
+            "value": 50
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 10,
+        "score_support": 145,
+        "skill_rate_up": 50
+      }
+    },
+    {
+      "id": "himemori_luna_5",
+      "character": "姫森ルーナ",
+      "card_name": "姫に忠誠アフタヌーン",
+      "rarity": 5,
+      "type": "happy",
+      "group": "4期生",
+      "stats": {
+        "performance": 7682,
+        "technique": 11380,
+        "sense": 6803
+      },
+      "total": 25865,
+      "center_skill": {
+        "interval": 29,
+        "probability": "high",
+        "duration": 10,
+        "score_up": 60,
+        "condition": "combo_40",
+        "conditional_score_up": 120
+      },
+      "support_skill": {
+        "effect_type": "group_stat",
+        "stat": "technique",
+        "value": 43,
+        "condition": null,
+        "target": {
+          "group": "4期生",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": null,
+        "effects": [
+          {
+            "target": "all",
+            "stat": "technique",
+            "value": 120
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 14,
+        "score_support": 115
+      }
+    },
+    {
+      "id": "yukihana_lamy_5",
+      "character": "雪花ラミィ",
+      "card_name": "さびしがり屋な雪夜の令嬢",
+      "rarity": 5,
+      "type": "pure",
+      "group": "5期生",
+      "stats": {
+        "performance": 7221,
+        "technique": 7844,
+        "sense": 10909
+      },
+      "total": 25974,
+      "center_skill": {
+        "interval": 23,
+        "probability": "high",
+        "duration": 8,
+        "score_up": 115,
+        "condition": null,
+        "conditional_score_up": null
+      },
+      "support_skill": {
+        "effect_type": "self_all_param_conditional",
+        "value": 33,
+        "condition": {
+          "type": "group_count",
+          "group": "5期生",
+          "min_count": 2
+        },
+        "target": "self"
+      },
+      "costume_skill": {
+        "condition": {
+          "type": "group_count",
+          "group": "5期生",
+          "min_count": 2
+        },
+        "effects": [
+          {
+            "target": "all",
+            "stat": "all",
+            "value": 50
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 12,
+        "score_support": 120,
+        "skill_rate_up": 40
+      }
+    },
+    {
+      "id": "momosuzu_nene_5",
+      "character": "桃鈴ねね",
+      "card_name": "一緒に歌お！イノセントリズム",
+      "rarity": 5,
+      "type": "cute",
+      "group": "5期生",
+      "stats": {
+        "performance": 11380,
+        "technique": 6803,
+        "sense": 7682
+      },
+      "total": 25865,
+      "center_skill": {
+        "interval": 26,
+        "probability": "high",
+        "duration": 9,
+        "score_up": 60,
+        "condition": "life_600",
+        "conditional_score_up": 120
+      },
+      "support_skill": {
+        "effect_type": "type_score_support",
+        "value": 11,
+        "condition": null,
+        "target": {
+          "type_match": "cute",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": null,
+        "effects": [
+          {
+            "target": "all",
+            "stat": "performance",
+            "value": 120
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 11,
+        "score_support": 145
+      }
+    },
+    {
+      "id": "shishiro_botan_5",
+      "character": "獅白ぼたん",
+      "card_name": "目を奪う神エイム！lion's hunt",
+      "rarity": 5,
+      "type": "happy",
+      "group": "5期生",
+      "stats": {
+        "performance": 10672,
+        "technique": 7991,
+        "sense": 7366
+      },
+      "total": 26029,
+      "center_skill": {
+        "interval": 27,
+        "probability": "high",
+        "duration": 9,
+        "score_up": 60,
+        "condition": "happy_2",
+        "conditional_score_up": 125
+      },
+      "support_skill": {
+        "effect_type": "type_stat_conditional",
+        "stat": "performance",
+        "value": 43,
+        "condition": {
+          "type": "type_count",
+          "type_name": "happy",
+          "min_count": 2
+        },
+        "target": {
+          "type_match": "happy",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": null,
+        "effects": [
+          {
+            "target": "all",
+            "stat": "all",
+            "value": 45
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 10,
+        "score_support": 160
+      }
+    },
+    {
+      "id": "omaru_polka_5",
+      "character": "尾丸ポルカ",
+      "card_name": "変幻自在！ポルカサーカス開演！",
+      "rarity": 5,
+      "type": "happy",
+      "group": "5期生",
+      "stats": {
+        "performance": 7366,
+        "technique": 7991,
+        "sense": 10672
+      },
+      "total": 26029,
+      "center_skill": {
+        "interval": 21,
+        "probability": "medium",
+        "duration": 8,
+        "score_up": 55,
+        "condition": "happy_2",
+        "conditional_score_up": 115
+      },
+      "support_skill": {
+        "effect_type": "type_score_support",
+        "value": 11,
+        "condition": null,
+        "target": {
+          "type_match": "happy",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": null,
+        "effects": [
+          {
+            "target": "all",
+            "stat": "all",
+            "value": 45
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 10,
+        "score_support": 145,
+        "skill_rate_up": 50
+      }
+    },
+    {
+      "id": "laplus_darkness_5",
+      "character": "ラプラス・ダークネス",
+      "card_name": "作戦開始！見せろ総帥の手腕",
+      "rarity": 5,
+      "type": "happy",
+      "group": "holoX",
+      "stats": {
+        "performance": 7221,
+        "technique": 10909,
+        "sense": 7844
+      },
+      "total": 25974,
+      "center_skill": {
+        "interval": 18,
+        "probability": "medium",
+        "duration": 6,
+        "score_up": 125,
+        "condition": null,
+        "conditional_score_up": null
+      },
+      "support_skill": {
+        "effect_type": "self_all_param_conditional",
+        "value": 33,
+        "condition": {
+          "type": "group_count",
+          "group": "holoX",
+          "min_count": 2
+        },
+        "target": "self"
+      },
+      "costume_skill": {
+        "condition": {
+          "type": "group_count",
+          "group": "holoX",
+          "min_count": 2
+        },
+        "effects": [
+          {
+            "target": "all",
+            "stat": "all",
+            "value": 50
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 12,
+        "score_support": 135
+      }
+    },
+    {
+      "id": "takane_lui_5",
+      "character": "鷹嶺ルイ",
+      "card_name": "組織支える超敏腕幹部",
+      "rarity": 5,
+      "type": "cute",
+      "group": "holoX",
+      "stats": {
+        "performance": 7991,
+        "technique": 10672,
+        "sense": 7366
+      },
+      "total": 26029,
+      "center_skill": {
+        "interval": 21,
+        "probability": "medium",
+        "duration": 8,
+        "score_up": 55,
+        "condition": "cute_2",
+        "conditional_score_up": 115
+      },
+      "support_skill": {
+        "effect_type": "self_all_param_conditional",
+        "value": 32,
+        "condition": {
+          "type": "type_count",
+          "type_name": "cute",
+          "min_count": 2
+        },
+        "target": "self"
+      },
+      "costume_skill": {
+        "condition": null,
+        "effects": [
+          {
+            "target": "all",
+            "stat": "all",
+            "value": 45
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 14,
+        "score_support": 115
+      }
+    },
+    {
+      "id": "hakui_koyori_5",
+      "character": "博衣こより",
+      "card_name": "助手くんの心を鷲掴みライブ！",
+      "rarity": 5,
+      "type": "pure",
+      "group": "holoX",
+      "stats": {
+        "performance": 7991,
+        "technique": 7366,
+        "sense": 10672
+      },
+      "total": 26029,
+      "center_skill": {
+        "interval": 23,
+        "probability": "high",
+        "duration": 8,
+        "score_up": 115,
+        "condition": null,
+        "conditional_score_up": null
+      },
+      "support_skill": {
+        "effect_type": "type_stat_conditional",
+        "stat": "sense",
+        "value": 43,
+        "condition": {
+          "type": "type_count",
+          "type_name": "pure",
+          "min_count": 2
+        },
+        "target": {
+          "type_match": "pure",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": {
+          "type": "type_count",
+          "type_name": "pure",
+          "min_count": 2
+        },
+        "effects": [
+          {
+            "target": "all",
+            "stat": "all",
+            "value": 30
+          },
+          {
+            "target": "all",
+            "stat": "score_support",
+            "value": 25
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 10,
+        "score_support": 145,
+        "skill_rate_up": 55,
+        "skill_rate_condition": "life_1000"
+      }
+    },
+    {
+      "id": "kazama_iroha_5",
+      "character": "風真いろは",
+      "card_name": "ちくりんジャキン！と一刀両断",
+      "rarity": 5,
+      "type": "cute",
+      "group": "holoX",
+      "stats": {
+        "performance": 6947,
+        "technique": 11145,
+        "sense": 7828
+      },
+      "total": 25920,
+      "center_skill": {
+        "interval": 30,
+        "probability": "high",
+        "duration": 11,
+        "score_up": 110,
+        "condition": null,
+        "conditional_score_up": null
+      },
+      "support_skill": {
+        "effect_type": "type_score_support",
+        "value": 11,
+        "condition": null,
+        "target": {
+          "type_match": "cute",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": {
+          "type": "type_count",
+          "type_name": "cute",
+          "min_count": 2
+        },
+        "effects": [
+          {
+            "target": "all",
+            "stat": "technique",
+            "value": 130
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 10,
+        "score_support": 145,
+        "skill_rate_up": 55,
+        "skill_rate_condition": "life_1000"
+      }
+    },
+    {
+      "id": "ayunda_risu_5",
+      "character": "アユンダ・リス",
+      "card_name": "いたずらたくらむ木漏れ日の森",
+      "rarity": 5,
+      "type": "happy",
+      "group": "ID1期生",
+      "stats": {
+        "performance": 6947,
+        "technique": 11145,
+        "sense": 7828
+      },
+      "total": 25920,
+      "center_skill": {
+        "interval": 34,
+        "probability": "high",
+        "duration": 15,
+        "score_up": 90,
+        "condition": null,
+        "conditional_score_up": null
+      },
+      "support_skill": {
+        "effect_type": "type_score_support",
+        "value": 11,
+        "condition": null,
+        "target": {
+          "type_match": "happy",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": {
+          "type": "type_count",
+          "type_name": "happy",
+          "min_count": 2
+        },
+        "effects": [
+          {
+            "target": "all",
+            "stat": "technique",
+            "value": 130
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 12,
+        "score_support": 120,
+        "skill_rate_up": 45,
+        "skill_rate_condition": "life_1000"
+      }
+    },
+    {
+      "id": "moona_hoshinova_5",
+      "character": "ムーナ・ホシノヴァ",
+      "card_name": "Lunar Songstress",
+      "rarity": 5,
+      "type": "cute",
+      "group": "ID1期生",
+      "stats": {
+        "performance": 7221,
+        "technique": 7844,
+        "sense": 10909
+      },
+      "total": 25974,
+      "center_skill": {
+        "interval": 30,
+        "probability": "high",
+        "duration": 11,
+        "score_up": 110,
+        "condition": null,
+        "conditional_score_up": null
+      },
+      "support_skill": {
+        "effect_type": "group_stat_conditional",
+        "stat": "sense",
+        "value": 45,
+        "condition": {
+          "type": "group_count",
+          "group": "ID1期生",
+          "min_count": 2
+        },
+        "target": {
+          "group": "ID1期生",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": {
+          "type": "group_count",
+          "group": "ID1期生",
+          "min_count": 2
+        },
+        "effects": [
+          {
+            "target": "all",
+            "stat": "all",
+            "value": 50
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 12,
+        "score_support": 120,
+        "skill_rate_up": 40
+      }
+    },
+    {
+      "id": "airani_iofifteen_5",
+      "character": "アイラニ・イオフィフティーン",
+      "card_name": "陽光射すCosmos Palette",
+      "rarity": 5,
+      "type": "pure",
+      "group": "ID1期生",
+      "stats": {
+        "performance": 7828,
+        "technique": 11145,
+        "sense": 6947
+      },
+      "total": 25920,
+      "center_skill": {
+        "interval": 17,
+        "probability": "medium",
+        "duration": 6,
+        "score_up": 120,
+        "condition": null,
+        "conditional_score_up": null
+      },
+      "support_skill": {
+        "effect_type": "type_stat",
+        "stat": "technique",
+        "value": 41,
+        "condition": null,
+        "target": {
+          "type_match": "pure",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": {
+          "type": "type_count",
+          "type_name": "pure",
+          "min_count": 2
+        },
+        "effects": [
+          {
+            "target": "all",
+            "stat": "technique",
+            "value": 130
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 10,
+        "score_support": 145,
+        "skill_rate_up": 55,
+        "skill_rate_condition": "combo_100"
+      }
+    },
+    {
+      "id": "kureiji_ollie_5",
+      "character": "クレイジー・オリー",
+      "card_name": "Z nonstop talker",
+      "rarity": 5,
+      "type": "pure",
+      "group": "ID2期生",
+      "stats": {
+        "performance": 7991,
+        "technique": 10672,
+        "sense": 7366
+      },
+      "total": 26029,
+      "center_skill": {
+        "interval": 25,
+        "probability": "medium",
+        "duration": 10,
+        "score_up": 55,
+        "condition": "pure_2",
+        "conditional_score_up": 110
+      },
+      "support_skill": {
+        "effect_type": "type_score_support",
+        "value": 11,
+        "condition": null,
+        "target": {
+          "type_match": "pure",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": null,
+        "effects": [
+          {
+            "target": "all",
+            "stat": "all",
+            "value": 45
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 12,
+        "score_support": 135
+      }
+    },
+    {
+      "id": "anya_melfissa_5",
+      "character": "アーニャ・メルフィッサ",
+      "card_name": "ソファに沈んでまったりゲーム",
+      "rarity": 5,
+      "type": "cute",
+      "group": "ID2期生",
+      "stats": {
+        "performance": 7221,
+        "technique": 7844,
+        "sense": 10909
+      },
+      "total": 25974,
+      "center_skill": {
+        "interval": 24,
+        "probability": "medium",
+        "duration": 10,
+        "score_up": 100,
+        "condition": null,
+        "conditional_score_up": null
+      },
+      "support_skill": {
+        "effect_type": "self_all_param_conditional",
+        "value": 33,
+        "condition": {
+          "type": "group_count",
+          "group": "ID2期生",
+          "min_count": 2
+        },
+        "target": "self"
+      },
+      "costume_skill": {
+        "condition": {
+          "type": "group_count",
+          "group": "ID2期生",
+          "min_count": 2
+        },
+        "effects": [
+          {
+            "target": "all",
+            "stat": "all",
+            "value": 50
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 14,
+        "score_support": 115
+      }
+    },
+    {
+      "id": "pavolia_reine_5",
+      "character": "パヴォリア・レイネ",
+      "card_name": "おすまし孔雀と嗜む一杯",
+      "rarity": 5,
+      "type": "happy",
+      "group": "ID2期生",
+      "stats": {
+        "performance": 7668,
+        "technique": 10433,
+        "sense": 7981
+      },
+      "total": 26082,
+      "center_skill": {
+        "interval": 29,
+        "probability": "high",
+        "duration": 10,
+        "score_up": 60,
+        "condition": "happy_2",
+        "conditional_score_up": 120
+      },
+      "support_skill": {
+        "effect_type": "type_stat",
+        "stat": "technique",
+        "value": 41,
+        "condition": null,
+        "target": {
+          "type_match": "happy",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": null,
+        "effects": [
+          {
+            "target": "all",
+            "stat": "score_support",
+            "value": 60
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 10,
+        "score_support": 160
+      }
+    },
+    {
+      "id": "vestia_zeta_5",
+      "character": "ベスティア・ゼータ",
+      "card_name": "陽だまりとネコと構成員",
+      "rarity": 5,
+      "type": "happy",
+      "group": "ID3期生",
+      "stats": {
+        "performance": 10909,
+        "technique": 7844,
+        "sense": 7221
+      },
+      "total": 25974,
+      "center_skill": {
+        "interval": 25,
+        "probability": "high",
+        "duration": 11,
+        "score_up": 90,
+        "condition": null,
+        "conditional_score_up": null
+      },
+      "support_skill": {
+        "effect_type": "self_all_param_conditional",
+        "value": 33,
+        "condition": {
+          "type": "group_count",
+          "group": "ID3期生",
+          "min_count": 2
+        },
+        "target": "self"
+      },
+      "costume_skill": {
+        "condition": {
+          "type": "group_count",
+          "group": "ID3期生",
+          "min_count": 2
+        },
+        "effects": [
+          {
+            "target": "all",
+            "stat": "all",
+            "value": 50
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 14,
+        "score_support": 115
+      }
+    },
+    {
+      "id": "kaela_kovalskia_5",
+      "character": "カエラ・コヴァルスキア",
+      "card_name": "こころ強さは鍛冶場で研ぐ",
+      "rarity": 5,
+      "type": "cute",
+      "group": "ID3期生",
+      "stats": {
+        "performance": 7981,
+        "technique": 10433,
+        "sense": 7668
+      },
+      "total": 26082,
+      "center_skill": {
+        "interval": 19,
+        "probability": "medium",
+        "duration": 7,
+        "score_up": 60,
+        "condition": "cute_2",
+        "conditional_score_up": 120
+      },
+      "support_skill": {
+        "effect_type": "type_stat",
+        "stat": "technique",
+        "value": 41,
+        "condition": null,
+        "target": {
+          "type_match": "cute",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": null,
+        "effects": [
+          {
+            "target": "all",
+            "stat": "score_support",
+            "value": 60
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 12,
+        "score_support": 135
+      }
+    },
+    {
+      "id": "kobo_kanaeru_5",
+      "character": "こぼ・かなえる",
+      "card_name": "あめ上がりの雨喜雨喜シャーマン",
+      "rarity": 5,
+      "type": "pure",
+      "group": "ID3期生",
+      "stats": {
+        "performance": 10672,
+        "technique": 7366,
+        "sense": 7991
+      },
+      "total": 26029,
+      "center_skill": {
+        "interval": 15,
+        "probability": "medium",
+        "duration": 6,
+        "score_up": 55,
+        "condition": "pure_2",
+        "conditional_score_up": 110
+      },
+      "support_skill": {
+        "effect_type": "self_all_param_conditional",
+        "value": 32,
+        "condition": {
+          "type": "type_count",
+          "type_name": "pure",
+          "min_count": 2
+        },
+        "target": "self"
+      },
+      "costume_skill": {
+        "condition": null,
+        "effects": [
+          {
+            "target": "all",
+            "stat": "all",
+            "value": 45
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 12,
+        "score_support": 135
+      }
+    },
+    {
+      "id": "mori_calliope_5",
+      "character": "森カリオペ",
+      "card_name": "Reaper's death flow",
+      "rarity": 5,
+      "type": "pure",
+      "group": "Myth",
+      "stats": {
+        "performance": 10909,
+        "technique": 7221,
+        "sense": 7844
+      },
+      "total": 25974,
+      "center_skill": {
+        "interval": 33,
+        "probability": "high",
+        "duration": 11,
+        "score_up": 120,
+        "condition": null,
+        "conditional_score_up": null
+      },
+      "support_skill": {
+        "effect_type": "group_score_support_conditional",
+        "value": 12,
+        "condition": {
+          "type": "group_count",
+          "group": "Myth",
+          "min_count": 2
+        },
+        "target": {
+          "group": "Myth",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": {
+          "type": "group_count",
+          "group": "Myth",
+          "min_count": 2
+        },
+        "effects": [
+          {
+            "target": "all",
+            "stat": "all",
+            "value": 50
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 12,
+        "score_support": 120,
+        "skill_rate_up": 40
+      }
+    },
+    {
+      "id": "takanashi_kiara_5",
+      "character": "小鳥遊キアラ",
+      "card_name": "Lovely Phoenixダイナー",
+      "rarity": 5,
+      "type": "cute",
+      "group": "Myth",
+      "stats": {
+        "performance": 11145,
+        "technique": 6947,
+        "sense": 7828
+      },
+      "total": 25920,
+      "center_skill": {
+        "interval": 23,
+        "probability": "high",
+        "duration": 8,
+        "score_up": 115,
+        "condition": null,
+        "conditional_score_up": null
+      },
+      "support_skill": {
+        "effect_type": "type_score_support",
+        "value": 11,
+        "condition": null,
+        "target": {
+          "type_match": "cute",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": {
+          "type": "type_count",
+          "type_name": "cute",
+          "min_count": 2
+        },
+        "effects": [
+          {
+            "target": "all",
+            "stat": "performance",
+            "value": 130
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 10,
+        "score_support": 145,
+        "skill_rate_up": 55,
+        "skill_rate_condition": "combo_100"
+      }
+    },
+    {
+      "id": "ninomae_inanis_5",
+      "character": "一伊那尓栖",
+      "card_name": "ぽかぽかチャージなひととき",
+      "rarity": 5,
+      "type": "pure",
+      "group": "Myth",
+      "stats": {
+        "performance": 7668,
+        "technique": 10433,
+        "sense": 7981
+      },
+      "total": 26082,
+      "center_skill": {
+        "interval": 32,
+        "probability": "high",
+        "duration": 14,
+        "score_up": 45,
+        "condition": "pure_2",
+        "conditional_score_up": 95
+      },
+      "support_skill": {
+        "effect_type": "self_all_param_conditional",
+        "value": 32,
+        "condition": {
+          "type": "type_count",
+          "type_name": "pure",
+          "min_count": 2
+        },
+        "target": "self"
+      },
+      "costume_skill": {
+        "condition": null,
+        "effects": [
+          {
+            "target": "all",
+            "stat": "score_support",
+            "value": 60
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 14,
+        "score_support": 115
+      }
+    },
+    {
+      "id": "irys_5",
+      "character": "IRyS",
+      "card_name": "nephilim sonority",
+      "rarity": 5,
+      "type": "happy",
+      "group": "Promise",
+      "stats": {
+        "performance": 7221,
+        "technique": 10909,
+        "sense": 7844
+      },
+      "total": 25974,
+      "center_skill": {
+        "interval": 25,
+        "probability": "medium",
+        "duration": 11,
+        "score_up": 95,
+        "condition": null,
+        "conditional_score_up": null
+      },
+      "support_skill": {
+        "effect_type": "group_stat",
+        "stat": "technique",
+        "value": 43,
+        "condition": null,
+        "target": {
+          "group": "Promise",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": {
+          "type": "group_count",
+          "group": "Promise",
+          "min_count": 2
+        },
+        "effects": [
+          {
+            "target": "all",
+            "stat": "all",
+            "value": 50
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 10,
+        "score_support": 145,
+        "skill_rate_up": 55,
+        "skill_rate_condition": "life_1000"
+      }
+    },
+    {
+      "id": "ouro_kronii_5",
+      "character": "オーロ・クロニー",
+      "card_name": "典獄ささやくClock Tower",
+      "rarity": 5,
+      "type": "cute",
+      "group": "Promise",
+      "stats": {
+        "performance": 7668,
+        "technique": 7981,
+        "sense": 10433
+      },
+      "total": 26082,
+      "center_skill": {
+        "interval": 33,
+        "probability": "high",
+        "duration": 12,
+        "score_up": 55,
+        "condition": "cute_2",
+        "conditional_score_up": 115
+      },
+      "support_skill": {
+        "effect_type": "type_stat",
+        "stat": "sense",
+        "value": 41,
+        "condition": null,
+        "target": {
+          "type_match": "cute",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": null,
+        "effects": [
+          {
+            "target": "all",
+            "stat": "score_support",
+            "value": 60
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 14,
+        "score_support": 115
+      }
+    },
+    {
+      "id": "hakos_baelz_5",
+      "character": "ハコス・ベールズ",
+      "card_name": "Chaotic Powerful Rat",
+      "rarity": 5,
+      "type": "pure",
+      "group": "Promise",
+      "stats": {
+        "performance": 11145,
+        "technique": 7828,
+        "sense": 6947
+      },
+      "total": 25920,
+      "center_skill": {
+        "interval": 25,
+        "probability": "high",
+        "duration": 11,
+        "score_up": 90,
+        "condition": null,
+        "conditional_score_up": null
+      },
+      "support_skill": {
+        "effect_type": "type_score_support",
+        "value": 11,
+        "condition": null,
+        "target": {
+          "type_match": "pure",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": {
+          "type": "type_count",
+          "type_name": "pure",
+          "min_count": 2
+        },
+        "effects": [
+          {
+            "target": "all",
+            "stat": "performance",
+            "value": 130
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 12,
+        "score_support": 135
+      }
+    },
+    {
+      "id": "shiori_novella_5",
+      "character": "シオリ・ノヴェラ",
+      "card_name": "書庫ではぐくむ探究心",
+      "rarity": 5,
+      "type": "happy",
+      "group": "Advent",
+      "stats": {
+        "performance": 11380,
+        "technique": 6803,
+        "sense": 7682
+      },
+      "total": 25865,
+      "center_skill": {
+        "interval": 32,
+        "probability": "high",
+        "duration": 11,
+        "score_up": 60,
+        "condition": "combo_40",
+        "conditional_score_up": 120
+      },
+      "support_skill": {
+        "effect_type": "group_stat",
+        "stat": "performance",
+        "value": 43,
+        "condition": null,
+        "target": {
+          "group": "Advent",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": null,
+        "effects": [
+          {
+            "target": "all",
+            "stat": "performance",
+            "value": 120
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 10,
+        "score_support": 145,
+        "skill_rate_up": 50
+      }
+    },
+    {
+      "id": "koseki_bijou_5",
+      "character": "古石ビジュー",
+      "card_name": "キラッキラCrystal place",
+      "rarity": 5,
+      "type": "pure",
+      "group": "Advent",
+      "stats": {
+        "performance": 6803,
+        "technique": 7682,
+        "sense": 11380
+      },
+      "total": 25865,
+      "center_skill": {
+        "interval": 27,
+        "probability": "medium",
+        "duration": 9,
+        "score_up": 65,
+        "condition": "combo_40",
+        "conditional_score_up": 130
+      },
+      "support_skill": {
+        "effect_type": "type_score_support",
+        "value": 11,
+        "condition": null,
+        "target": {
+          "type_match": "pure",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": null,
+        "effects": [
+          {
+            "target": "all",
+            "stat": "sense",
+            "value": 120
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 10,
+        "score_support": 145,
+        "skill_rate_up": 50
+      }
+    },
+    {
+      "id": "nerissa_ravencroft_5",
+      "character": "ネリッサ・レイヴンクロフト",
+      "card_name": "歌に揺らめくノクターン",
+      "rarity": 5,
+      "type": "pure",
+      "group": "Advent",
+      "stats": {
+        "performance": 7844,
+        "technique": 10909,
+        "sense": 7221
+      },
+      "total": 25974,
+      "center_skill": {
+        "interval": 15,
+        "probability": "medium",
+        "duration": 7,
+        "score_up": 90,
+        "condition": null,
+        "conditional_score_up": null
+      },
+      "support_skill": {
+        "effect_type": "self_all_param_conditional",
+        "value": 33,
+        "condition": {
+          "type": "group_count",
+          "group": "Advent",
+          "min_count": 2
+        },
+        "target": "self"
+      },
+      "costume_skill": {
+        "condition": {
+          "type": "group_count",
+          "group": "Advent",
+          "min_count": 2
+        },
+        "effects": [
+          {
+            "target": "all",
+            "stat": "all",
+            "value": 50
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 12,
+        "score_support": 135
+      }
+    },
+    {
+      "id": "fuwawa_abyssgard_5",
+      "character": "フワワ・アビスガード",
+      "card_name": "ぽわぽわドーナツパーティー♪",
+      "rarity": 5,
+      "type": "cute",
+      "group": "Advent",
+      "stats": {
+        "performance": 7682,
+        "technique": 11380,
+        "sense": 6803
+      },
+      "total": 25865,
+      "center_skill": {
+        "interval": 20,
+        "probability": "medium",
+        "duration": 8,
+        "score_up": 55,
+        "condition": null,
+        "conditional_score_up": null
+      },
+      "support_skill": {
+        "effect_type": "type_stat",
+        "stat": "technique",
+        "value": 41,
+        "condition": null,
+        "target": {
+          "type_match": "cute",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": null,
+        "effects": [
+          {
+            "target": "all",
+            "stat": "technique",
+            "value": 120
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 10,
+        "score_support": 145,
+        "skill_rate_up": 50
+      }
+    },
+    {
+      "id": "mococo_abyssgard_5",
+      "character": "モココ・アビスガード",
+      "card_name": "のほほんドーナツパーティー♪",
+      "rarity": 5,
+      "type": "cute",
+      "group": "Advent",
+      "stats": {
+        "performance": 7828,
+        "technique": 6947,
+        "sense": 11145
+      },
+      "total": 25920,
+      "center_skill": {
+        "interval": 25,
+        "probability": "high",
+        "duration": 8,
+        "score_up": 125,
+        "condition": null,
+        "conditional_score_up": null
+      },
+      "support_skill": {
+        "effect_type": "type_score_support",
+        "value": 11,
+        "condition": null,
+        "target": {
+          "type_match": "cute",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": {
+          "type": "type_count",
+          "type_name": "cute",
+          "min_count": 2
+        },
+        "effects": [
+          {
+            "target": "all",
+            "stat": "sense",
+            "value": 130
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 11,
+        "score_support": 130,
+        "skill_rate_up": 50,
+        "skill_rate_condition": "combo_100"
+      }
+    },
+    {
+      "id": "otonose_kanade_5",
+      "character": "音乃瀬奏",
+      "card_name": "パレードで笑顔をお届け",
+      "rarity": 5,
+      "type": "pure",
+      "group": "ReGLOSS",
+      "stats": {
+        "performance": 7828,
+        "technique": 6947,
+        "sense": 11145
+      },
+      "total": 25920,
+      "center_skill": {
+        "interval": 27,
+        "probability": "high",
+        "duration": 12,
+        "score_up": 90,
+        "condition": null,
+        "conditional_score_up": null
+      },
+      "support_skill": {
+        "effect_type": "group_stat",
+        "stat": "sense",
+        "value": 43,
+        "condition": null,
+        "target": {
+          "group": "ReGLOSS",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": {
+          "type": "type_count",
+          "type_name": "pure",
+          "min_count": 2
+        },
+        "effects": [
+          {
+            "target": "all",
+            "stat": "sense",
+            "value": 130
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 10,
+        "score_support": 145,
+        "skill_rate_up": 55,
+        "skill_rate_condition": "combo_100"
+      }
+    },
+    {
+      "id": "ichijou_ririka_5",
+      "character": "一条莉々華",
+      "card_name": "深夜にひと息、CEOの限界飯",
+      "rarity": 5,
+      "type": "happy",
+      "group": "ReGLOSS",
+      "stats": {
+        "performance": 10909,
+        "technique": 7844,
+        "sense": 7221
+      },
+      "total": 25974,
+      "center_skill": {
+        "interval": 30,
+        "probability": "high",
+        "duration": 11,
+        "score_up": 110,
+        "condition": null,
+        "conditional_score_up": null
+      },
+      "support_skill": {
+        "effect_type": "group_stat_conditional",
+        "stat": "performance",
+        "value": 45,
+        "condition": {
+          "type": "group_count",
+          "group": "ReGLOSS",
+          "min_count": 2
+        },
+        "target": {
+          "group": "ReGLOSS",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": {
+          "type": "group_count",
+          "group": "ReGLOSS",
+          "min_count": 2
+        },
+        "effects": [
+          {
+            "target": "all",
+            "stat": "all",
+            "value": 50
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 12,
+        "score_support": 135
+      }
+    },
+    {
+      "id": "juufuutei_raden_5",
+      "character": "儒烏風亭らでん",
+      "card_name": "叡智を灯し、アートに導く",
+      "rarity": 5,
+      "type": "happy",
+      "group": "ReGLOSS",
+      "stats": {
+        "performance": 7682,
+        "technique": 6803,
+        "sense": 11380
+      },
+      "total": 25865,
+      "center_skill": {
+        "interval": 22,
+        "probability": "high",
+        "duration": 8,
+        "score_up": 55,
+        "condition": "life_600",
+        "conditional_score_up": 115
+      },
+      "support_skill": {
+        "effect_type": "group_stat",
+        "stat": "sense",
+        "value": 43,
+        "condition": null,
+        "target": {
+          "group": "ReGLOSS",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": null,
+        "effects": [
+          {
+            "target": "all",
+            "stat": "sense",
+            "value": 120
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 10,
+        "score_support": 145,
+        "skill_rate_up": 50
+      }
+    },
+    {
+      "id": "todoroki_hajime_5",
+      "character": "轟はじめ",
+      "card_name": "ガーリー番長のお裾分け",
+      "rarity": 5,
+      "type": "cute",
+      "group": "ReGLOSS",
+      "stats": {
+        "performance": 11380,
+        "technique": 6803,
+        "sense": 7682
+      },
+      "total": 25865,
+      "center_skill": {
+        "interval": 26,
+        "probability": "high",
+        "duration": 9,
+        "score_up": 60,
+        "condition": "combo_40",
+        "conditional_score_up": 120
+      },
+      "support_skill": {
+        "effect_type": "type_stat",
+        "stat": "performance",
+        "value": 41,
+        "condition": null,
+        "target": {
+          "type_match": "cute",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": null,
+        "effects": [
+          {
+            "target": "all",
+            "stat": "performance",
+            "value": 120
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 10,
+        "score_support": 145,
+        "skill_rate_up": 50
+      }
+    },
+    {
+      "id": "oozora_subaru_swim_5",
+      "character": "大空スバル",
+      "card_name": "Energeticスプラッシュ！",
+      "rarity": 5,
+      "type": "pure",
+      "group": "2期生",
+      "variant": "水着",
+      "stats": {
+        "performance": 7981,
+        "technique": 7668,
+        "sense": 10433
+      },
+      "total": 26082,
+      "center_skill": {
+        "interval": 17,
+        "probability": "medium",
+        "duration": 7,
+        "score_up": 55,
+        "condition": "combo_40",
+        "conditional_score_up": 105
+      },
+      "support_skill": {
+        "effect_type": "type_all_param",
+        "value": 15,
+        "condition": null,
+        "target": {
+          "type_match": "pure",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": null,
+        "effects": [
+          {
+            "target": "all",
+            "stat": "score_support",
+            "value": 60
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 10,
+        "score_support": 160
+      }
+    },
+    {
+      "id": "shiranui_flare_swim_5",
+      "character": "不知火フレア",
+      "card_name": "sparks sunset",
+      "rarity": 5,
+      "type": "happy",
+      "group": "3期生",
+      "variant": "水着",
+      "stats": {
+        "performance": 7828,
+        "technique": 11145,
+        "sense": 6947
+      },
+      "total": 25920,
+      "center_skill": {
+        "interval": 33,
+        "probability": "high",
+        "duration": 11,
+        "score_up": 60,
+        "condition": "happy_2",
+        "conditional_score_up": 125
+      },
+      "support_skill": {
+        "effect_type": "type_score_support",
+        "value": 11,
+        "condition": null,
+        "target": {
+          "type_match": "happy",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": {
+          "type": "type_count",
+          "type_name": "happy",
+          "min_count": 2
+        },
+        "effects": [
+          {
+            "target": "all",
+            "stat": "technique",
+            "value": 80
+          },
+          {
+            "target": "all",
+            "stat": "score_support",
+            "value": 25
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 12,
+        "score_support": 120,
+        "skill_rate_up": 40
+      }
+    },
+    {
+      "id": "shirogane_noel_swim_5",
+      "character": "白銀ノエル",
+      "card_name": "波まとうゆるふわKnight",
+      "rarity": 5,
+      "type": "cute",
+      "group": "3期生",
+      "variant": "水着",
+      "stats": {
+        "performance": 11145,
+        "technique": 6947,
+        "sense": 7828
+      },
+      "total": 25920,
+      "center_skill": {
+        "interval": 21,
+        "probability": "high",
+        "duration": 7,
+        "score_up": 120,
+        "condition": null,
+        "conditional_score_up": null
+      },
+      "support_skill": {
+        "effect_type": "group_score_support_conditional",
+        "value": 12,
+        "condition": {
+          "type": "group_count",
+          "group": "3期生",
+          "min_count": 2
+        },
+        "target": {
+          "group": "3期生",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": {
+          "type": "group_count",
+          "group": "3期生",
+          "min_count": 2
+        },
+        "effects": [
+          {
+            "target": "all",
+            "stat": "performance",
+            "value": 135
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 12,
+        "score_support": 120,
+        "skill_rate_up": 45,
+        "skill_rate_condition": "group_3期生_2"
+      }
+    },
+    {
+      "id": "tsunomaki_watame_swim_5",
+      "character": "角巻わため",
+      "card_name": "真夏のもふもふフロートタイム",
+      "rarity": 5,
+      "type": "happy",
+      "group": "4期生",
+      "variant": "水着",
+      "stats": {
+        "performance": 6947,
+        "technique": 7828,
+        "sense": 11145
+      },
+      "total": 25920,
+      "center_skill": {
+        "interval": 35,
+        "probability": "high",
+        "duration": 12,
+        "score_up": 60,
+        "condition": "happy_2",
+        "conditional_score_up": 120
+      },
+      "support_skill": {
+        "effect_type": "type_score_support",
+        "value": 11,
+        "condition": null,
+        "target": {
+          "type_match": "happy",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": {
+          "type": "type_count",
+          "type_name": "happy",
+          "min_count": 2
+        },
+        "effects": [
+          {
+            "target": "all",
+            "stat": "sense",
+            "value": 80
+          },
+          {
+            "target": "all",
+            "stat": "score_support",
+            "value": 25
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 11,
+        "score_support": 130,
+        "skill_rate_up": 45
+      }
+    },
+    {
+      "id": "otonose_kanade_swim_5",
+      "character": "音乃瀬奏",
+      "card_name": "潮風にのせる、笑顔のハーモニー",
+      "rarity": 5,
+      "type": "happy",
+      "group": "ReGLOSS",
+      "variant": "水着",
+      "stats": {
+        "performance": 11380,
+        "technique": 7682,
+        "sense": 6803
+      },
+      "total": 25865,
+      "center_skill": {
+        "interval": 23,
+        "probability": "medium",
+        "duration": 8,
+        "score_up": 120,
+        "condition": null,
+        "conditional_score_up": null
+      },
+      "support_skill": {
+        "effect_type": "type_stat_conditional",
+        "stat": "performance",
+        "value": 43,
+        "condition": {
+          "type": "type_count",
+          "type_name": "happy",
+          "min_count": 2
+        },
+        "target": {
+          "type_match": "happy",
+          "count": 2
+        }
+      },
+      "costume_skill": {
+        "condition": {
+          "type": "type_count",
+          "type_name": "happy",
+          "min_count": 2
+        },
+        "effects": [
+          {
+            "target": "all",
+            "stat": "performance",
+            "value": 130
+          }
+        ]
+      },
+      "special_skill": {
+        "duration": 14,
+        "score_support": 115
+      }
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+[project]
+name = "holosolve"
+version = "0.1.0"
+description = "ホロライブドリームス編成オプティマイザ"
+authors = [
+    { name = "konono", email = "kono@ms1.kononet.jp" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.141.1",
+    "uvicorn>=0.52.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+only-include = ["solver.py", "app.py", "data"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]

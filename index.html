@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HoloSolve</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  background: #0f1923;
+  color: #e0e6ed;
+  min-height: 100vh;
+}
+
+.container { max-width: 1200px; margin: 0 auto; padding: 16px; }
+
+header {
+  text-align: center;
+  padding: 24px 0 16px;
+  border-bottom: 1px solid #2a3a4a;
+  margin-bottom: 20px;
+}
+header h1 { font-size: 1.6rem; letter-spacing: 0.05em; }
+header p { color: #8899aa; font-size: 0.85rem; margin-top: 4px; }
+
+.controls {
+  display: flex; gap: 10px; align-items: center;
+  flex-wrap: wrap; margin-bottom: 16px;
+}
+.controls button {
+  padding: 8px 18px; border: none; border-radius: 6px;
+  font-size: 0.85rem; cursor: pointer; font-weight: 600;
+  transition: transform 0.1s, opacity 0.15s;
+}
+.controls button:active { transform: scale(0.97); }
+
+.btn-solve {
+  background: linear-gradient(135deg, #4f8cff, #3b6fd9);
+  color: #fff; font-size: 1rem; padding: 10px 28px;
+}
+.btn-solve:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-select-all { background: #2a3a4a; color: #c0cad4; }
+.btn-clear { background: #2a3a4a; color: #c0cad4; }
+.btn-filter { background: #1e2d3d; color: #8899aa; border: 1px solid #2a3a4a !important; font-size: 0.8rem; padding: 6px 12px; }
+.btn-filter.active { border-color: #4f8cff !important; color: #4f8cff; }
+
+.counter {
+  margin-left: auto; font-size: 0.9rem; color: #8899aa;
+}
+.counter strong { color: #4f8cff; font-size: 1.1rem; }
+
+.group-section { margin-bottom: 20px; }
+.group-title {
+  font-size: 0.85rem; color: #6b7f92; margin-bottom: 8px;
+  padding-left: 4px; border-left: 3px solid #3a4f66; padding: 2px 0 2px 8px;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 8px;
+}
+
+.card {
+  background: #1a2735;
+  border: 2px solid #2a3a4a;
+  border-radius: 8px;
+  padding: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+  user-select: none;
+  position: relative;
+}
+.card:hover { background: #1e2f40; transform: translateY(-1px); }
+.card.selected { border-color: #4f8cff; background: #1a2d45; }
+.card.selected::after {
+  content: "\2713"; position: absolute; top: 6px; right: 8px;
+  color: #4f8cff; font-size: 1rem; font-weight: bold;
+}
+
+.card .char-name { font-weight: 700; font-size: 0.9rem; margin-bottom: 2px; }
+.card .card-name { font-size: 0.72rem; color: #7a8c9e; line-height: 1.3; margin-bottom: 6px; }
+.card .type-badge {
+  display: inline-block; font-size: 0.65rem; padding: 1px 6px;
+  border-radius: 3px; font-weight: 600;
+}
+.type-happy  { background: #3d2a0f; color: #f0a040; }
+.type-pure   { background: #0f2a3d; color: #40a0f0; }
+.type-cute   { background: #3d0f2a; color: #f040a0; }
+
+.card .stats {
+  display: flex; gap: 4px; margin-top: 6px; font-size: 0.65rem; color: #5a6e80;
+}
+.card .stats span { flex: 1; text-align: center; }
+
+.loading-area {
+  text-align: center; color: #6b7f92; padding: 20px; display: none;
+}
+.loading-area.visible { display: block; }
+.spinner {
+  display: inline-block; width: 24px; height: 24px;
+  border: 3px solid #2a3a4a; border-top-color: #4f8cff;
+  border-radius: 50%; animation: spin 0.8s linear infinite;
+  vertical-align: middle; margin-right: 8px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.results-area { margin-top: 24px; }
+.results-title {
+  font-size: 1.1rem; font-weight: 700; margin-bottom: 16px;
+  padding-bottom: 8px; border-bottom: 1px solid #2a3a4a;
+}
+
+.result-card {
+  background: #1a2735;
+  border: 1px solid #2a3a4a;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.result-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 12px; flex-wrap: wrap; gap: 8px;
+}
+.result-rank { font-size: 1.3rem; font-weight: 800; color: #4f8cff; }
+.result-scores {
+  display: flex; gap: 16px; font-size: 0.8rem; color: #8899aa; flex-wrap: wrap;
+}
+.result-scores .main-score {
+  font-size: 1.1rem; font-weight: 700; color: #e0e6ed;
+}
+
+.result-members {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+}
+.member-card {
+  background: #0f1923;
+  border: 1px solid #2a3a4a;
+  border-radius: 6px;
+  padding: 8px 10px;
+  position: relative;
+}
+.member-card.is-leader {
+  border-color: #ffd700;
+  background: #1a1f0f;
+}
+.member-card.is-leader::before {
+  content: "\2605 \30EA\30FC\30C0\30FC";
+  position: absolute; top: -9px; left: 8px;
+  font-size: 0.6rem; background: #ffd700; color: #0f1923;
+  padding: 0 6px; border-radius: 3px; font-weight: 700;
+}
+.member-card .m-name { font-weight: 700; font-size: 0.85rem; }
+.member-card .m-card-name { font-size: 0.7rem; color: #6b7f92; }
+.member-card .m-stats {
+  display: flex; gap: 4px; margin-top: 4px; font-size: 0.65rem; color: #5a6e80;
+}
+.member-card .m-stats span { flex: 1; }
+
+.empty-msg {
+  text-align: center; color: #5a6e80; padding: 40px;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 600px) {
+  .card-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+  .result-members { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>HoloSolve</h1>
+    <p>手持ちの星5カードを選択して最強の5人編成を探索</p>
+  </header>
+
+  <div class="controls">
+    <button class="btn-solve" id="btnSolve" disabled>最強編成を探す</button>
+    <select id="fixedLeader" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:6px 8px;border-radius:4px;font-size:0.8rem">
+      <option value="">リーダー自動選択</option>
+    </select>
+    <button class="btn-select-all" id="btnSelectAll">全選択</button>
+    <button class="btn-clear" id="btnClear">全解除</button>
+    <button class="btn-clear" id="btnCopyIds" style="font-size:0.75rem">IDコピー</button>
+    <button class="btn-clear" id="btnPasteIds" style="font-size:0.75rem">ID貼付</button>
+    <span style="color:#3a4f66">|</span>
+    <button class="btn-filter active" data-filter="all">全タイプ</button>
+    <button class="btn-filter" data-filter="happy">Happy</button>
+    <button class="btn-filter" data-filter="pure">Pure</button>
+    <button class="btn-filter" data-filter="cute">Cute</button>
+    <span class="counter">選択: <strong id="selectedCount">0</strong> / <span id="totalCount">-</span> <span id="limitWarn" style="color:#f06060;font-size:0.75rem"></span></span>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:0.85rem;color:#8899aa;flex-wrap:wrap">
+    <label>補正:</label>
+    <span id="baselineDisplay" style="color:#4f8cff;font-weight:600;font-size:0.8rem">未補正</span>
+    <button class="btn-clear" id="btnOpenCalib" style="font-size:0.7rem;padding:3px 8px">キャリブレーション</button>
+    <button class="btn-clear" id="btnResetBaseline" style="font-size:0.7rem;padding:3px 8px">リセット</button>
+  </div>
+
+  <div id="calibrationArea" style="background:#1a2735;border:1px solid #2a3a4a;border-radius:8px;padding:12px;margin-bottom:12px;display:none">
+    <div style="font-size:0.85rem;color:#e0e6ed;margin-bottom:8px;font-weight:600">
+      2点キャリブレーション
+    </div>
+    <div style="font-size:0.78rem;color:#6b7f92;margin-bottom:10px">
+      同じ5人でリーダーを変えて2回ユニットスコアを測定し、入力してください。<br>
+      まず5人を選び、それぞれのリーダー時のスコアを入力。
+    </div>
+    <div style="margin-bottom:8px">
+      <label style="font-size:0.78rem;color:#6b7f92">チームの5人:</label>
+      <div id="calibMemberSelects" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">
+        <select class="calib-member" style="background:#0f1923;border:1px solid #3a4f66;color:#e0e6ed;padding:4px;border-radius:4px;font-size:0.8rem"></select>
+        <select class="calib-member" style="background:#0f1923;border:1px solid #3a4f66;color:#e0e6ed;padding:4px;border-radius:4px;font-size:0.8rem"></select>
+        <select class="calib-member" style="background:#0f1923;border:1px solid #3a4f66;color:#e0e6ed;padding:4px;border-radius:4px;font-size:0.8rem"></select>
+        <select class="calib-member" style="background:#0f1923;border:1px solid #3a4f66;color:#e0e6ed;padding:4px;border-radius:4px;font-size:0.8rem"></select>
+        <select class="calib-member" style="background:#0f1923;border:1px solid #3a4f66;color:#e0e6ed;padding:4px;border-radius:4px;font-size:0.8rem"></select>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+      <select id="calibLeader1" style="background:#0f1923;border:1px solid #3a4f66;color:#e0e6ed;padding:5px;border-radius:4px;font-size:0.85rem"></select>
+      <input type="number" id="calibScore1" placeholder="ユニットスコア1" style="background:#0f1923;border:1px solid #3a4f66;color:#e0e6ed;padding:6px 10px;border-radius:4px;width:160px;font-size:0.85rem">
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+      <select id="calibLeader2" style="background:#0f1923;border:1px solid #3a4f66;color:#e0e6ed;padding:5px;border-radius:4px;font-size:0.85rem"></select>
+      <input type="number" id="calibScore2" placeholder="ユニットスコア2" style="background:#0f1923;border:1px solid #3a4f66;color:#e0e6ed;padding:6px 10px;border-radius:4px;width:160px;font-size:0.85rem">
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn-solve" id="btnCalibrate" style="font-size:0.85rem;padding:6px 16px">補正実行</button>
+      <button class="btn-clear" id="btnCalibCancel" style="font-size:0.75rem">閉じる</button>
+    </div>
+    <div id="calibResult" style="font-size:0.85rem;margin-top:8px"></div>
+  </div>
+
+  <div id="cardArea"><div class="empty-msg">カードデータを読み込み中...</div></div>
+
+  <div class="loading-area" id="loadingArea">
+    <span class="spinner"></span>最強編成を探索中...
+  </div>
+
+  <div class="results-area" id="resultsArea"></div>
+</div>
+
+<script>
+const GROUP_ORDER = [
+  "0期生","1期生","2期生","ゲーマーズ","3期生","4期生","5期生","holoX",
+  "ID1期生","ID2期生","ID3期生","Myth","Promise","Advent","ReGLOSS","水着"
+];
+const TYPE_LABELS = { happy: "Happy", pure: "Pure", cute: "Cute" };
+
+let CARDS = [];
+let cardMap = {};
+const selected = new Set();
+let activeFilter = "all";
+let maxCards = 40;
+
+async function init() {
+  let res;
+  try { res = await fetch("/api/cards"); } catch {
+    document.getElementById("cardArea").innerHTML = '<div class="empty-msg">サーバーに接続できません。uv run python app.py で起動してください。</div>';
+    return;
+  }
+  if (!res.ok) {
+    document.getElementById("cardArea").innerHTML = '<div class="empty-msg">カードデータの取得に失敗しました。</div>';
+    return;
+  }
+  const data = await res.json();
+  CARDS = data.cards;
+  if (data.max_cards) maxCards = data.max_cards;
+  cardMap = {};
+  for (const c of CARDS) cardMap[c.id] = c;
+  document.getElementById("totalCount").textContent = CARDS.length;
+  renderCards();
+}
+
+function groupCards() {
+  const groups = {};
+  for (const c of CARDS) {
+    const g = c.variant === "水着" ? "水着" : c.group;
+    (groups[g] = groups[g] || []).push(c);
+  }
+  return groups;
+}
+
+function renderCards() {
+  const area = document.getElementById("cardArea");
+  area.innerHTML = "";
+  const groups = groupCards();
+  for (const gName of GROUP_ORDER) {
+    const cards = groups[gName];
+    if (!cards) continue;
+    const filtered = activeFilter === "all" ? cards : cards.filter(c => c.type === activeFilter);
+    if (filtered.length === 0) continue;
+
+    const section = document.createElement("div");
+    section.className = "group-section";
+    section.innerHTML = `<div class="group-title">${gName}</div>`;
+    const grid = document.createElement("div");
+    grid.className = "card-grid";
+
+    for (const card of filtered) {
+      const el = document.createElement("div");
+      el.className = "card" + (selected.has(card.id) ? " selected" : "");
+      el.dataset.id = card.id;
+      const s = card.stats;
+      el.innerHTML = `
+        <div class="char-name">${card.character}</div>
+        <div class="card-name">${card.card_name}</div>
+        <span class="type-badge type-${card.type}">${TYPE_LABELS[card.type]}</span>
+        <div class="stats">
+          <span>P:${s.performance.toLocaleString()}</span>
+          <span>T:${s.technique.toLocaleString()}</span>
+          <span>S:${s.sense.toLocaleString()}</span>
+        </div>`;
+      el.addEventListener("click", () => toggleCard(card.id, el));
+      grid.appendChild(el);
+    }
+    section.appendChild(grid);
+    area.appendChild(section);
+  }
+}
+
+function toggleCard(id, el) {
+  if (selected.has(id)) { selected.delete(id); el.classList.remove("selected"); }
+  else { selected.add(id); el.classList.add("selected"); }
+  updateCounter();
+}
+
+function updateCounter() {
+  document.getElementById("selectedCount").textContent = selected.size;
+  document.getElementById("btnSolve").disabled = selected.size < 5;
+  document.getElementById("limitWarn").textContent = selected.size > maxCards ? `(${maxCards}枚超: 静的版推奨)` : "";
+  updateLeaderDropdown();
+}
+
+function updateLeaderDropdown() {
+  const sel = document.getElementById("fixedLeader");
+  const current = sel.value;
+  const ids = [...selected];
+  sel.innerHTML = '<option value="">リーダー自動選択</option>';
+  for (const id of ids) {
+    const c = cardMap[id];
+    if (!c) continue;
+    const opt = document.createElement("option");
+    opt.value = id;
+    opt.textContent = c.character + (c.variant ? `[${c.variant}]` : "");
+    sel.appendChild(opt);
+  }
+  if (ids.includes(current)) sel.value = current;
+}
+
+document.getElementById("btnSelectAll").addEventListener("click", () => {
+  const visible = activeFilter === "all" ? CARDS : CARDS.filter(c => c.type === activeFilter);
+  for (const c of visible) selected.add(c.id);
+  renderCards();
+  updateCounter();
+});
+
+document.getElementById("btnClear").addEventListener("click", () => {
+  selected.clear();
+  renderCards();
+  updateCounter();
+});
+
+document.getElementById("btnCopyIds").addEventListener("click", () => {
+  const ids = [...selected];
+  navigator.clipboard.writeText(JSON.stringify(ids)).then(() => {
+    const btn = document.getElementById("btnCopyIds");
+    btn.textContent = "コピー済!";
+    setTimeout(() => btn.textContent = "IDコピー", 1500);
+  });
+});
+
+document.getElementById("btnPasteIds").addEventListener("click", async () => {
+  const btn = document.getElementById("btnPasteIds");
+  let text;
+  try {
+    text = await navigator.clipboard.readText();
+  } catch {
+    text = prompt("カードIDのJSON配列を貼り付けてください:");
+  }
+  if (!text) return;
+  try {
+    const ids = JSON.parse(text);
+    if (!Array.isArray(ids)) throw new Error("配列ではありません");
+    const validIds = new Set(CARDS.map(c => c.id));
+    selected.clear();
+    let loaded = 0;
+    for (const id of ids) {
+      if (validIds.has(id)) { selected.add(id); loaded++; }
+    }
+    renderCards();
+    updateCounter();
+    btn.textContent = loaded + "枚読込!";
+    setTimeout(() => btn.textContent = "ID貼付", 1500);
+  } catch {
+    btn.textContent = "形式エラー";
+    setTimeout(() => btn.textContent = "ID貼付", 1500);
+  }
+});
+
+for (const btn of document.querySelectorAll(".btn-filter")) {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".btn-filter").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    activeFilter = btn.dataset.filter;
+    renderCards();
+  });
+}
+
+
+let statScale = parseFloat(localStorage.getItem("holodri_stat_scale") || "1");
+let baseline = parseFloat(localStorage.getItem("holodri_baseline") || "0");
+updateBaselineDisplay();
+
+function updateBaselineDisplay() {
+  const el = document.getElementById("baselineDisplay");
+  if (statScale !== 1 || baseline !== 0) {
+    el.textContent = `scale=${statScale.toFixed(3)} / H=${Math.round(baseline).toLocaleString()}`;
+  } else {
+    el.textContent = "未補正";
+  }
+}
+
+document.getElementById("btnResetBaseline").addEventListener("click", () => {
+  statScale = 1; baseline = 0;
+  localStorage.removeItem("holodri_stat_scale");
+  localStorage.removeItem("holodri_baseline");
+  updateBaselineDisplay();
+});
+
+document.getElementById("btnOpenCalib").addEventListener("click", () => {
+  const area = document.getElementById("calibrationArea");
+  area.style.display = area.style.display === "none" ? "block" : "none";
+  populateCalibDropdowns();
+});
+
+document.getElementById("btnCalibCancel").addEventListener("click", () => {
+  document.getElementById("calibrationArea").style.display = "none";
+});
+
+let _calibListenersAttached = false;
+function populateCalibDropdowns() {
+  const ids = [...selected];
+  const options = ids.map(id => {
+    const c = cardMap[id];
+    return c ? `<option value="${id}">${c.character}${c.variant ? `[${c.variant}]` : ""}</option>` : "";
+  }).join("");
+  const memberSelects = document.querySelectorAll(".calib-member");
+  memberSelects.forEach((sel, i) => {
+    sel.innerHTML = options;
+    if (i < ids.length) sel.selectedIndex = i;
+  });
+  function updateLeaderOptions() {
+    const memberIds = [...memberSelects].map(s => s.value);
+    const leaderOpts = memberIds.map(id => {
+      const c = cardMap[id];
+      return c ? `<option value="${id}">${c.character}${c.variant ? `[${c.variant}]` : ""}</option>` : "";
+    }).join("");
+    document.getElementById("calibLeader1").innerHTML = leaderOpts;
+    document.getElementById("calibLeader2").innerHTML = leaderOpts;
+    if (memberIds.length > 1) document.getElementById("calibLeader2").selectedIndex = 1;
+  }
+  if (!_calibListenersAttached) {
+    memberSelects.forEach(sel => sel.addEventListener("change", updateLeaderOptions));
+    _calibListenersAttached = true;
+  }
+  updateLeaderOptions();
+}
+
+document.getElementById("btnCalibrate").addEventListener("click", async () => {
+  const ids = [...selected];
+  const l1 = document.getElementById("calibLeader1").value;
+  const l2 = document.getElementById("calibLeader2").value;
+  const s1 = parseInt(document.getElementById("calibScore1").value);
+  const s2 = parseInt(document.getElementById("calibScore2").value);
+
+  if (!l1 || !l2 || isNaN(s1) || isNaN(s2) || s1 <= 0 || s2 <= 0) {
+    document.getElementById("calibResult").innerHTML = '<span style="color:#f06060">リーダーとスコア（正の整数）を両方入力してください</span>';
+    return;
+  }
+  if (l1 === l2) {
+    document.getElementById("calibResult").innerHTML = '<span style="color:#f06060">異なるリーダーを選んでください</span>';
+    return;
+  }
+  const teamIds = [...document.querySelectorAll(".calib-member")].map(s => s.value);
+  if (new Set(teamIds).size < 5) {
+    document.getElementById("calibResult").innerHTML = '<span style="color:#f06060">5人のメンバーを重複なく選択してください</span>';
+    return;
+  }
+  const teamChars = teamIds.map(id => cardMap[id]?.character);
+  if (new Set(teamChars).size < 5) {
+    document.getElementById("calibResult").innerHTML = '<span style="color:#f06060">同キャラの別カードは同時編成できません</span>';
+    return;
+  }
+  if (!teamIds.includes(l1) || !teamIds.includes(l2)) {
+    document.getElementById("calibResult").innerHTML = '<span style="color:#f06060">リーダーはチームメンバーから選んでください</span>';
+    return;
+  }
+
+  try {
+    const res = await fetch("/api/calibrate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ member_ids: teamIds, leader_id_1: l1, game_score_1: s1, leader_id_2: l2, game_score_2: s2 }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `サーバーエラー (${res.status})`);
+    }
+    const data = await res.json();
+    if (typeof data.stat_scale !== "number" || isNaN(data.stat_scale)) {
+      throw new Error("不正な補正値が返されました");
+    }
+    statScale = data.stat_scale;
+    baseline = data.baseline;
+    localStorage.setItem("holodri_stat_scale", statScale.toString());
+    localStorage.setItem("holodri_baseline", baseline.toString());
+    updateBaselineDisplay();
+    let calibMsg = `<span style="color:#40d080">補正完了: scale=${statScale.toFixed(4)} / H=${Math.round(baseline).toLocaleString()}<br>再計算してください。</span>`;
+    if (data.warnings && data.warnings.length) {
+      calibMsg += `<br><span style="color:#f0a040">${data.warnings.join("<br>")}</span>`;
+    }
+    document.getElementById("calibResult").innerHTML = calibMsg;
+  } catch (e) {
+    document.getElementById("calibResult").innerHTML = `<span style="color:#f06060">エラー: ${e.message}</span>`;
+  }
+});
+
+document.getElementById("btnSolve").addEventListener("click", async () => {
+  const btn = document.getElementById("btnSolve");
+  const loading = document.getElementById("loadingArea");
+  btn.disabled = true;
+  btn.textContent = "計算中...";
+  loading.classList.add("visible");
+  document.getElementById("resultsArea").innerHTML = "";
+
+  try {
+    const fixedLeader = document.getElementById("fixedLeader").value || null;
+    const res = await fetch("/api/solve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ card_ids: [...selected], stat_scale: statScale, baseline, fixed_leader_id: fixedLeader }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `サーバーエラー (${res.status})`);
+    }
+    const data = await res.json();
+    renderResults(data);
+  } catch (e) {
+    document.getElementById("resultsArea").innerHTML =
+      `<div class="empty-msg">エラーが発生しました: ${e.message}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "最強編成を探す";
+    loading.classList.remove("visible");
+  }
+});
+
+function renderResults(data) {
+  const area = document.getElementById("resultsArea");
+  const results = data.results;
+  if (!results || !results.length) {
+    area.innerHTML = '<div class="empty-msg">結果が見つかりませんでした。</div>';
+    return;
+  }
+
+  const bLabel = data.baseline !== 0 ? ` / H=${data.baseline.toLocaleString()}` : "";
+  let html = "";
+  if (data.warnings && data.warnings.length) {
+    html += `<div style="background:#3d2a0f;color:#f0a040;padding:8px 12px;border-radius:6px;margin-bottom:8px;font-size:0.85rem">${data.warnings.join("<br>")}</div>`;
+  }
+  html += `<div class="results-title">最強編成 Top ${results.length}（${data.total_combinations.toLocaleString()} 通り${bLabel}）</div>`;
+
+  for (const r of results) {
+    const rankColors = { 1: "#ffd700", 2: "#c0c0c0", 3: "#cd7f32" };
+    const rankColor = rankColors[r.rank] || "";
+
+    html += `<div class="result-card">
+      <div class="result-header">
+        <span class="result-rank" ${rankColor ? `style="color:${rankColor}"` : ''}>#${r.rank}</span>
+        <div class="result-scores">
+          <span>ユニットスコア: <span class="main-score">${r.unit_score.toLocaleString()}</span></span>
+          <span>総合力: ${r.total_power.toLocaleString()}</span>
+          <span>SB: ${r.score_bonus}%</span>
+          <span style="font-size:0.7rem;color:#5a6e80">(Active ${r.active_pct}%${r.costume_sb_pct > 0 ? ` / 衣装SS ${r.costume_sb_pct}%` : ''} / SS ${r.passive_sb_pct}% / SP ${r.special_pct}%)</span>
+        </div>
+      </div>
+      <div class="result-members">`;
+
+    for (const mid of r.member_ids) {
+      const card = cardMap[mid];
+      if (!card) continue;
+      const isLeader = mid === r.leader_id;
+      const s = card.stats;
+      html += `<div class="member-card${isLeader ? " is-leader" : ""}">
+        <span class="type-badge type-${card.type}" style="float:right;margin-top:2px">${TYPE_LABELS[card.type]}</span>
+        <div class="m-name">${card.character}</div>
+        <div class="m-card-name">${card.card_name}</div>
+        <div class="m-stats">
+          <span>P:${s.performance.toLocaleString()}</span>
+          <span>T:${s.technique.toLocaleString()}</span>
+          <span>S:${s.sense.toLocaleString()}</span>
+        </div>
+      </div>`;
+    }
+    html += `</div>`;
+    html += `</div>`;
+  }
+  area.innerHTML = html;
+}
+
+init();
+</script>
+</body>
+</html>

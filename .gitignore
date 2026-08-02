@@ -1,0 +1,27 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# OS
+.DS_Store
+
+# Test
+.pytest_cache/
+
+# Environment
+.envrc
+mise.toml
+.python-version
+
+# Personal data
+screenshots/
+.tracecraft/
+
+# Build output
+dist/
