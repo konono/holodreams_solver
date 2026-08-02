@@ -285,7 +285,7 @@ def build():
     <button class="btn-filter" data-filter="happy">Happy</button>
     <button class="btn-filter" data-filter="pure">Pure</button>
     <button class="btn-filter" data-filter="cute">Cute</button>
-    <span class="counter">選択: <strong id="selectedCount">0</strong> / <span id="totalCount">-</span></span>
+    <span class="counter">選択: <strong id="selectedCount">0</strong> / <span id="totalCount">-</span> <span id="limitWarn" style="color:#f06060;font-size:0.75rem"></span></span>
   </div>
 
   <div id="cardArea"></div>
@@ -359,17 +359,20 @@ function renderCards() {{
 function updateCounter() {{
   document.getElementById("selectedCount").textContent = selected.size;
   document.getElementById("totalCount").textContent = CARDS.length;
-  document.getElementById("btnSolve").disabled = selected.size < 5;
+  document.getElementById("btnSolve").disabled = selected.size > 0 && selected.size < 5;
+  const leader = document.getElementById("fixedLeader").value;
+  document.getElementById("limitWarn").textContent =
+    selected.size === 0 ? (leader ? "(リーダー固定 + 全カードで探索)" : "(全カードで探索)") : "";
   const sel = document.getElementById("fixedLeader");
   const cur = sel.value;
+  const pool = selected.size > 0 ? CARDS.filter(c => selected.has(c.id)) : CARDS;
   sel.innerHTML = '<option value="">リーダー自動選択</option>';
-  for (const id of selected) {{
-    const c = cardMap[id]; if (!c) continue;
+  for (const c of pool) {{
     const opt = document.createElement("option");
-    opt.value = id; opt.textContent = c.character + (c.variant ? `[${{c.variant}}]` : "");
+    opt.value = c.id; opt.textContent = c.character + (c.variant ? `[${{c.variant}}]` : "");
     sel.appendChild(opt);
   }}
-  if (selected.has(cur)) sel.value = cur;
+  if (pool.some(c => c.id === cur)) sel.value = cur;
 }}
 
 document.getElementById("btnSelectAll").addEventListener("click", () => {{
@@ -400,6 +403,8 @@ for (const btn of document.querySelectorAll(".btn-filter")) {{
   }});
 }}
 
+document.getElementById("fixedLeader").addEventListener("change", () => updateCounter());
+
 const workerBlob = URL.createObjectURL(new Blob([{json.dumps(solver_js)}], {{type:"application/javascript"}}));
 
 document.getElementById("btnSolve").addEventListener("click", () => {{
@@ -409,7 +414,7 @@ document.getElementById("btnSolve").addEventListener("click", () => {{
   pa.classList.add("visible");
   document.getElementById("resultsArea").innerHTML = "";
 
-  const owned = CARDS.filter(c => selected.has(c.id));
+  const owned = selected.size === 0 ? CARDS : CARDS.filter(c => selected.has(c.id));
   const fixedLeaderId = document.getElementById("fixedLeader").value || null;
   const w = new Worker(workerBlob);
   w.postMessage({{ cards: owned, fixedLeaderId, topN: parseInt(document.getElementById("topN").value) }});

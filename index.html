@@ -338,24 +338,24 @@ function toggleCard(id, el) {
 function updateCounter() {
   document.getElementById("selectedCount").textContent = selected.size;
   document.getElementById("btnSolve").disabled = selected.size > 0 && selected.size < 5;
-  document.getElementById("limitWarn").textContent = selected.size === 0 ? "(全カードで探索)" : "";
+  const leader = document.getElementById("fixedLeader").value;
+  document.getElementById("limitWarn").textContent =
+    selected.size === 0 ? (leader ? "(リーダー固定 + 全カードで探索)" : "(全カードで探索)") : "";
   updateLeaderDropdown();
 }
 
 function updateLeaderDropdown() {
   const sel = document.getElementById("fixedLeader");
   const current = sel.value;
-  const ids = [...selected];
+  const pool = selected.size > 0 ? CARDS.filter(c => selected.has(c.id)) : CARDS;
   sel.innerHTML = '<option value="">リーダー自動選択</option>';
-  for (const id of ids) {
-    const c = cardMap[id];
-    if (!c) continue;
+  for (const c of pool) {
     const opt = document.createElement("option");
-    opt.value = id;
+    opt.value = c.id;
     opt.textContent = c.character + (c.variant ? `[${c.variant}]` : "");
     sel.appendChild(opt);
   }
-  if (ids.includes(current)) sel.value = current;
+  if (pool.some(c => c.id === current)) sel.value = current;
 }
 
 document.getElementById("btnSelectAll").addEventListener("click", () => {
@@ -417,6 +417,7 @@ for (const btn of document.querySelectorAll(".btn-filter")) {
   });
 }
 
+document.getElementById("fixedLeader").addEventListener("change", () => updateCounter());
 
 let statScale = parseFloat(localStorage.getItem("holodri_stat_scale") || "1");
 let baseline = parseFloat(localStorage.getItem("holodri_baseline") || "0");
