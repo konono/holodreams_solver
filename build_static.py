@@ -267,6 +267,12 @@ def build():
 
   <div class="controls">
     <button class="btn-solve" id="btnSolve" disabled>最強編成を探す</button>
+    <select id="topN" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:6px 8px;border-radius:4px;font-size:0.8rem">
+      <option value="10" selected>Top 10</option>
+      <option value="30">Top 30</option>
+      <option value="50">Top 50</option>
+      <option value="100">Top 100</option>
+    </select>
     <select id="fixedLeader" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:6px 8px;border-radius:4px;font-size:0.8rem">
       <option value="">リーダー自動選択</option>
     </select>
@@ -406,7 +412,7 @@ document.getElementById("btnSolve").addEventListener("click", () => {{
   const owned = CARDS.filter(c => selected.has(c.id));
   const fixedLeaderId = document.getElementById("fixedLeader").value || null;
   const w = new Worker(workerBlob);
-  w.postMessage({{ cards: owned, fixedLeaderId, topN: 10 }});
+  w.postMessage({{ cards: owned, fixedLeaderId, topN: parseInt(document.getElementById("topN").value) }});
 
   w.onmessage = function(ev) {{
     if (ev.data.type === "progress") {{

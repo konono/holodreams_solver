@@ -181,6 +181,12 @@ header p { color: #8899aa; font-size: 0.85rem; margin-top: 4px; }
 
   <div class="controls">
     <button class="btn-solve" id="btnSolve" disabled>最強編成を探す</button>
+    <select id="topN" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:6px 8px;border-radius:4px;font-size:0.8rem">
+      <option value="10" selected>Top 10</option>
+      <option value="30">Top 30</option>
+      <option value="50">Top 50</option>
+      <option value="100">Top 100</option>
+    </select>
     <select id="fixedLeader" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:6px 8px;border-radius:4px;font-size:0.8rem">
       <option value="">リーダー自動選択</option>
     </select>
@@ -256,7 +262,6 @@ let CARDS = [];
 let cardMap = {};
 const selected = new Set();
 let activeFilter = "all";
-let maxCards = 40;
 
 async function init() {
   let res;
@@ -270,11 +275,11 @@ async function init() {
   }
   const data = await res.json();
   CARDS = data.cards;
-  if (data.max_cards) maxCards = data.max_cards;
   cardMap = {};
   for (const c of CARDS) cardMap[c.id] = c;
   document.getElementById("totalCount").textContent = CARDS.length;
   renderCards();
+  updateCounter();
 }
 
 function groupCards() {
@@ -332,8 +337,8 @@ function toggleCard(id, el) {
 
 function updateCounter() {
   document.getElementById("selectedCount").textContent = selected.size;
-  document.getElementById("btnSolve").disabled = selected.size < 5;
-  document.getElementById("limitWarn").textContent = selected.size > maxCards ? `(${maxCards}枚超: 静的版推奨)` : "";
+  document.getElementById("btnSolve").disabled = selected.size > 0 && selected.size < 5;
+  document.getElementById("limitWarn").textContent = selected.size === 0 ? "(全カードで探索)" : "";
   updateLeaderDropdown();
 }
 
@@ -541,10 +546,11 @@ document.getElementById("btnSolve").addEventListener("click", async () => {
 
   try {
     const fixedLeader = document.getElementById("fixedLeader").value || null;
+    const cardIds = selected.size === 0 ? [] : [...selected];
     const res = await fetch("/api/solve", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ card_ids: [...selected], stat_scale: statScale, baseline, fixed_leader_id: fixedLeader }),
+      body: JSON.stringify({ card_ids: cardIds, stat_scale: statScale, baseline, fixed_leader_id: fixedLeader, top_n: parseInt(document.getElementById("topN").value) }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));

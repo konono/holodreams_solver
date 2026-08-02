@@ -12,7 +12,6 @@ from solver import calibrate, load_cards, optimize_order, solve
 app = FastAPI(title="HoloSolve")
 
 ROOT = Path(__file__).parent
-MAX_CARDS_FOR_SOLVE = 40
 
 
 def _card_map():
@@ -24,6 +23,7 @@ class SolveRequest(BaseModel):
     stat_scale: float = 1.0
     baseline: float = 0
     fixed_leader_id: str | None = None
+    top_n: int = 10
 
 
 class CalibrateRequest(BaseModel):
@@ -48,20 +48,18 @@ async def index():
 
 @app.get("/api/cards")
 async def get_cards():
-    return {"cards": load_cards(), "max_cards": MAX_CARDS_FOR_SOLVE}
+    return {"cards": load_cards()}
 
 
 @app.post("/api/solve")
 def post_solve(req: SolveRequest):
     cm = _card_map()
-    actual = [cid for cid in req.card_ids if cid in cm]
+    if not req.card_ids:
+        actual = list(cm.keys())
+    else:
+        actual = [cid for cid in req.card_ids if cid in cm]
     dropped = len(req.card_ids) - len(actual)
-    if len(actual) > MAX_CARDS_FOR_SOLVE:
-        raise HTTPException(
-            status_code=400,
-            detail=f"カード数が上限を超えています（{len(actual)}/{MAX_CARDS_FOR_SOLVE}枚）。サーバー版は{MAX_CARDS_FOR_SOLVE}枚まで。全カードで探索する場合は静的版(dist/holosolve.html)をご利用ください。",
-        )
-    result = solve(actual, stat_scale=req.stat_scale, baseline=req.baseline, fixed_leader_id=req.fixed_leader_id)
+    result = solve(actual, top_n=req.top_n, stat_scale=req.stat_scale, baseline=req.baseline, fixed_leader_id=req.fixed_leader_id)
     if dropped > 0:
         result["warnings"] = [f"{dropped}枚の不明なカードIDを除外しました"]
     return result
