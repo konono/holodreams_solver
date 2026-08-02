@@ -25,4 +25,7 @@ screenshots/
 
 # Build output
 dist/
+
+# Workflow is managed via GitHub UI (workflow scope required)
+.github/workflows/
 .github/
