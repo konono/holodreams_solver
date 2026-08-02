@@ -25,3 +25,4 @@ screenshots/
 
 # Build output
 dist/
+.github/

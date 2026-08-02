@@ -84,6 +84,17 @@ def test_same_character_excluded(card_map):
         assert len(set(chars)) == 5, f"duplicate character in team: {chars}"
 
 
+def test_order_optimization(card_map):
+    """配置順最適化で、同タイプ3人以上のチームのスコアが改善される"""
+    from solver import optimize_order
+    team_ids = ["nakiri_ayame_5", "hakui_koyori_5", "otonose_kanade_5", "houshou_marine_5", "shirogane_noel_swim_5"]
+    team_default = _team(card_map, team_ids)
+    r_default = evaluate_team(team_default, 3)  # マリンリーダー(idx3)
+    r_opt = optimize_order(team_ids, "houshou_marine_5")
+    assert r_opt["unit_score"] >= r_default["unit_score"], \
+        f"optimized {r_opt['unit_score']:.0f} should >= default {r_default['unit_score']:.0f}"
+
+
 def test_js_constants_match_python():
     """build_static.py が生成する JS の定数が solver.py と一致する"""
     from build_static import _generate_solver_js

@@ -7,7 +7,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, field_validator
 
-from solver import calibrate, load_cards, solve
+from solver import calibrate, load_cards, optimize_order, solve
 
 app = FastAPI(title="HoloSolve")
 

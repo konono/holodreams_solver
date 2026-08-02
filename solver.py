@@ -13,7 +13,7 @@
 
 import json
 from functools import lru_cache
-from itertools import combinations
+from itertools import combinations, permutations
 from pathlib import Path
 
 UNIT_SCORE_K = 2.037
@@ -233,6 +233,54 @@ def evaluate_team(team, leader_idx, stat_scale=1.0, baseline=0):
     }
 
 
+def optimize_order(team_ids: list[str], leader_id: str, stat_scale: float = 1.0, baseline: float = 0) -> dict:
+    """リーダーを固定し、残り4人の配置順を全24通り試して最適な並びを返す"""
+    all_cards = load_cards()
+    card_map = {c["id"]: c for c in all_cards}
+
+    leader_card = card_map[leader_id]
+    others = [card_map[cid] for cid in team_ids if cid != leader_id]
+
+    best = None
+    best_order = None
+    for perm in permutations(range(len(others))):
+        team = [leader_card] + [others[i] for i in perm]
+        score = evaluate_team(team, 0, stat_scale, baseline)
+        if best is None or score["unit_score"] > best["unit_score"]:
+            best = score
+            best_order = [leader_id] + [others[i]["id"] for i in perm]
+
+    best["leader_idx"] = 0
+    best["team_ids"] = best_order
+    return best
+
+
+def _optimize_results(results: list[dict], card_map: dict, stat_scale: float, baseline: float) -> list[dict]:
+    """Top 結果の配置順を最適化する"""
+    optimized = []
+    for r in results:
+        leader_id = r["team_ids"][r["leader_idx"]]
+        leader_card = card_map[leader_id]
+        others = [card_map[cid] for cid in r["team_ids"] if cid != leader_id]
+
+        best = r
+        for perm in permutations(range(len(others))):
+            team = [leader_card] + [others[i] for i in perm]
+            score = evaluate_team(team, 0, stat_scale, baseline)
+            if score["unit_score"] > best["unit_score"]:
+                score["leader_idx"] = 0
+                score["team_ids"] = [leader_id] + [others[i]["id"] for i in perm]
+                best = score
+
+        if "team_ids" not in best or best is r:
+            best["team_ids"] = r["team_ids"]
+            best["leader_idx"] = r["leader_idx"]
+        optimized.append(best)
+
+    optimized.sort(key=lambda x: x["unit_score"], reverse=True)
+    return optimized
+
+
 def calibrate(
     member_ids: list[str],
     leader_id_1: str,
@@ -347,6 +395,8 @@ def solve(
 
     results.sort(key=lambda x: x["unit_score"], reverse=True)
     results = results[:top_n]
+
+    results = _optimize_results(results, card_map, stat_scale, baseline)
 
     return {
         "total_combinations": total_combos,

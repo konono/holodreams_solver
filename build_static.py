@@ -192,6 +192,35 @@ self.onmessage = function(e) {{
     }}
   }}
 
+  // 配置最適化: Top結果の非リーダー4人の並び順を全24通り試す
+  function permutations(arr) {{
+    if (arr.length <= 1) return [arr];
+    const result = [];
+    for (let i = 0; i < arr.length; i++) {{
+      const rest = arr.slice(0,i).concat(arr.slice(i+1));
+      for (const p of permutations(rest)) result.push([arr[i], ...p]);
+    }}
+    return result;
+  }}
+
+  for (let ri = 0; ri < results.length; ri++) {{
+    const r = results[ri];
+    const leaderCard = cards.find(c => c.id === r.teamIds[r.leaderIdx]);
+    const otherCards = r.teamIds.filter((_,i) => i !== r.leaderIdx).map(id => cards.find(c => c.id === id));
+    const indices = otherCards.map((_,i) => i);
+
+    for (const perm of permutations(indices)) {{
+      const team = [leaderCard, ...perm.map(i => otherCards[i])];
+      const score = evaluateTeam(team, 0);
+      if (score.unitScore > r.unitScore) {{
+        score.teamIds = team.map(c => c.id);
+        score.leaderIdx = 0;
+        results[ri] = score;
+      }}
+    }}
+  }}
+  results.sort((a,b) => b.unitScore - a.unitScore);
+
   self.postMessage({{type:"done", results: results.map((r,i) => ({{
     rank:i+1, unit_score:Math.round(r.unitScore), total_power:Math.round(r.totalPower),
     score_bonus:r.scoreBonus, active_pct:r.activePct, costume_sb_pct:r.costumeSbPct,
