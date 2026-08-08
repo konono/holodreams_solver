@@ -16,7 +16,6 @@ wheels/
 
 # Environment
 .envrc
-mise.toml
 .python-version
 
 # Personal data
