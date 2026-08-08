@@ -1,0 +1,32 @@
+[tools]
+jq = "latest"
+node = "22"
+python = "3.13"
+uv = "latest"
+
+[tasks.setup]
+description = "開発環境セットアップ（依存+ブラウザ）"
+run = """
+uv sync --group dev
+uv run playwright install --with-deps chromium
+"""
+
+[tasks.test]
+description = "全テスト実行"
+run = "uv run pytest -v"
+
+[tasks."test:unit"]
+description = "ユニットテストのみ"
+run = "uv run pytest test_solver.py -v"
+
+[tasks."test:e2e"]
+description = "E2Eテストのみ"
+run = "uv run pytest test_e2e.py -v"
+
+[tasks.build]
+description = "スタンドアロン版HTML生成"
+run = "uv run python build_static.py"
+
+[tasks.dev]
+description = "開発サーバー起動"
+run = "uv run python app.py"
