@@ -536,6 +536,8 @@ function loadPersistence() {{
       defaultLevel = 40;
     }}
     if (le != null) levelEnabled = le === "true";
+    const ss = localStorage.getItem("holodri_selected");
+    if (ss) {{ for (const id of JSON.parse(ss)) selected.add(id); }}
   }} catch {{}}
 }}
 
@@ -545,9 +547,11 @@ function savePersistence() {{
   localStorage.setItem("holodri_default_potential", String(defaultPotential));
   localStorage.setItem("holodri_default_level", String(defaultLevel));
   localStorage.setItem("holodri_level_enabled", String(levelEnabled));
+  localStorage.setItem("holodri_selected", JSON.stringify([...selected]));
 }}
 
 loadPersistence();
+for (const id of [...selected]) {{ if (!cardMap[id]) selected.delete(id); }}
 
 function groupCards() {{
   const groups = {{}};
@@ -685,6 +689,7 @@ function updateCounter() {{
   }}
   if (pool.some(c => c.id === cur)) sel.value = cur;
   if (typeof updateFab === "function") updateFab();
+  localStorage.setItem("holodri_selected", JSON.stringify([...selected]));
 }}
 
 document.getElementById("btnSelectAll").addEventListener("click", () => {{

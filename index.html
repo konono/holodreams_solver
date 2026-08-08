@@ -427,6 +427,8 @@ function loadPersistence() {
       defaultLevel = 40;
     }
     if (le != null) levelEnabled = le === "true";
+    const ss = localStorage.getItem("holodri_selected");
+    if (ss) { for (const id of JSON.parse(ss)) selected.add(id); }
   } catch {}
 }
 
@@ -436,6 +438,7 @@ function savePersistence() {
   localStorage.setItem("holodri_default_potential", String(defaultPotential));
   localStorage.setItem("holodri_default_level", String(defaultLevel));
   localStorage.setItem("holodri_level_enabled", String(levelEnabled));
+  localStorage.setItem("holodri_selected", JSON.stringify([...selected]));
 }
 
 function syncLevelUI() {
@@ -460,6 +463,7 @@ async function init() {
   levelTables = data.level_tables || {};
   cardMap = {};
   for (const c of CARDS) cardMap[c.id] = c;
+  for (const id of [...selected]) { if (!cardMap[id]) selected.delete(id); }
   document.getElementById("totalCount").textContent = CARDS.length;
   renderCards();
   updateCounter();
@@ -612,6 +616,7 @@ function updateCounter() {
     selected.size === 0 ? (leader ? "(リーダー固定 + 全カードで探索)" : "(全カードで探索)") : "";
   updateLeaderDropdown();
   if (typeof updateFab === "function") updateFab();
+  localStorage.setItem("holodri_selected", JSON.stringify([...selected]));
 }
 
 function updateLeaderDropdown() {
