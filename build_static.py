@@ -734,7 +734,7 @@ for (const s of SONGS) {{
 }}
 
 document.getElementById("btnCopyIds").addEventListener("click", () => {{
-  const ids = [...selected];
+  const ids = selected.size > 0 ? [...selected] : CARDS.map(c => c.id);
   const pots = {{}};
   const lvs = {{}};
   for (const id of ids) {{
@@ -744,7 +744,8 @@ document.getElementById("btnCopyIds").addEventListener("click", () => {{
     if (l !== defaultLevel) lvs[id] = l;
   }}
   const payload = {{
-    v: 1, ids, potentials: pots, levels: lvs,
+    v: 1, ids, allCards: selected.size === 0,
+    potentials: pots, levels: lvs,
     defaultPotential, defaultLevel, levelEnabled,
   }};
   navigator.clipboard.writeText(JSON.stringify(payload)).then(() => {{
@@ -768,8 +769,12 @@ document.getElementById("btnPasteIds").addEventListener("click", async () => {{
     }} else if (parsed && parsed.v === 1) {{
       for (const k of Object.keys(cardPotentials)) delete cardPotentials[k];
       for (const k of Object.keys(cardLevels)) delete cardLevels[k];
-      for (const id of (parsed.ids || [])) {{
-        if (validIds.has(id)) {{ selected.add(id); loaded++; }}
+      if (!parsed.allCards) {{
+        for (const id of (parsed.ids || [])) {{
+          if (validIds.has(id)) {{ selected.add(id); loaded++; }}
+        }}
+      }} else {{
+        loaded = (parsed.ids || []).filter(id => validIds.has(id)).length;
       }}
       if (parsed.defaultPotential != null) defaultPotential = parsed.defaultPotential;
       if (parsed.defaultLevel != null) defaultLevel = parsed.defaultLevel;
