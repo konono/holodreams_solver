@@ -536,18 +536,36 @@ function loadPersistence() {{
       defaultLevel = 40;
     }}
     if (le != null) levelEnabled = le === "true";
+    const acm = localStorage.getItem("holodri_all_cards_mode");
+    if (acm === "false") {{
+      for (const id of new Set([...Object.keys(cardPotentials), ...Object.keys(cardLevels)])) selected.add(id);
+    }}
   }} catch {{}}
 }}
 
 function savePersistence() {{
-  localStorage.setItem("holodri_card_potentials", JSON.stringify(cardPotentials));
-  localStorage.setItem("holodri_card_levels", JSON.stringify(cardLevels));
+  const isAllCards = selected.size === 0;
+  const savedPots = {{}};
+  const savedLvs = {{}};
+  if (isAllCards) {{
+    for (const [id, v] of Object.entries(cardPotentials)) {{ if (v !== defaultPotential) savedPots[id] = v; }}
+    for (const [id, v] of Object.entries(cardLevels)) {{ if (v !== defaultLevel) savedLvs[id] = v; }}
+  }} else {{
+    for (const id of selected) {{
+      if (id in cardPotentials) savedPots[id] = cardPotentials[id];
+      if (id in cardLevels) savedLvs[id] = cardLevels[id];
+    }}
+  }}
+  localStorage.setItem("holodri_card_potentials", JSON.stringify(savedPots));
+  localStorage.setItem("holodri_card_levels", JSON.stringify(savedLvs));
   localStorage.setItem("holodri_default_potential", String(defaultPotential));
   localStorage.setItem("holodri_default_level", String(defaultLevel));
   localStorage.setItem("holodri_level_enabled", String(levelEnabled));
+  localStorage.setItem("holodri_all_cards_mode", String(isAllCards));
 }}
 
 loadPersistence();
+for (const id of [...selected]) {{ if (!cardMap[id]) selected.delete(id); }}
 
 function groupCards() {{
   const groups = {{}};
@@ -602,12 +620,17 @@ function renderCards() {{
       el.querySelector(".card-name").addEventListener("click", () => toggleCard(card.id, el));
       el.querySelector(".type-badge").addEventListener("click", () => toggleCard(card.id, el));
 
+      function autoSelect() {{
+        if (selected.size > 0 && !selected.has(card.id)) {{
+          selected.add(card.id); el.classList.add("selected"); updateCounter();
+        }}
+      }}
+
       el.querySelectorAll(".pot-btn").forEach(btn => {{
         btn.addEventListener("click", (e) => {{
           e.stopPropagation();
-          const newPot = parseInt(btn.dataset.pot);
-          cardPotentials[card.id] = newPot;
-
+          cardPotentials[card.id] = parseInt(btn.dataset.pot);
+          autoSelect();
           savePersistence();
           updateCardDisplay(card.id, el);
         }});
@@ -616,10 +639,9 @@ function renderCards() {{
       el.querySelectorAll(".lv-btn").forEach(btn => {{
         btn.addEventListener("click", (e) => {{
           e.stopPropagation();
-          const delta = parseInt(btn.dataset.delta);
           const currentLv = getCardLevel(card.id);
-          const newLv = Math.max(1, Math.min(currentLv + delta, MAX_LEVEL));
-          cardLevels[card.id] = newLv;
+          cardLevels[card.id] = Math.max(1, Math.min(currentLv + parseInt(btn.dataset.delta), MAX_LEVEL));
+          autoSelect();
           savePersistence();
           updateCardDisplay(card.id, el);
         }});
@@ -632,6 +654,7 @@ function renderCards() {{
         const newLv = Math.max(1, Math.min(parseInt(lvInput.value) || 1, MAX_LEVEL));
         cardLevels[card.id] = newLv;
         lvInput.value = newLv;
+        autoSelect();
         savePersistence();
         updateCardDisplay(card.id, el);
       }});
@@ -662,8 +685,13 @@ function updateCardDisplay(cardId, el) {{
 }}
 
 function toggleCard(id, el) {{
-  if (selected.has(id)) {{ selected.delete(id); el.classList.remove("selected"); }}
-  else {{ selected.add(id); el.classList.add("selected"); }}
+  if (selected.has(id)) {{
+    selected.delete(id); el.classList.remove("selected");
+  }} else {{
+    selected.add(id); el.classList.add("selected");
+    if (!(id in cardPotentials)) cardPotentials[id] = getCardPotential(id);
+  }}
+  savePersistence();
   updateCounter();
 }}
 
@@ -688,10 +716,19 @@ function updateCounter() {{
 }}
 
 document.getElementById("btnSelectAll").addEventListener("click", () => {{
-  (activeFilter === "all" ? CARDS : CARDS.filter(c => c.type === activeFilter)).forEach(c => selected.add(c.id));
+  const visible = activeFilter === "all" ? CARDS : CARDS.filter(c => c.type === activeFilter);
+  for (const c of visible) {{
+    selected.add(c.id);
+    if (!(c.id in cardPotentials)) cardPotentials[c.id] = getCardPotential(c.id);
+  }}
+  savePersistence();
   renderCards(); updateCounter();
 }});
-document.getElementById("btnClear").addEventListener("click", () => {{ selected.clear(); renderCards(); updateCounter(); }});
+document.getElementById("btnClear").addEventListener("click", () => {{
+  selected.clear();
+  savePersistence();
+  renderCards(); updateCounter();
+}});
 
 document.getElementById("btnPot0").addEventListener("click", () => {{
   defaultPotential = 0;
@@ -734,7 +771,7 @@ for (const s of SONGS) {{
 }}
 
 document.getElementById("btnCopyIds").addEventListener("click", () => {{
-  const ids = [...selected];
+  const ids = selected.size > 0 ? [...selected] : CARDS.map(c => c.id);
   const pots = {{}};
   const lvs = {{}};
   for (const id of ids) {{
@@ -744,7 +781,8 @@ document.getElementById("btnCopyIds").addEventListener("click", () => {{
     if (l !== defaultLevel) lvs[id] = l;
   }}
   const payload = {{
-    v: 1, ids, potentials: pots, levels: lvs,
+    v: 1, ids, allCards: selected.size === 0,
+    potentials: pots, levels: lvs,
     defaultPotential, defaultLevel, levelEnabled,
   }};
   navigator.clipboard.writeText(JSON.stringify(payload)).then(() => {{
@@ -763,13 +801,24 @@ document.getElementById("btnPasteIds").addEventListener("click", async () => {{
     let loaded = 0;
     if (Array.isArray(parsed)) {{
       for (const id of parsed) {{
-        if (validIds.has(id)) {{ selected.add(id); loaded++; }}
+        if (validIds.has(id)) {{
+          selected.add(id); loaded++;
+          cardPotentials[id] = getCardPotential(id);
+        }}
       }}
+      savePersistence();
     }} else if (parsed && parsed.v === 1) {{
       for (const k of Object.keys(cardPotentials)) delete cardPotentials[k];
       for (const k of Object.keys(cardLevels)) delete cardLevels[k];
-      for (const id of (parsed.ids || [])) {{
-        if (validIds.has(id)) {{ selected.add(id); loaded++; }}
+      if (!parsed.allCards) {{
+        for (const id of (parsed.ids || [])) {{
+          if (validIds.has(id)) {{
+            selected.add(id); loaded++;
+            if (!(id in cardPotentials)) cardPotentials[id] = parsed.defaultPotential ?? defaultPotential;
+          }}
+        }}
+      }} else {{
+        loaded = (parsed.ids || []).filter(id => validIds.has(id)).length;
       }}
       if (parsed.defaultPotential != null) defaultPotential = parsed.defaultPotential;
       if (parsed.defaultLevel != null) defaultLevel = parsed.defaultLevel;
@@ -791,7 +840,7 @@ document.getElementById("btnPasteIds").addEventListener("click", async () => {{
       throw new Error("不明な形式");
     }}
     renderCards(); updateCounter();
-    btn.textContent = loaded + "枚読込!"; setTimeout(() => btn.textContent = "ID貼付", 1500);
+    btn.textContent = (parsed && parsed.allCards) ? "全カード読込!" : loaded + "枚読込!"; setTimeout(() => btn.textContent = "ID貼付", 1500);
   }} catch {{
     btn.textContent = "形式エラー"; setTimeout(() => btn.textContent = "ID貼付", 1500);
   }}
@@ -1036,6 +1085,7 @@ function restoreFromHistory(idx) {{
   for (const id of restoreIds) {{
     if (!validIds.has(id)) continue;
     if (snap.potentials?.[id] != null) cardPotentials[id] = snap.potentials[id];
+    else if (!isAllCards) cardPotentials[id] = snap.defaultPotential ?? defaultPotential;
     if (snap.levels?.[id] != null) cardLevels[id] = snap.levels[id];
   }}
   if (entry.settings?.topN != null) document.getElementById("topN").value = entry.settings.topN;
