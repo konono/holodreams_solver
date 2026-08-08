@@ -46,6 +46,12 @@ header p { color: #8899aa; font-size: 0.85rem; margin-top: 4px; }
 .btn-filter { background: #1e2d3d; color: #8899aa; border: 1px solid #2a3a4a !important; font-size: 0.8rem; padding: 6px 12px; }
 .btn-filter.active { border-color: #4f8cff !important; color: #4f8cff; }
 
+.btn-pot-global {
+  background: #1e2d3d; color: #8899aa; border: 1px solid #3a4f66 !important;
+  font-size: 0.75rem; padding: 4px 10px; cursor: pointer; border-radius: 4px;
+}
+.btn-pot-global:hover { border-color: #4f8cff !important; color: #4f8cff; }
+
 .counter {
   margin-left: auto; font-size: 0.9rem; color: #8899aa;
 }
@@ -59,7 +65,7 @@ header p { color: #8899aa; font-size: 0.85rem; margin-top: 4px; }
 
 .card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
   gap: 8px;
 }
 
@@ -94,6 +100,38 @@ header p { color: #8899aa; font-size: 0.85rem; margin-top: 4px; }
   display: flex; gap: 4px; margin-top: 6px; font-size: 0.65rem; color: #5a6e80;
 }
 .card .stats span { flex: 1; text-align: center; }
+
+.pot-row {
+  display: flex; gap: 2px; margin-top: 6px; align-items: center;
+}
+.pot-btn {
+  width: 22px; height: 20px; border: 1px solid #3a4f66; border-radius: 3px;
+  background: #0f1923; color: #6b7f92; font-size: 0.65rem; font-weight: 700;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all 0.1s; padding: 0;
+}
+.pot-btn.active { background: #4f8cff; color: #fff; border-color: #4f8cff; }
+.pot-btn:hover { border-color: #4f8cff; }
+
+.pot-label { font-size: 0.6rem; color: #5a6e80; margin-right: 2px; }
+
+.lv-row {
+  display: flex; gap: 2px; margin-top: 4px; align-items: center;
+}
+.lv-label { font-size: 0.6rem; color: #5a6e80; margin-right: 2px; }
+.lv-btn {
+  width: 24px; height: 18px; border: 1px solid #3a4f66; border-radius: 3px;
+  background: #0f1923; color: #6b7f92; font-size: 0.6rem; font-weight: 600;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  padding: 0;
+}
+.lv-btn:hover { border-color: #4f8cff; color: #4f8cff; }
+.lv-input {
+  width: 36px; height: 18px; border: 1px solid #3a4f66; border-radius: 3px;
+  background: #0f1923; color: #e0e6ed; font-size: 0.65rem; text-align: center;
+  padding: 0;
+}
+.lv-input:focus { border-color: #4f8cff; outline: none; }
 
 .loading-area {
   text-align: center; color: #6b7f92; padding: 20px; display: none;
@@ -160,6 +198,9 @@ header p { color: #8899aa; font-size: 0.85rem; margin-top: 4px; }
   display: flex; gap: 4px; margin-top: 4px; font-size: 0.65rem; color: #5a6e80;
 }
 .member-card .m-stats span { flex: 1; }
+.member-card .m-pot-lv {
+  font-size: 0.6rem; color: #4f8cff; margin-top: 2px;
+}
 
 .empty-msg {
   text-align: center; color: #5a6e80; padding: 40px;
@@ -167,7 +208,7 @@ header p { color: #8899aa; font-size: 0.85rem; margin-top: 4px; }
 }
 
 @media (max-width: 600px) {
-  .card-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+  .card-grid { grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); }
   .result-members { grid-template-columns: 1fr; }
 }
 </style>
@@ -203,6 +244,17 @@ header p { color: #8899aa; font-size: 0.85rem; margin-top: 4px; }
   </div>
 
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:0.85rem;color:#8899aa;flex-wrap:wrap">
+    <label>凸:</label>
+    <button class="btn-pot-global" id="btnPot0">全て0凸</button>
+    <button class="btn-pot-global" id="btnPot4">全て4凸</button>
+    <span style="color:#3a4f66">|</span>
+    <label style="cursor:pointer"><input type="checkbox" id="chkLevelEnabled" style="vertical-align:middle;margin-right:2px">Lv設定</label>
+    <span style="color:#3a4f66">|</span>
+    <label>曲:</label>
+    <select id="songSelect" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:4px 6px;border-radius:4px;font-size:0.75rem;max-width:200px">
+      <option value="">汎用（192秒）</option>
+    </select>
+    <span style="color:#3a4f66">|</span>
     <label>補正:</label>
     <span id="baselineDisplay" style="color:#4f8cff;font-weight:600;font-size:0.8rem">未補正</span>
     <button class="btn-clear" id="btnOpenCalib" style="font-size:0.7rem;padding:3px 8px">キャリブレーション</button>
@@ -257,13 +309,70 @@ const GROUP_ORDER = [
   "ID1期生","ID2期生","ID3期生","Myth","Promise","Advent","ReGLOSS","水着"
 ];
 const TYPE_LABELS = { happy: "Happy", pure: "Pure", cute: "Cute" };
+const MAX_LEVEL = 80;
 
 let CARDS = [];
 let cardMap = {};
+let levelTables = {};
 const selected = new Set();
 let activeFilter = "all";
 
+let defaultPotential = 0;
+const cardPotentials = {};
+const cardLevels = {};
+let levelEnabled = false;
+
+function getCardPotential(id) { return cardPotentials[id] ?? defaultPotential; }
+function getCardLevel(id) {
+  if (!levelEnabled) return 80;
+  if (cardLevels[id] != null) return cardLevels[id];
+  return 40;
+}
+
+function getCardStats(card, potential, level) {
+  const pd = card.potential_data;
+  if (!pd) return card.stats;
+  const snap = pd[Math.min(potential, pd.length - 1)];
+  if (!snap) return card.stats;
+  const actualLv = Math.max(1, Math.min(level || MAX_LEVEL, MAX_LEVEL));
+  if (actualLv === 80) return snap.ref_stats_lv80 || snap.stats;
+  const table = levelTables[card.card_level_group_id];
+  if (!table) return snap.ref_stats_lv80 || snap.stats;
+  const baseValue = table[String(actualLv)];
+  if (!baseValue) return snap.ref_stats_lv80 || snap.stats;
+  const permil = card.permil || {};
+  const bonus = snap.param_bonus_permil || 0;
+  const mul = 1000 + bonus;
+  function ceilDiv(a, b) { return Math.floor((a + b - 1) / b); }
+  return {
+    performance: ceilDiv(baseValue * (permil.performance || 333) * mul, 1000000),
+    technique: ceilDiv(baseValue * (permil.technique || 333) * mul, 1000000),
+    sense: ceilDiv(baseValue * (permil.sense || 334) * mul, 1000000),
+  };
+}
+
+function loadPersistence() {
+  try {
+    const sp = localStorage.getItem("holodri_card_potentials");
+    if (sp) Object.assign(cardPotentials, JSON.parse(sp));
+    const sl = localStorage.getItem("holodri_card_levels");
+    if (sl) Object.assign(cardLevels, JSON.parse(sl));
+    const dp = localStorage.getItem("holodri_default_potential");
+    if (dp != null) defaultPotential = parseInt(dp) || 0;
+    const le = localStorage.getItem("holodri_level_enabled");
+    if (le != null) levelEnabled = le === "true";
+  } catch {}
+}
+
+function savePersistence() {
+  localStorage.setItem("holodri_card_potentials", JSON.stringify(cardPotentials));
+  localStorage.setItem("holodri_card_levels", JSON.stringify(cardLevels));
+  localStorage.setItem("holodri_default_potential", String(defaultPotential));
+  localStorage.setItem("holodri_level_enabled", String(levelEnabled));
+}
+
 async function init() {
+  loadPersistence();
   let res;
   try { res = await fetch("/api/cards"); } catch {
     document.getElementById("cardArea").innerHTML = '<div class="empty-msg">サーバーに接続できません。uv run python app.py で起動してください。</div>';
@@ -275,11 +384,26 @@ async function init() {
   }
   const data = await res.json();
   CARDS = data.cards;
+  levelTables = data.level_tables || {};
   cardMap = {};
   for (const c of CARDS) cardMap[c.id] = c;
   document.getElementById("totalCount").textContent = CARDS.length;
   renderCards();
   updateCounter();
+
+  try {
+    const songsRes = await fetch("/api/songs");
+    if (songsRes.ok) {
+      const songsData = await songsRes.json();
+      const songSel = document.getElementById("songSelect");
+      for (const s of (songsData.songs || [])) {
+        const opt = document.createElement("option");
+        opt.value = s.playing_seconds;
+        opt.textContent = `${s.name} (${s.playing_seconds}秒)`;
+        songSel.appendChild(opt);
+      }
+    }
+  } catch {}
 }
 
 function groupCards() {
@@ -311,22 +435,93 @@ function renderCards() {
       const el = document.createElement("div");
       el.className = "card" + (selected.has(card.id) ? " selected" : "");
       el.dataset.id = card.id;
-      const s = card.stats;
+      const pot = getCardPotential(card.id);
+      const lv = getCardLevel(card.id);
+      const s = getCardStats(card, pot, lv);
+
       el.innerHTML = `
         <div class="char-name">${card.character}</div>
         <div class="card-name">${card.card_name}</div>
         <span class="type-badge type-${card.type}">${TYPE_LABELS[card.type]}</span>
-        <div class="stats">
+        <div class="stats" data-card-id="${card.id}">
           <span>P:${s.performance.toLocaleString()}</span>
           <span>T:${s.technique.toLocaleString()}</span>
           <span>S:${s.sense.toLocaleString()}</span>
+        </div>
+        <div class="pot-row">
+          <span class="pot-label">凸:</span>
+          ${[0,1,2,3,4].map(p => `<button class="pot-btn${p === pot ? ' active' : ''}" data-pot="${p}" data-card="${card.id}">${p}</button>`).join("")}
+        </div>
+        <div class="lv-row" style="${levelEnabled ? '' : 'display:none'}">
+          <span class="lv-label">Lv:</span>
+          <button class="lv-btn" data-delta="-10" data-card="${card.id}">-10</button>
+          <input class="lv-input" type="number" value="${lv}" min="1" max="${MAX_LEVEL}" data-card="${card.id}">
+          <button class="lv-btn" data-delta="10" data-card="${card.id}">+10</button>
         </div>`;
-      el.addEventListener("click", () => toggleCard(card.id, el));
+
+      el.querySelector(".char-name").addEventListener("click", () => toggleCard(card.id, el));
+      el.querySelector(".card-name").addEventListener("click", () => toggleCard(card.id, el));
+      el.querySelector(".type-badge").addEventListener("click", () => toggleCard(card.id, el));
+
+      el.querySelectorAll(".pot-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const newPot = parseInt(btn.dataset.pot);
+          cardPotentials[card.id] = newPot;
+          savePersistence();
+          updateCardDisplay(card.id, el);
+        });
+      });
+
+      el.querySelectorAll(".lv-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const delta = parseInt(btn.dataset.delta);
+          const currentLv = getCardLevel(card.id);
+          const newLv = Math.max(1, Math.min(currentLv + delta, MAX_LEVEL));
+          cardLevels[card.id] = newLv;
+          savePersistence();
+          updateCardDisplay(card.id, el);
+        });
+      });
+
+      const lvInput = el.querySelector(".lv-input");
+      lvInput.addEventListener("click", (e) => e.stopPropagation());
+      lvInput.addEventListener("change", (e) => {
+        e.stopPropagation();
+        const newLv = Math.max(1, Math.min(parseInt(lvInput.value) || 1, MAX_LEVEL));
+        cardLevels[card.id] = newLv;
+        lvInput.value = newLv;
+        savePersistence();
+        updateCardDisplay(card.id, el);
+      });
+
       grid.appendChild(el);
     }
     section.appendChild(grid);
     area.appendChild(section);
   }
+}
+
+function updateCardDisplay(cardId, el) {
+  const card = cardMap[cardId];
+  const pot = getCardPotential(cardId);
+  const lv = getCardLevel(cardId);
+  const s = getCardStats(card, pot, lv);
+
+  const statsEl = el.querySelector(".stats");
+  statsEl.innerHTML = `
+    <span>P:${s.performance.toLocaleString()}</span>
+    <span>T:${s.technique.toLocaleString()}</span>
+    <span>S:${s.sense.toLocaleString()}</span>`;
+
+  el.querySelectorAll(".pot-btn").forEach(btn => {
+    btn.classList.toggle("active", parseInt(btn.dataset.pot) === pot);
+  });
+
+  const lvInput = el.querySelector(".lv-input");
+  lvInput.value = lv;
+  lvInput.max = MAX_LEVEL;
 }
 
 function toggleCard(id, el) {
@@ -369,6 +564,28 @@ document.getElementById("btnClear").addEventListener("click", () => {
   selected.clear();
   renderCards();
   updateCounter();
+});
+
+document.getElementById("btnPot0").addEventListener("click", () => {
+  defaultPotential = 0;
+  for (const c of CARDS) cardPotentials[c.id] = 0;
+  savePersistence();
+  renderCards();
+});
+
+document.getElementById("btnPot4").addEventListener("click", () => {
+  defaultPotential = 4;
+  for (const c of CARDS) cardPotentials[c.id] = 4;
+  savePersistence();
+  renderCards();
+});
+
+const chkLevel = document.getElementById("chkLevelEnabled");
+chkLevel.checked = levelEnabled;
+chkLevel.addEventListener("change", () => {
+  levelEnabled = chkLevel.checked;
+  savePersistence();
+  renderCards();
 });
 
 document.getElementById("btnCopyIds").addEventListener("click", () => {
@@ -479,7 +696,6 @@ function populateCalibDropdowns() {
 }
 
 document.getElementById("btnCalibrate").addEventListener("click", async () => {
-  const ids = [...selected];
   const l1 = document.getElementById("calibLeader1").value;
   const l2 = document.getElementById("calibLeader2").value;
   const s1 = parseInt(document.getElementById("calibScore1").value);
@@ -508,11 +724,20 @@ document.getElementById("btnCalibrate").addEventListener("click", async () => {
     return;
   }
 
+  const cardSpecs = {};
+  for (const id of teamIds) {
+    cardSpecs[id] = { potential: getCardPotential(id), level: getCardLevel(id) };
+  }
+
   try {
     const res = await fetch("/api/calibrate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ member_ids: teamIds, leader_id_1: l1, game_score_1: s1, leader_id_2: l2, game_score_2: s2 }),
+      body: JSON.stringify({
+        member_ids: teamIds, leader_id_1: l1, game_score_1: s1, leader_id_2: l2, game_score_2: s2,
+        card_specs: cardSpecs,
+        song_length: document.getElementById("songSelect").value ? parseFloat(document.getElementById("songSelect").value) : null,
+      }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -547,11 +772,21 @@ document.getElementById("btnSolve").addEventListener("click", async () => {
 
   try {
     const fixedLeader = document.getElementById("fixedLeader").value || null;
-    const cardIds = selected.size === 0 ? [] : [...selected];
+    let cardSpecs;
+    if (selected.size === 0) {
+      cardSpecs = CARDS.map(c => ({ id: c.id, potential: getCardPotential(c.id), level: getCardLevel(c.id) }));
+    } else {
+      cardSpecs = [...selected].map(id => ({ id, potential: getCardPotential(id), level: getCardLevel(id) }));
+    }
+
     const res = await fetch("/api/solve", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ card_ids: cardIds, stat_scale: statScale, baseline, fixed_leader_id: fixedLeader, top_n: parseInt(document.getElementById("topN").value) }),
+      body: JSON.stringify({
+        cards: cardSpecs, stat_scale: statScale, baseline, fixed_leader_id: fixedLeader,
+        top_n: parseInt(document.getElementById("topN").value),
+        song_length: document.getElementById("songSelect").value ? parseFloat(document.getElementById("songSelect").value) : null,
+      }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -604,7 +839,9 @@ function renderResults(data) {
       const card = cardMap[mid];
       if (!card) continue;
       const isLeader = mid === r.leader_id;
-      const s = card.stats;
+      const pot = getCardPotential(mid);
+      const lv = getCardLevel(mid);
+      const s = getCardStats(card, pot, lv);
       html += `<div class="member-card${isLeader ? " is-leader" : ""}">
         <span class="type-badge type-${card.type}" style="float:right;margin-top:2px">${TYPE_LABELS[card.type]}</span>
         <div class="m-name">${card.character}</div>
@@ -614,6 +851,7 @@ function renderResults(data) {
           <span>T:${s.technique.toLocaleString()}</span>
           <span>S:${s.sense.toLocaleString()}</span>
         </div>
+        <div class="m-pot-lv">${pot}凸${levelEnabled ? ` Lv${lv}` : ''}</div>
       </div>`;
     }
     html += `</div>`;

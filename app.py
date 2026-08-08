@@ -1,5 +1,6 @@
 """FastAPI サーバー — HoloSolve"""
 
+import json
 from pathlib import Path
 
 import uvicorn
@@ -7,7 +8,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, field_validator
 
-from solver import calibrate, load_cards, optimize_order, solve
+from solver import _load_card_data, calibrate, load_cards, resolve_card, solve
 
 app = FastAPI(title="HoloSolve")
 
@@ -18,12 +19,36 @@ def _card_map():
     return {c["id"]: c for c in load_cards()}
 
 
+class CardSpec(BaseModel):
+    id: str
+    potential: int = 0
+    level: int | None = None
+
+
+class CardPotentialSpec(BaseModel):
+    potential: int = 0
+    level: int | None = None
+
+
+def _validate_song_length(v):
+    if v is not None and v <= 0:
+        raise ValueError("song_length must be positive")
+    return v
+
+
 class SolveRequest(BaseModel):
-    card_ids: list[str]
+    card_ids: list[str] | None = None
+    cards: list[CardSpec] | None = None
     stat_scale: float = 1.0
     baseline: float = 0
     fixed_leader_id: str | None = None
     top_n: int = 10
+    song_length: float | None = None
+
+    @field_validator("song_length")
+    @classmethod
+    def check_song_length(cls, v):
+        return _validate_song_length(v)
 
 
 class CalibrateRequest(BaseModel):
@@ -32,6 +57,13 @@ class CalibrateRequest(BaseModel):
     game_score_1: int
     leader_id_2: str
     game_score_2: int
+    card_specs: dict[str, CardPotentialSpec] | None = None
+    song_length: float | None = None
+
+    @field_validator("song_length")
+    @classmethod
+    def check_song_length(cls, v):
+        return _validate_song_length(v)
 
     @field_validator("member_ids")
     @classmethod
@@ -48,18 +80,47 @@ async def index():
 
 @app.get("/api/cards")
 async def get_cards():
-    return {"cards": load_cards()}
+    data = _load_card_data()
+    return {"cards": load_cards(), "level_tables": data.get("level_tables", {})}
+
+
+@app.get("/api/songs")
+async def get_songs():
+    songs_path = ROOT / "data" / "songs.json"
+    if songs_path.exists():
+        with open(songs_path, encoding="utf-8") as f:
+            return json.load(f)
+    return {"songs": []}
 
 
 @app.post("/api/solve")
 def post_solve(req: SolveRequest):
     cm = _card_map()
-    if not req.card_ids:
-        actual = list(cm.keys())
+
+    if req.cards is not None:
+        if not req.cards:
+            actual = [{"id": cid, "potential": 0} for cid in cm.keys()]
+            dropped = 0
+        else:
+            card_specs = [{"id": c.id, "potential": c.potential, "level": c.level} for c in req.cards]
+            actual_ids = [c.id for c in req.cards if c.id in cm]
+            dropped = len(req.cards) - len(actual_ids)
+            actual = [s for s in card_specs if s["id"] in cm]
+    elif req.card_ids is not None:
+        if not req.card_ids:
+            actual = [{"id": cid, "potential": 0} for cid in cm.keys()]
+            dropped = 0
+        else:
+            actual = [{"id": cid, "potential": 0} for cid in req.card_ids if cid in cm]
+            dropped = len(req.card_ids) - len(actual)
     else:
-        actual = [cid for cid in req.card_ids if cid in cm]
-    dropped = len(req.card_ids) - len(actual)
-    result = solve(actual, top_n=req.top_n, stat_scale=req.stat_scale, baseline=req.baseline, fixed_leader_id=req.fixed_leader_id)
+        actual = [{"id": cid, "potential": 0} for cid in cm.keys()]
+        dropped = 0
+
+    kwargs = dict(top_n=req.top_n, stat_scale=req.stat_scale, baseline=req.baseline, fixed_leader_id=req.fixed_leader_id)
+    if req.song_length is not None:
+        kwargs["song_length"] = req.song_length
+    result = solve(actual, **kwargs)
     if dropped > 0:
         result["warnings"] = [f"{dropped}枚の不明なカードIDを除外しました"]
     return result
@@ -77,15 +138,32 @@ def post_calibrate(req: CalibrateRequest):
         raise HTTPException(status_code=400, detail="異なるリーダーを選んでください")
     if req.game_score_1 <= 0 or req.game_score_2 <= 0:
         raise HTTPException(status_code=400, detail="スコアは正の整数で入力してください")
-    chars = [cm[mid]["character"] for mid in req.member_ids]
+
+    card_specs_dict = {}
+    if req.card_specs:
+        for cid, spec in req.card_specs.items():
+            card_specs_dict[cid] = {"potential": spec.potential, "level": spec.level}
+
+    resolved_cards = []
+    for mid in req.member_ids:
+        spec = card_specs_dict.get(mid, {})
+        resolved_cards.append(resolve_card(cm[mid], potential=spec.get("potential", 0), level=spec.get("level")))
+
+    chars = [c["character"] for c in resolved_cards]
     if len(set(chars)) < 5:
         raise HTTPException(status_code=400, detail="同キャラの別カードは同時編成できません")
+
+    kwargs = dict(card_specs=card_specs_dict)
+    if req.song_length is not None:
+        kwargs["song_length"] = req.song_length
+
     return calibrate(
         req.member_ids,
         req.leader_id_1,
         req.game_score_1,
         req.leader_id_2,
         req.game_score_2,
+        **kwargs,
     )
 
 
