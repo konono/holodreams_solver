@@ -37,12 +37,19 @@
              + スペシャルスキル%
 ```
 
-| 項目 | 計算式 | 実測値例 |
+| 項目 | 計算式 (v2) | 備考 |
 |---|---|---|
-| アクティブスキル | `52.89 + Σ(score_up × duration / interval) / 12.82` | 67.1% |
-| 衣装SS | `衣装スコアサポート% × 0.68` | 17.0% |
-| パッシブSB | `サポートSS合計% × 0.20` | 7.2% |
-| スペシャルスキル | `Σ(SS効果% × 効果秒数) / 192` | 39.1% |
+| アクティブスキル | `52.89 + E[max(score_up × uptime)] / 12.82` | Expected Maximum + 発動率 + SP発動率UP |
+| 衣装SS | `衣装スコアサポート% × 0.68` | |
+| パッシブSB | `サポートSS合計% × 0.20` | |
+| スペシャルスキル | `Σ(SS効果% × 効果秒数) / 曲長` | デフォルト192秒、曲選択で可変 |
+
+v2 Active詳細:
+```
+uptime = min(1, duration / interval × boosted_prob)
+boosted_prob = base_prob + Σ(SP発動率UP × SP継続 / 曲長)
+E[max] = Σ(score_up_i × uptime_i × Π(j<i: 1 - uptime_j))  ※value降順
+```
 
 ### 定数 2.037
 
@@ -191,3 +198,38 @@ SS を最大化するより、アクティブスキルとスペシャルスキ�
 ### 基準曲長 192秒
 
 スペシャルスキル%の計算に使用する192秒は実測から推定した値。曲によって長さが異なる場合、スペシャル%の値がゲーム表示と若干ずれる可能性がある。
+
+v2では曲セレクターで個別の曲の長さ（`playingSeconds`）を使用可能。
+
+## v2 改善事項
+
+### データソース移行
+
+v1: appmedia攻略サイトから手入力（0凸max level値）
+v2: HolodoriDBから自動生成（0〜4凸、任意レベル対応）
+
+### ゲーム公式係数 K=2.3 について
+
+HolodoriDB `Setting.json` の `liveDeckEvaluationCoefficientPermilMultiply = 2300` により、
+ゲーム公式のデッキ評価係数は **2.3** であることが判明した。
+
+HoloSolveの経験定数 `UNIT_SCORE_K = 2.037` はこの2.3に加えて、曲別スコア係数
+（`liveScoreCoefficientPermil` = 2〜9）、コンボボーナス（最大+10%）、ノート種別係数
+（フリック1.05x等）を一つの係数に圧縮した近似値である。
+
+K=2.3へ単純置換するとこれらの未モデル化要因を別途補う必要があるため、
+現時点では経験式 K=2.037 を維持する。キャリブレーション（stat_scale + baseline）
+により個々のユーザー環境で吸収される。
+
+### アクティブスキル: Expected Maximum + 発動率
+
+v2ではExpected Maximumモデルを採用。各ノートで最強のActive 1つだけがスコアに貢献する。
+
+```
+uptime_i = min(1, duration_i / interval_i × boosted_prob_i)
+boosted_prob_i = base_prob_i + Σ(SP発動率UP × SP継続 / 曲長)
+E[max] = Σ(score_up_i × uptime_i × Π(j<i: 1 - uptime_j))  ※value降順ソート
+active_pct = 52.89 + E[max] / 12.82
+```
+
+v1ではΣ線形和で全員のActiveを合算し、発動率も無視していた。

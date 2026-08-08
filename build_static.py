@@ -18,6 +18,7 @@ from solver import (
     SONG_LENGTH,
     SUPPORT_SS_RATE,
     UNIT_SCORE_K,
+    _load_card_data,
     load_cards,
 )
 
@@ -33,6 +34,59 @@ const ACTIVE_DIVISOR = {ACTIVE_DIVISOR};
 const COSTUME_SS_RATE = {COSTUME_SS_RATE};
 const SUPPORT_SS_RATE = {SUPPORT_SS_RATE};
 const SONG_LENGTH = {SONG_LENGTH};
+const MAX_LEVEL = 80;
+
+function resolveCard(card, potential, level, levelTables) {{
+  const pd = card.potential_data;
+  if (!pd) return card;
+  const pot = Math.max(0, Math.min(potential, pd.length - 1));
+  const snap = pd[pot];
+  if (!snap) return card;
+
+  const resolved = {{
+    id: card.id,
+    holodori_id: card.holodori_id || "",
+    character: card.character,
+    card_name: card.card_name || "",
+    rarity: card.rarity || 5,
+    type: card.type,
+    group: card.group,
+    potential: pot,
+    center_skill: snap.center_skill,
+    support_skill: snap.support_skill,
+    costume_skill: snap.costume_skill,
+    special_skill: snap.special_skill,
+  }};
+  if (card.variant) resolved.variant = card.variant;
+
+  const actualLv = Math.max(1, Math.min(level || MAX_LEVEL, MAX_LEVEL));
+  resolved.level = actualLv;
+
+  if (actualLv === 80) {{
+    resolved.stats = {{ ...(snap.ref_stats_lv80 || snap.stats) }};
+  }} else {{
+    const table = levelTables[card.card_level_group_id];
+    if (table) {{
+      const baseValue = table[String(actualLv)];
+      if (baseValue) {{
+        const permil = card.permil || {{}};
+        const bonus = snap.param_bonus_permil || 0;
+        const mul = 1000 + bonus;
+        function cd(a, b) {{ return Math.floor((a + b - 1) / b); }}
+        resolved.stats = {{
+          performance: cd(baseValue * (permil.performance || 333) * mul, 1000000),
+          technique: cd(baseValue * (permil.technique || 333) * mul, 1000000),
+          sense: cd(baseValue * (permil.sense || 334) * mul, 1000000),
+        }};
+      }} else {{
+        resolved.stats = {{ ...(snap.ref_stats_lv80 || snap.stats) }};
+      }}
+    }} else {{
+      resolved.stats = {{ ...(snap.ref_stats_lv80 || snap.stats) }};
+    }}
+  }}
+  return resolved;
+}}
 
 function countTypes(team) {{
   const c = {{happy:0, pure:0, cute:0}};
@@ -44,26 +98,35 @@ function countGroups(team) {{
   for (const card of team) c[card.group] = (c[card.group]||0) + 1;
   return c;
 }}
-function checkCond(cond, tc, gc) {{
+function checkCond(cond, tc, gc, leader) {{
   if (!cond) return true;
+  if (typeof cond === "string") return false;
   if (cond.type === "type_count") return (tc[cond.type_name]||0) >= cond.min_count;
   if (cond.type === "group_count") return (gc[cond.group]||0) >= cond.min_count;
+  if (cond.type === "leader_character" && leader) {{
+    const hid = leader.holodori_id || "";
+    const parts = hid.split("-");
+    const charId = parts.length >= 2 ? "chr-" + parts[1] : "";
+    return (cond.character_ids || []).includes(charId);
+  }}
+  if (cond.type === "leader_group" && leader) return leader.group === cond.group;
   return false;
 }}
 function checkCenterTypeCond(cond, tc) {{
   if (!cond) return false;
   if (cond === "life_600" || cond === "combo_40") return false;
-  if (cond.endsWith("_2")) return (tc[cond.slice(0,-2)]||0) >= 2;
+  if (typeof cond === "string" && cond.endsWith("_2")) return (tc[cond.slice(0,-2)]||0) >= 2;
   return false;
 }}
 
-function evaluateTeam(team, leaderIdx) {{
+function evaluateTeam(team, leaderIdx, songLen) {{
+  const SLEN = songLen || SONG_LENGTH;
   const leader = team[leaderIdx];
   const tc = countTypes(team), gc = countGroups(team);
 
   let cpr=0, ctr=0, csr=0, costumeSS=0;
   const cs = leader.costume_skill;
-  if (checkCond(cs.condition, tc, gc)) {{
+  if (checkCond(cs.condition, tc, gc, leader)) {{
     for (const e of cs.effects) {{
       const v = e.value / 100;
       if (e.stat === "score_support") {{ costumeSS += v; continue; }}
@@ -79,7 +142,7 @@ function evaluateTeam(team, leaderIdx) {{
   for (let idx = 0; idx < team.length; idx++) {{
     const card = team[idx], sk = card.support_skill;
     const et = sk.effect_type;
-    if (!checkCond(sk.condition, tc, gc)) continue;
+    if (!checkCond(sk.condition, tc, gc, leader)) continue;
 
     if (et === "self_all_param" || et === "self_all_param_conditional") {{
       const s = card.stats;
@@ -112,25 +175,52 @@ function evaluateTeam(team, leaderIdx) {{
           applied++;
         }}
       }}
-    }} else if (et === "group_score_support_conditional") {{
+    }} else if (et === "group_score_support_conditional" || et === "group_score_support") {{
       const req = sk.target.count || 2;
       if ((gc[sk.target.group]||0) >= req) supportSS += sk.value / 100;
+    }} else if (et === "self_stat") {{
+      supportBonus[idx] += (card.stats[sk.stat]||0) * sk.value / 100;
+    }} else if (et === "group_all_param" || et === "group_all_param_conditional") {{
+      let applied = 0;
+      for (let i = 0; i < team.length && applied < sk.target.count; i++) {{
+        if (team[i].group === sk.target.group) {{
+          const ss = team[i].stats;
+          supportBonus[i] += (ss.performance + ss.technique + ss.sense) * sk.value / 100;
+          applied++;
+        }}
+      }}
     }}
   }}
 
-  let activeSum = 0;
+  let rateUpTimeAvg = 0;
+  for (const c of team) {{
+    const sp = c.special_skill;
+    if (sp && sp.skill_rate_up > 0)
+      rateUpTimeAvg += sp.skill_rate_up * 10 * sp.duration / SLEN;
+  }}
+
+  const activeMembers = [];
   for (const card of team) {{
     const cs2 = card.center_skill;
     let su = cs2.score_up;
     if (cs2.condition && checkCenterTypeCond(cs2.condition, tc))
       su = cs2.conditional_score_up || su;
-    activeSum += su * cs2.duration / cs2.interval;
+    const baseProb = (cs2.activation_probability_permil || 1000) / 1000;
+    const boostedProb = Math.min(1, baseProb + rateUpTimeAvg / 1000);
+    const uptime = Math.min(1, cs2.duration / cs2.interval * boostedProb);
+    activeMembers.push({{ value: su, uptime }});
+  }}
+  activeMembers.sort((a,b) => b.value - a.value);
+  let activeSum = 0, probNoneHigher = 1;
+  for (const m of activeMembers) {{
+    activeSum += m.value * m.uptime * probNoneHigher;
+    probNoneHigher *= (1 - m.uptime);
   }}
   const activePct = ACTIVE_BASE + activeSum / ACTIVE_DIVISOR;
   const costumeSbPct = costumeSS * 100 * COSTUME_SS_RATE;
   const passiveSbPct = supportSS * 100 * SUPPORT_SS_RATE;
   const specialPct = team.reduce((s,c) =>
-    s + (c.special_skill ? c.special_skill.score_support * c.special_skill.duration / SONG_LENGTH : 0), 0);
+    s + (c.special_skill ? c.special_skill.score_support * c.special_skill.duration / SLEN : 0), 0);
   const scoreBonus = activePct + costumeSbPct + passiveSbPct + specialPct;
 
   const totalPerf = team.reduce((s,c) => s + c.stats.performance, 0);
@@ -149,13 +239,40 @@ function evaluateTeam(team, leaderIdx) {{
 }}
 
 self.onmessage = function(e) {{
-  const {{ cards, fixedLeaderId, topN }} = e.data;
-  const n = cards.length;
+  const {{ cards, fixedLeaderId, topN, potentials, levels, levelTables, songLength }} = e.data;
+  const SLEN = songLength || SONG_LENGTH;
+
+  const resolved = cards.map(c => {{
+    const pot = potentials[c.id] ?? 0;
+    const lv = levels[c.id] ?? MAX_LEVEL;
+    return resolveCard(c, pot, lv, levelTables || {{}});
+  }});
+
+  const charGroups = {{}};
+  for (const c of resolved) {{
+    if (!charGroups[c.character]) charGroups[c.character] = [];
+    charGroups[c.character].push(c);
+  }}
+  const charNames = Object.keys(charGroups).sort((a,b) =>
+    Math.max(...charGroups[b].map(c=>c.stats.performance+c.stats.technique+c.stats.sense)) -
+    Math.max(...charGroups[a].map(c=>c.stats.performance+c.stats.technique+c.stats.sense)));
+  const nChars = charNames.length;
+
   const results = [];
   let count = 0;
 
-  function comb(n,k) {{ let r=1; for(let i=0;i<k;i++) r=r*(n-i)/(i+1); return Math.round(r); }}
-  const totalEst = fixedLeaderId ? comb(n-1,4) : comb(n,5);
+  const charSizes = charNames.map(ch => charGroups[ch].length);
+  let totalEst = 0;
+  if (fixedLeaderId) {{
+    const leaderCh = (resolved.find(c => c.id === fixedLeaderId) || {{}}).character;
+    const otherIdx = charNames.map((ch, i) => i).filter(i => charNames[i] !== leaderCh);
+    const m = otherIdx.length;
+    for (let a=0;a<m-3;a++) for (let b=a+1;b<m-2;b++) for (let ci=b+1;ci<m-1;ci++) for (let d=ci+1;d<m;d++)
+      totalEst += charSizes[otherIdx[a]] * charSizes[otherIdx[b]] * charSizes[otherIdx[ci]] * charSizes[otherIdx[d]];
+  }} else {{
+    for (let a=0;a<nChars-4;a++) for (let b=a+1;b<nChars-3;b++) for (let ci=b+1;ci<nChars-2;ci++) for (let d=ci+1;d<nChars-1;d++) for (let f=d+1;f<nChars;f++)
+      totalEst += charSizes[a] * charSizes[b] * charSizes[ci] * charSizes[d] * charSizes[f];
+  }}
   const reportAt = Math.max(1, Math.floor(totalEst / 40));
 
   function pushResult(r) {{
@@ -164,35 +281,43 @@ self.onmessage = function(e) {{
   }}
 
   if (fixedLeaderId) {{
-    const leaderCard = cards.find(c => c.id === fixedLeaderId);
-    const others = cards.filter(c => c.id !== fixedLeaderId);
-    const m = others.length;
-    for (let a=0;a<m-3;a++) for (let b=a+1;b<m-2;b++) for (let c=b+1;c<m-1;c++) for (let d=c+1;d<m;d++) {{
-      const team = [leaderCard, others[a], others[b], others[c], others[d]];
-      if (new Set(team.map(x=>x.character)).size < 5) continue;
-      count++;
-      const r = evaluateTeam(team, 0);
-      r.teamIds = team.map(x=>x.id);
-      pushResult(r);
-      if (count % reportAt === 0) self.postMessage({{type:"progress",current:count,total:totalEst}});
+    const leaderCard = resolved.find(c => c.id === fixedLeaderId);
+    if (!leaderCard) {{
+      self.postMessage({{type:"done", results:[], totalCombinations:0}});
+      return;
+    }}
+    const leaderChar = leaderCard.character;
+    const otherChars = charNames.filter(ch => ch !== leaderChar);
+    const m = otherChars.length;
+    for (let a=0;a<m-3;a++) for (let b=a+1;b<m-2;b++) for (let ci=b+1;ci<m-1;ci++) for (let d=ci+1;d<m;d++) {{
+      const gs = [charGroups[otherChars[a]], charGroups[otherChars[b]], charGroups[otherChars[ci]], charGroups[otherChars[d]]];
+      for (const c0 of gs[0]) for (const c1 of gs[1]) for (const c2 of gs[2]) for (const c3 of gs[3]) {{
+        const team = [leaderCard, c0, c1, c2, c3];
+        count++;
+        const r = evaluateTeam(team, 0, SLEN);
+        r.teamIds = team.map(x=>x.id);
+        pushResult(r);
+        if (count % reportAt === 0) self.postMessage({{type:"progress",current:count,total:totalEst}});
+      }}
     }}
   }} else {{
-    for (let a=0;a<n-4;a++) for (let b=a+1;b<n-3;b++) for (let c=b+1;c<n-2;c++) for (let d=c+1;d<n-1;d++) for (let f=d+1;f<n;f++) {{
-      const team = [cards[a],cards[b],cards[c],cards[d],cards[f]];
-      if (new Set(team.map(x=>x.character)).size < 5) continue;
-      count++;
-      let best = null;
-      for (let li=0;li<5;li++) {{
-        const r = evaluateTeam(team, li);
-        if (!best || r.unitScore > best.unitScore) best = r;
+    for (let a=0;a<nChars-4;a++) for (let b=a+1;b<nChars-3;b++) for (let ci=b+1;ci<nChars-2;ci++) for (let d=ci+1;d<nChars-1;d++) for (let f=d+1;f<nChars;f++) {{
+      const gs = [charGroups[charNames[a]], charGroups[charNames[b]], charGroups[charNames[ci]], charGroups[charNames[d]], charGroups[charNames[f]]];
+      for (const c0 of gs[0]) for (const c1 of gs[1]) for (const c2 of gs[2]) for (const c3 of gs[3]) for (const c4 of gs[4]) {{
+        const team = [c0, c1, c2, c3, c4];
+        count++;
+        let best = null;
+        for (let li=0;li<5;li++) {{
+          const r = evaluateTeam(team, li, SLEN);
+          if (!best || r.unitScore > best.unitScore) best = r;
+        }}
+        best.teamIds = team.map(x=>x.id);
+        pushResult(best);
+        if (count % reportAt === 0) self.postMessage({{type:"progress",current:count,total:totalEst}});
       }}
-      best.teamIds = team.map(x=>x.id);
-      pushResult(best);
-      if (count % reportAt === 0) self.postMessage({{type:"progress",current:count,total:totalEst}});
     }}
   }}
 
-  // 配置最適化: Top結果の非リーダー4人の並び順を全24通り試す
   function permutations(arr) {{
     if (arr.length <= 1) return [arr];
     const result = [];
@@ -203,15 +328,18 @@ self.onmessage = function(e) {{
     return result;
   }}
 
+  const resolvedMap = {{}};
+  for (const c of resolved) resolvedMap[c.id] = c;
+
   for (let ri = 0; ri < results.length; ri++) {{
     const r = results[ri];
-    const leaderCard = cards.find(c => c.id === r.teamIds[r.leaderIdx]);
-    const otherCards = r.teamIds.filter((_,i) => i !== r.leaderIdx).map(id => cards.find(c => c.id === id));
+    const leaderCard = resolvedMap[r.teamIds[r.leaderIdx]];
+    const otherCards = r.teamIds.filter((_,i) => i !== r.leaderIdx).map(id => resolvedMap[id]);
     const indices = otherCards.map((_,i) => i);
 
     for (const perm of permutations(indices)) {{
       const team = [leaderCard, ...perm.map(i => otherCards[i])];
-      const score = evaluateTeam(team, 0);
+      const score = evaluateTeam(team, 0, SLEN);
       if (score.unitScore > r.unitScore) {{
         score.teamIds = team.map(c => c.id);
         score.leaderIdx = 0;
@@ -232,8 +360,17 @@ self.onmessage = function(e) {{
 
 
 def build():
+    card_data = _load_card_data()
     cards = list(load_cards())
+    level_tables = card_data.get("level_tables", {})
     cards_json = json.dumps(cards, ensure_ascii=False)
+    level_tables_json = json.dumps(level_tables, ensure_ascii=False)
+    songs_path = ROOT / "data" / "songs.json"
+    songs = []
+    if songs_path.exists():
+        with open(songs_path, encoding="utf-8") as f:
+            songs = json.load(f).get("songs", [])
+    songs_json = json.dumps(songs, ensure_ascii=False)
     solver_js = _generate_solver_js()
 
     with open(ROOT / "index.html", encoding="utf-8") as f:
@@ -288,6 +425,19 @@ def build():
     <span class="counter">選択: <strong id="selectedCount">0</strong> / <span id="totalCount">-</span> <span id="limitWarn" style="color:#f06060;font-size:0.75rem"></span></span>
   </div>
 
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:0.85rem;color:#8899aa;flex-wrap:wrap">
+    <label>凸:</label>
+    <button class="btn-pot-global" id="btnPot0">全て0凸</button>
+    <button class="btn-pot-global" id="btnPot4">全て4凸</button>
+    <span style="color:#3a4f66">|</span>
+    <label style="cursor:pointer"><input type="checkbox" id="chkLevelEnabled" style="vertical-align:middle;margin-right:2px">Lv設定</label>
+    <span style="color:#3a4f66">|</span>
+    <label>曲:</label>
+    <select id="songSelect" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:4px 6px;border-radius:4px;font-size:0.75rem;max-width:200px">
+      <option value="">汎用（192秒）</option>
+    </select>
+  </div>
+
   <div id="cardArea"></div>
 
   <div class="progress-area" id="progressArea">
@@ -300,13 +450,72 @@ def build():
 
 <script>
 const CARDS = {cards_json};
+const LEVEL_TABLES = {level_tables_json};
+const SONGS = {songs_json};
 const GROUP_ORDER = ["0期生","1期生","2期生","ゲーマーズ","3期生","4期生","5期生","holoX","ID1期生","ID2期生","ID3期生","Myth","Promise","Advent","ReGLOSS","水着"];
 const TYPE_LABELS = {{happy:"Happy",pure:"Pure",cute:"Cute"}};
+const MAX_LEVEL = 80;
 
 let cardMap = {{}};
 for (const c of CARDS) cardMap[c.id] = c;
 const selected = new Set();
 let activeFilter = "all";
+
+let defaultPotential = 0;
+const cardPotentials = {{}};
+const cardLevels = {{}};
+let levelEnabled = false;
+
+function getCardPotential(id) {{ return cardPotentials[id] ?? defaultPotential; }}
+function getCardLevel(id) {{
+  if (!levelEnabled) return 80;
+  if (cardLevels[id] != null) return cardLevels[id];
+  return 40;
+}}
+
+function getCardStats(card, potential, level) {{
+  const pd = card.potential_data;
+  if (!pd) return card.stats;
+  const snap = pd[Math.min(potential, pd.length - 1)];
+  if (!snap) return card.stats;
+  const actualLv = Math.max(1, Math.min(level || MAX_LEVEL, MAX_LEVEL));
+  if (actualLv === MAX_LEVEL) return snap.ref_stats_lv80 || snap.stats;
+  const table = LEVEL_TABLES[card.card_level_group_id];
+  if (!table) return snap.ref_stats_lv80 || snap.stats;
+  const baseValue = table[String(actualLv)];
+  if (!baseValue) return snap.ref_stats_lv80 || snap.stats;
+  const permil = card.permil || {{}};
+  const bonus = snap.param_bonus_permil || 0;
+  const mul = 1000 + bonus;
+  function cd(a, b) {{ return Math.floor((a + b - 1) / b); }}
+  return {{
+    performance: cd(baseValue * (permil.performance || 333) * mul, 1000000),
+    technique: cd(baseValue * (permil.technique || 333) * mul, 1000000),
+    sense: cd(baseValue * (permil.sense || 334) * mul, 1000000),
+  }};
+}}
+
+function loadPersistence() {{
+  try {{
+    const sp = localStorage.getItem("holodri_card_potentials");
+    if (sp) Object.assign(cardPotentials, JSON.parse(sp));
+    const sl = localStorage.getItem("holodri_card_levels");
+    if (sl) Object.assign(cardLevels, JSON.parse(sl));
+    const dp = localStorage.getItem("holodri_default_potential");
+    if (dp != null) defaultPotential = parseInt(dp) || 0;
+    const le = localStorage.getItem("holodri_level_enabled");
+    if (le != null) levelEnabled = le === "true";
+  }} catch {{}}
+}}
+
+function savePersistence() {{
+  localStorage.setItem("holodri_card_potentials", JSON.stringify(cardPotentials));
+  localStorage.setItem("holodri_card_levels", JSON.stringify(cardLevels));
+  localStorage.setItem("holodri_default_potential", String(defaultPotential));
+  localStorage.setItem("holodri_level_enabled", String(levelEnabled));
+}}
+
+loadPersistence();
 
 function groupCards() {{
   const groups = {{}};
@@ -334,26 +543,96 @@ function renderCards() {{
     for (const card of filtered) {{
       const el = document.createElement("div");
       el.className = "card" + (selected.has(card.id) ? " selected" : "");
-      const s = card.stats;
+      const pot = getCardPotential(card.id);
+      const lv = getCardLevel(card.id);
+      const s = getCardStats(card, pot, lv);
       el.innerHTML = `
         <div class="char-name">${{card.character}}</div>
         <div class="card-name">${{card.card_name}}</div>
         <span class="type-badge type-${{card.type}}">${{TYPE_LABELS[card.type]}}</span>
-        <div class="stats">
+        <div class="stats" data-card-id="${{card.id}}">
           <span>P:${{s.performance.toLocaleString()}}</span>
           <span>T:${{s.technique.toLocaleString()}}</span>
           <span>S:${{s.sense.toLocaleString()}}</span>
+        </div>
+        <div class="pot-row">
+          <span class="pot-label">凸:</span>
+          ${{[0,1,2,3,4].map(p => `<button class="pot-btn${{p === pot ? ' active' : ''}}" data-pot="${{p}}" data-card="${{card.id}}">${{p}}</button>`).join("")}}
+        </div>
+        <div class="lv-row" style="${{levelEnabled ? '' : 'display:none'}}">
+          <span class="lv-label">Lv:</span>
+          <button class="lv-btn" data-delta="-10" data-card="${{card.id}}">-10</button>
+          <input class="lv-input" type="number" value="${{lv}}" min="1" max="${{MAX_LEVEL}}" data-card="${{card.id}}">
+          <button class="lv-btn" data-delta="10" data-card="${{card.id}}">+10</button>
         </div>`;
-      el.addEventListener("click", () => {{
-        if (selected.has(card.id)) {{ selected.delete(card.id); el.classList.remove("selected"); }}
-        else {{ selected.add(card.id); el.classList.add("selected"); }}
-        updateCounter();
+
+      el.querySelector(".char-name").addEventListener("click", () => toggleCard(card.id, el));
+      el.querySelector(".card-name").addEventListener("click", () => toggleCard(card.id, el));
+      el.querySelector(".type-badge").addEventListener("click", () => toggleCard(card.id, el));
+
+      el.querySelectorAll(".pot-btn").forEach(btn => {{
+        btn.addEventListener("click", (e) => {{
+          e.stopPropagation();
+          const newPot = parseInt(btn.dataset.pot);
+          cardPotentials[card.id] = newPot;
+
+          savePersistence();
+          updateCardDisplay(card.id, el);
+        }});
       }});
+
+      el.querySelectorAll(".lv-btn").forEach(btn => {{
+        btn.addEventListener("click", (e) => {{
+          e.stopPropagation();
+          const delta = parseInt(btn.dataset.delta);
+          const currentLv = getCardLevel(card.id);
+          const newLv = Math.max(1, Math.min(currentLv + delta, MAX_LEVEL));
+          cardLevels[card.id] = newLv;
+          savePersistence();
+          updateCardDisplay(card.id, el);
+        }});
+      }});
+
+      const lvInput = el.querySelector(".lv-input");
+      lvInput.addEventListener("click", (e) => e.stopPropagation());
+      lvInput.addEventListener("change", (e) => {{
+        e.stopPropagation();
+        const newLv = Math.max(1, Math.min(parseInt(lvInput.value) || 1, MAX_LEVEL));
+        cardLevels[card.id] = newLv;
+        lvInput.value = newLv;
+        savePersistence();
+        updateCardDisplay(card.id, el);
+      }});
+
       grid.appendChild(el);
     }}
     section.appendChild(grid);
     area.appendChild(section);
   }}
+}}
+
+function updateCardDisplay(cardId, el) {{
+  const card = cardMap[cardId];
+  const pot = getCardPotential(cardId);
+  const lv = getCardLevel(cardId);
+  const s = getCardStats(card, pot, lv);
+  const statsEl = el.querySelector(".stats");
+  statsEl.innerHTML = `
+    <span>P:${{s.performance.toLocaleString()}}</span>
+    <span>T:${{s.technique.toLocaleString()}}</span>
+    <span>S:${{s.sense.toLocaleString()}}</span>`;
+  el.querySelectorAll(".pot-btn").forEach(btn => {{
+    btn.classList.toggle("active", parseInt(btn.dataset.pot) === pot);
+  }});
+  const lvInput = el.querySelector(".lv-input");
+  lvInput.value = lv;
+  lvInput.max = MAX_LEVEL;
+}}
+
+function toggleCard(id, el) {{
+  if (selected.has(id)) {{ selected.delete(id); el.classList.remove("selected"); }}
+  else {{ selected.add(id); el.classList.add("selected"); }}
+  updateCounter();
 }}
 
 function updateCounter() {{
@@ -380,6 +659,34 @@ document.getElementById("btnSelectAll").addEventListener("click", () => {{
   renderCards(); updateCounter();
 }});
 document.getElementById("btnClear").addEventListener("click", () => {{ selected.clear(); renderCards(); updateCounter(); }});
+
+document.getElementById("btnPot0").addEventListener("click", () => {{
+  defaultPotential = 0;
+  for (const c of CARDS) cardPotentials[c.id] = 0;
+  savePersistence(); renderCards();
+}});
+document.getElementById("btnPot4").addEventListener("click", () => {{
+  defaultPotential = 4;
+  for (const c of CARDS) cardPotentials[c.id] = 4;
+  savePersistence(); renderCards();
+}});
+
+const chkLevel = document.getElementById("chkLevelEnabled");
+chkLevel.checked = levelEnabled;
+chkLevel.addEventListener("change", () => {{
+  levelEnabled = chkLevel.checked;
+  savePersistence();
+  renderCards();
+}});
+
+const songSel = document.getElementById("songSelect");
+for (const s of SONGS) {{
+  const opt = document.createElement("option");
+  opt.value = s.playing_seconds;
+  opt.textContent = `${{s.name}} (${{s.playing_seconds}}秒)`;
+  songSel.appendChild(opt);
+}}
+
 document.getElementById("btnCopyIds").addEventListener("click", () => {{
   navigator.clipboard.writeText(JSON.stringify([...selected])).then(() => {{
     const b = document.getElementById("btnCopyIds"); b.textContent = "コピー済!"; setTimeout(() => b.textContent = "IDコピー", 1500);
@@ -416,9 +723,24 @@ document.getElementById("btnSolve").addEventListener("click", () => {{
 
   const owned = selected.size === 0 ? CARDS : CARDS.filter(c => selected.has(c.id));
   const fixedLeaderId = document.getElementById("fixedLeader").value || null;
-  const w = new Worker(workerBlob);
-  w.postMessage({{ cards: owned, fixedLeaderId, topN: parseInt(document.getElementById("topN").value) }});
 
+  const potentials = {{}};
+  const levels = {{}};
+  for (const c of owned) {{
+    potentials[c.id] = getCardPotential(c.id);
+    levels[c.id] = getCardLevel(c.id);
+  }}
+
+  const w = new Worker(workerBlob);
+  const selSong = document.getElementById("songSelect").value;
+  w.postMessage({{ cards: owned, fixedLeaderId, topN: parseInt(document.getElementById("topN").value), potentials, levels, levelTables: LEVEL_TABLES, songLength: selSong ? parseFloat(selSong) : null }});
+
+  w.onerror = function() {{
+    w.terminate();
+    btn.disabled = false; btn.textContent = "最強編成を探す";
+    pa.classList.remove("visible");
+    document.getElementById("resultsArea").innerHTML = '<div class="empty-msg">計算中にエラーが発生しました。</div>';
+  }};
   w.onmessage = function(ev) {{
     if (ev.data.type === "progress") {{
       const pct = Math.min(100, ev.data.current / ev.data.total * 100);
@@ -458,7 +780,9 @@ function renderResults(data) {{
     for (const mid of r.member_ids) {{
       const card = cardMap[mid]; if (!card) continue;
       const isLeader = mid === r.leader_id;
-      const s = card.stats;
+      const pot = getCardPotential(mid);
+      const lv = getCardLevel(mid);
+      const s = getCardStats(card, pot, lv);
       html += `<div class="member-card${{isLeader?" is-leader":""}}">
         <span class="type-badge type-${{card.type}}" style="float:right;margin-top:2px">${{TYPE_LABELS[card.type]}}</span>
         <div class="m-name">${{card.character}}</div>
@@ -468,6 +792,7 @@ function renderResults(data) {{
           <span>T:${{s.technique.toLocaleString()}}</span>
           <span>S:${{s.sense.toLocaleString()}}</span>
         </div>
+        <div class="m-pot-lv">${{pot}}凸${{levelEnabled ? ` Lv${{lv}}` : ''}}</div>
       </div>`;
     }}
     html += `</div></div>`;
