@@ -207,9 +207,44 @@ header p { color: #8899aa; font-size: 0.85rem; margin-top: 4px; }
   font-size: 0.9rem;
 }
 
+.history-entry {
+  background: #1a2735; border: 1px solid #2a3a4a; border-radius: 8px;
+  padding: 10px 12px; margin-bottom: 8px; font-size: 0.8rem;
+}
+.history-entry .h-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 4px; flex-wrap: wrap; gap: 6px;
+}
+.history-entry .h-time { color: #6b7f92; font-size: 0.75rem; }
+.history-entry .h-score { color: #4f8cff; font-weight: 700; }
+.h-btn {
+  background: #1e2d3d; color: #8899aa; border: 1px solid #3a4f66;
+  border-radius: 4px; padding: 2px 8px; font-size: 0.7rem; cursor: pointer;
+}
+.h-btn:hover { border-color: #4f8cff; color: #4f8cff; }
+.h-label-input {
+  background: #0f1923; color: #e0e6ed; border: 1px solid #3a4f66;
+  border-radius: 3px; font-size: 0.72rem; padding: 1px 4px; width: 120px;
+}
+.h-label-input:focus { border-color: #4f8cff; outline: none; }
+
+.fab-solve {
+  display: none; position: fixed; bottom: 20px; right: 20px; z-index: 100;
+  background: linear-gradient(135deg, #4f8cff, #3b6fd9); color: #fff;
+  padding: 12px 20px; border-radius: 28px; font-size: 0.9rem; font-weight: 700;
+  cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  transition: transform 0.1s, opacity 0.15s; user-select: none;
+}
+.fab-solve:active { transform: scale(0.95); }
+.fab-solve.disabled { opacity: 0.4; pointer-events: none; }
+.fab-solve.fab-back {
+  background: linear-gradient(135deg, #3a4f66, #2a3a4a);
+}
+
 @media (max-width: 600px) {
   .card-grid { grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); }
   .result-members { grid-template-columns: 1fr; }
+  .fab-solve { display: block; }
 }
 </style>
 </head>
@@ -249,6 +284,16 @@ header p { color: #8899aa; font-size: 0.85rem; margin-top: 4px; }
     <button class="btn-pot-global" id="btnPot4">全て4凸</button>
     <span style="color:#3a4f66">|</span>
     <label style="cursor:pointer"><input type="checkbox" id="chkLevelEnabled" style="vertical-align:middle;margin-right:2px">Lv設定</label>
+    <span id="lvGlobalBtns" style="display:none">
+      <button class="btn-pot-global btn-lv-global" data-lv="10">Lv10</button>
+      <button class="btn-pot-global btn-lv-global" data-lv="20">Lv20</button>
+      <button class="btn-pot-global btn-lv-global" data-lv="30">Lv30</button>
+      <button class="btn-pot-global btn-lv-global" data-lv="40">Lv40</button>
+      <button class="btn-pot-global btn-lv-global" data-lv="50">Lv50</button>
+      <button class="btn-pot-global btn-lv-global" data-lv="60">Lv60</button>
+      <button class="btn-pot-global btn-lv-global" data-lv="70">Lv70</button>
+      <button class="btn-pot-global btn-lv-global" data-lv="80">Lv80</button>
+    </span>
     <span style="color:#3a4f66">|</span>
     <label>曲:</label>
     <select id="songSelect" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:4px 6px;border-radius:4px;font-size:0.75rem;max-width:200px">
@@ -300,8 +345,22 @@ header p { color: #8899aa; font-size: 0.85rem; margin-top: 4px; }
     <span class="spinner"></span>最強編成を探索中...
   </div>
 
-  <div class="results-area" id="resultsArea"></div>
+  <div id="resultsWrapper" style="display:none">
+    <div id="resultsToggle" style="cursor:pointer;color:#8899aa;font-size:0.85rem;padding:8px 0;border-bottom:1px solid #2a3a4a;user-select:none;margin-bottom:12px">
+      ▼ 結果を折りたたむ
+    </div>
+    <div class="results-area" id="resultsArea"></div>
+  </div>
+
+  <div style="margin-top:24px">
+    <div id="historyToggle" style="cursor:pointer;color:#6b7f92;font-size:0.85rem;padding:8px 0;border-top:1px solid #2a3a4a;user-select:none">
+      ▶ 履歴 (<span id="historyCount">0</span>件)
+    </div>
+    <div id="historyArea" style="display:none"></div>
+  </div>
 </div>
+
+<div id="fabSolve" class="fab-solve">最強編成を探す</div>
 
 <script>
 const GROUP_ORDER = [
@@ -318,6 +377,7 @@ const selected = new Set();
 let activeFilter = "all";
 
 let defaultPotential = 0;
+let defaultLevel = 80;
 const cardPotentials = {};
 const cardLevels = {};
 let levelEnabled = false;
@@ -326,7 +386,7 @@ function getCardPotential(id) { return cardPotentials[id] ?? defaultPotential; }
 function getCardLevel(id) {
   if (!levelEnabled) return 80;
   if (cardLevels[id] != null) return cardLevels[id];
-  return 40;
+  return defaultLevel;
 }
 
 function getCardStats(card, potential, level) {
@@ -359,7 +419,13 @@ function loadPersistence() {
     if (sl) Object.assign(cardLevels, JSON.parse(sl));
     const dp = localStorage.getItem("holodri_default_potential");
     if (dp != null) defaultPotential = parseInt(dp) || 0;
+    const dl = localStorage.getItem("holodri_default_level");
     const le = localStorage.getItem("holodri_level_enabled");
+    if (dl != null) {
+      defaultLevel = parseInt(dl) || 80;
+    } else if (le === "true") {
+      defaultLevel = 40;
+    }
     if (le != null) levelEnabled = le === "true";
   } catch {}
 }
@@ -368,11 +434,18 @@ function savePersistence() {
   localStorage.setItem("holodri_card_potentials", JSON.stringify(cardPotentials));
   localStorage.setItem("holodri_card_levels", JSON.stringify(cardLevels));
   localStorage.setItem("holodri_default_potential", String(defaultPotential));
+  localStorage.setItem("holodri_default_level", String(defaultLevel));
   localStorage.setItem("holodri_level_enabled", String(levelEnabled));
+}
+
+function syncLevelUI() {
+  chkLevel.checked = levelEnabled;
+  document.getElementById("lvGlobalBtns").style.display = levelEnabled ? "" : "none";
 }
 
 async function init() {
   loadPersistence();
+  syncLevelUI();
   let res;
   try { res = await fetch("/api/cards"); } catch {
     document.getElementById("cardArea").innerHTML = '<div class="empty-msg">サーバーに接続できません。uv run python app.py で起動してください。</div>';
@@ -404,6 +477,7 @@ async function init() {
       }
     }
   } catch {}
+  renderHistory();
 }
 
 function groupCards() {
@@ -537,6 +611,7 @@ function updateCounter() {
   document.getElementById("limitWarn").textContent =
     selected.size === 0 ? (leader ? "(リーダー固定 + 全カードで探索)" : "(全カードで探索)") : "";
   updateLeaderDropdown();
+  if (typeof updateFab === "function") updateFab();
 }
 
 function updateLeaderDropdown() {
@@ -581,16 +656,40 @@ document.getElementById("btnPot4").addEventListener("click", () => {
 });
 
 const chkLevel = document.getElementById("chkLevelEnabled");
-chkLevel.checked = levelEnabled;
 chkLevel.addEventListener("change", () => {
   levelEnabled = chkLevel.checked;
+  document.getElementById("lvGlobalBtns").style.display = levelEnabled ? "" : "none";
   savePersistence();
   renderCards();
 });
 
+for (const btn of document.querySelectorAll(".btn-lv-global")) {
+  btn.addEventListener("click", () => {
+    if (!CARDS.length) return;
+    const lv = parseInt(btn.dataset.lv);
+    defaultLevel = lv;
+    for (const c of CARDS) cardLevels[c.id] = lv;
+    savePersistence();
+    renderCards();
+  });
+}
+
 document.getElementById("btnCopyIds").addEventListener("click", () => {
   const ids = [...selected];
-  navigator.clipboard.writeText(JSON.stringify(ids)).then(() => {
+  const pots = {};
+  const lvs = {};
+  for (const id of ids) {
+    const p = getCardPotential(id);
+    if (p !== defaultPotential) pots[id] = p;
+    const l = getCardLevel(id);
+    if (l !== defaultLevel) lvs[id] = l;
+  }
+  const payload = {
+    v: 1, ids, potentials: pots, levels: lvs,
+    defaultPotential, defaultLevel, levelEnabled,
+    statScale, baseline,
+  };
+  navigator.clipboard.writeText(JSON.stringify(payload)).then(() => {
     const btn = document.getElementById("btnCopyIds");
     btn.textContent = "コピー済!";
     setTimeout(() => btn.textContent = "IDコピー", 1500);
@@ -603,17 +702,50 @@ document.getElementById("btnPasteIds").addEventListener("click", async () => {
   try {
     text = await navigator.clipboard.readText();
   } catch {
-    text = prompt("カードIDのJSON配列を貼り付けてください:");
+    text = prompt("カードデータのJSONを貼り付けてください:");
   }
   if (!text) return;
   try {
-    const ids = JSON.parse(text);
-    if (!Array.isArray(ids)) throw new Error("配列ではありません");
+    const parsed = JSON.parse(text);
     const validIds = new Set(CARDS.map(c => c.id));
     selected.clear();
     let loaded = 0;
-    for (const id of ids) {
-      if (validIds.has(id)) { selected.add(id); loaded++; }
+    if (Array.isArray(parsed)) {
+      for (const id of parsed) {
+        if (validIds.has(id)) { selected.add(id); loaded++; }
+      }
+    } else if (parsed && parsed.v === 1) {
+      for (const k of Object.keys(cardPotentials)) delete cardPotentials[k];
+      for (const k of Object.keys(cardLevels)) delete cardLevels[k];
+      for (const id of (parsed.ids || [])) {
+        if (validIds.has(id)) { selected.add(id); loaded++; }
+      }
+      if (parsed.defaultPotential != null) defaultPotential = parsed.defaultPotential;
+      if (parsed.defaultLevel != null) defaultLevel = parsed.defaultLevel;
+      if (parsed.potentials) {
+        for (const [id, p] of Object.entries(parsed.potentials)) {
+          if (validIds.has(id)) cardPotentials[id] = p;
+        }
+      }
+      if (parsed.levels) {
+        for (const [id, l] of Object.entries(parsed.levels)) {
+          if (validIds.has(id)) cardLevels[id] = l;
+        }
+      }
+      if (parsed.levelEnabled != null) levelEnabled = parsed.levelEnabled;
+      if (parsed.statScale != null) {
+        statScale = parsed.statScale;
+        localStorage.setItem("holodri_stat_scale", statScale.toString());
+      }
+      if (parsed.baseline != null) {
+        baseline = parsed.baseline;
+        localStorage.setItem("holodri_baseline", baseline.toString());
+      }
+      syncLevelUI();
+      updateBaselineDisplay();
+      savePersistence();
+    } else {
+      throw new Error("不明な形式");
     }
     renderCards();
     updateCounter();
@@ -762,11 +894,16 @@ document.getElementById("btnCalibrate").addEventListener("click", async () => {
   }
 });
 
-document.getElementById("btnSolve").addEventListener("click", async () => {
+let fabMode = "solve";
+
+async function doSolve() {
   const btn = document.getElementById("btnSolve");
+  const fab = document.getElementById("fabSolve");
   const loading = document.getElementById("loadingArea");
   btn.disabled = true;
   btn.textContent = "計算中...";
+  fab.classList.add("disabled");
+  fab.textContent = "計算中...";
   loading.classList.add("visible");
   document.getElementById("resultsArea").innerHTML = "";
 
@@ -793,14 +930,229 @@ document.getElementById("btnSolve").addEventListener("click", async () => {
       throw new Error(err.detail || `サーバーエラー (${res.status})`);
     }
     const data = await res.json();
+    expandResults();
     renderResults(data);
+    saveToHistory(data);
+    document.getElementById("resultsWrapper").scrollIntoView({ behavior: "smooth" });
   } catch (e) {
+    expandResults();
     document.getElementById("resultsArea").innerHTML =
       `<div class="empty-msg">エラーが発生しました: ${e.message}</div>`;
   } finally {
     btn.disabled = false;
     btn.textContent = "最強編成を探す";
     loading.classList.remove("visible");
+    setFabMode("back");
+  }
+}
+
+function expandResults() {
+  const wrapper = document.getElementById("resultsWrapper");
+  const area = document.getElementById("resultsArea");
+  const toggle = document.getElementById("resultsToggle");
+  wrapper.style.display = "block";
+  area.style.display = "block";
+  toggle.textContent = "▼ 結果を折りたたむ";
+}
+
+function collapseResults() {
+  const area = document.getElementById("resultsArea");
+  const toggle = document.getElementById("resultsToggle");
+  area.style.display = "none";
+  toggle.textContent = "▶ 結果を表示";
+}
+
+function setFabMode(mode) {
+  fabMode = mode;
+  const fab = document.getElementById("fabSolve");
+  fab.classList.remove("disabled");
+  if (mode === "back") {
+    fab.textContent = "カード編集に戻る";
+    fab.classList.add("fab-back");
+  } else {
+    fab.classList.remove("fab-back");
+    const disabled = selected.size > 0 && selected.size < 5;
+    fab.classList.toggle("disabled", disabled);
+    const count = selected.size || "全";
+    fab.textContent = `探索 (${count}枚)`;
+  }
+}
+
+function updateFab() {
+  if (fabMode === "solve") setFabMode("solve");
+}
+
+document.getElementById("btnSolve").addEventListener("click", doSolve);
+
+document.getElementById("fabSolve").addEventListener("click", () => {
+  if (fabMode === "back") {
+    collapseResults();
+    setFabMode("solve");
+    document.getElementById("cardArea").scrollIntoView({ behavior: "smooth" });
+  } else {
+    doSolve();
+  }
+});
+
+document.getElementById("resultsToggle").addEventListener("click", () => {
+  const area = document.getElementById("resultsArea");
+  if (area.style.display === "none") {
+    expandResults();
+  } else {
+    collapseResults();
+  }
+});
+
+function saveToHistory(solveData) {
+  const ids = selected.size > 0 ? [...selected] : CARDS.map(c => c.id);
+  const pots = {};
+  const lvs = {};
+  for (const id of ids) {
+    const p = getCardPotential(id);
+    if (p !== defaultPotential) pots[id] = p;
+    const l = getCardLevel(id);
+    if (l !== defaultLevel) lvs[id] = l;
+  }
+  const entry = {
+    ts: Date.now(),
+    label: "",
+    settings: {
+      topN: parseInt(document.getElementById("topN").value),
+      fixedLeaderId: document.getElementById("fixedLeader").value || null,
+      songLength: document.getElementById("songSelect").value ? parseFloat(document.getElementById("songSelect").value) : null,
+      statScale, baseline,
+    },
+    snapshot: { ids: [...selected], allCards: selected.size === 0, potentials: pots, levels: lvs, defaultPotential, defaultLevel, levelEnabled },
+    results: (solveData.results || []).slice(0, 3).map(r => ({
+      rank: r.rank, unit_score: r.unit_score, total_power: r.total_power,
+      score_bonus: r.score_bonus, leader_id: r.leader_id, member_ids: r.member_ids,
+    })),
+  };
+  let history = [];
+  try { history = JSON.parse(localStorage.getItem("holodri_solve_history") || "[]"); } catch {}
+  history.unshift(entry);
+  if (history.length > 20) history = history.slice(0, 20);
+  localStorage.setItem("holodri_solve_history", JSON.stringify(history));
+  renderHistory();
+}
+
+function renderHistory() {
+  let history = [];
+  try { history = JSON.parse(localStorage.getItem("holodri_solve_history") || "[]"); } catch {}
+  document.getElementById("historyCount").textContent = history.length;
+  const area = document.getElementById("historyArea");
+  if (!history.length) {
+    area.innerHTML = '<div style="color:#5a6e80;padding:8px;font-size:0.8rem">履歴なし</div>';
+    return;
+  }
+  let html = "";
+  for (let i = 0; i < history.length; i++) {
+    const h = history[i];
+    const dt = new Date(h.ts);
+    const timeStr = `${dt.getMonth()+1}/${dt.getDate()} ${dt.getHours()}:${String(dt.getMinutes()).padStart(2,"0")}`;
+    const top1 = h.results[0];
+    const leaderCard = top1 ? cardMap[top1.leader_id] : null;
+    const leaderName = leaderCard ? leaderCard.character : "?";
+    const nCards = (h.snapshot?.ids || []).length;
+    const labelVal = (h.label || "").replace(/"/g, "&quot;");
+    html += `<div class="history-entry">
+      <div class="h-header">
+        <span>
+          <span class="h-time">${timeStr}</span>
+          <input class="h-label-input" placeholder="メモ" value="${labelVal}" data-idx="${i}">
+        </span>
+        <span class="h-score">${top1 ? top1.unit_score.toLocaleString() : "-"}</span>
+      </div>
+      <div style="color:#8899aa;font-size:0.72rem">
+        #1 ${leaderName}リーダー / ${nCards || "全"}枚 / SB ${top1 ? top1.score_bonus : "-"}%
+      </div>
+      <div style="display:flex;gap:4px;margin-top:6px">
+        <button class="h-btn" data-action="restore" data-idx="${i}">復元</button>
+        <button class="h-btn" data-action="delete" data-idx="${i}">削除</button>
+      </div>
+    </div>`;
+  }
+  area.innerHTML = html;
+  area.querySelectorAll(".h-label-input").forEach(inp => {
+    inp.addEventListener("click", e => e.stopPropagation());
+    inp.addEventListener("change", () => {
+      const idx = parseInt(inp.dataset.idx);
+      let hist = [];
+      try { hist = JSON.parse(localStorage.getItem("holodri_solve_history") || "[]"); } catch {}
+      if (hist[idx]) { hist[idx].label = inp.value; localStorage.setItem("holodri_solve_history", JSON.stringify(hist)); }
+    });
+  });
+  area.querySelectorAll(".h-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = parseInt(btn.dataset.idx);
+      if (btn.dataset.action === "delete") deleteHistory(idx);
+      else if (btn.dataset.action === "restore") restoreFromHistory(idx);
+    });
+  });
+}
+
+function deleteHistory(idx) {
+  let history = [];
+  try { history = JSON.parse(localStorage.getItem("holodri_solve_history") || "[]"); } catch {}
+  history.splice(idx, 1);
+  localStorage.setItem("holodri_solve_history", JSON.stringify(history));
+  renderHistory();
+}
+
+function restoreFromHistory(idx) {
+  let history = [];
+  try { history = JSON.parse(localStorage.getItem("holodri_solve_history") || "[]"); } catch {}
+  const entry = history[idx];
+  if (!entry || !entry.snapshot) return;
+  const snap = entry.snapshot;
+  const validIds = new Set(CARDS.map(c => c.id));
+
+  for (const k of Object.keys(cardPotentials)) delete cardPotentials[k];
+  for (const k of Object.keys(cardLevels)) delete cardLevels[k];
+
+  selected.clear();
+  const isAllCards = snap.allCards || (!(snap.ids || []).length && Object.keys(snap.potentials || {}).length > 0);
+  const restoreIds = isAllCards ? CARDS.map(c => c.id) : (snap.ids || []);
+  for (const id of restoreIds) {
+    if (!isAllCards && validIds.has(id)) selected.add(id);
+  }
+  if (snap.defaultPotential != null) defaultPotential = snap.defaultPotential;
+  if (snap.defaultLevel != null) defaultLevel = snap.defaultLevel;
+  if (snap.levelEnabled != null) levelEnabled = snap.levelEnabled;
+  for (const id of restoreIds) {
+    if (!validIds.has(id)) continue;
+    if (snap.potentials?.[id] != null) cardPotentials[id] = snap.potentials[id];
+    if (snap.levels?.[id] != null) cardLevels[id] = snap.levels[id];
+  }
+  if (entry.settings?.statScale != null) {
+    statScale = entry.settings.statScale;
+    localStorage.setItem("holodri_stat_scale", statScale.toString());
+  }
+  if (entry.settings?.baseline != null) {
+    baseline = entry.settings.baseline;
+    localStorage.setItem("holodri_baseline", baseline.toString());
+  }
+  if (entry.settings?.topN != null) document.getElementById("topN").value = entry.settings.topN;
+  document.getElementById("fixedLeader").value = entry.settings?.fixedLeaderId || "";
+  const songSel = document.getElementById("songSelect");
+  songSel.value = entry.settings?.songLength != null ? entry.settings.songLength : "";
+
+  savePersistence();
+  syncLevelUI();
+  updateBaselineDisplay();
+  renderCards();
+  updateCounter();
+}
+
+document.getElementById("historyToggle").addEventListener("click", () => {
+  const area = document.getElementById("historyArea");
+  const toggle = document.getElementById("historyToggle");
+  if (area.style.display === "none") {
+    area.style.display = "block";
+    toggle.innerHTML = toggle.innerHTML.replace("▶", "▼");
+  } else {
+    area.style.display = "none";
+    toggle.innerHTML = toggle.innerHTML.replace("▼", "▶");
   }
 });
 
