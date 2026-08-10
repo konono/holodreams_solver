@@ -18,7 +18,7 @@ from functools import lru_cache
 from itertools import combinations, permutations
 from pathlib import Path
 
-UNIT_SCORE_K = 2.037
+UNIT_SCORE_K = 2.0373
 ACTIVE_BASE = 52.89
 ACTIVE_DIVISOR = 12.82
 COSTUME_SS_RATE = 0.68
