@@ -1,0 +1,104 @@
+name: Update card data
+
+on:
+  schedule:
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  sync-cards:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Get current card count
+        id: before
+        run: |
+          COUNT=$(uv run python -c "from solver import load_cards; print(len(load_cards()))")
+          echo "count=$COUNT" >> $GITHUB_OUTPUT
+          echo "Current: $COUNT cards"
+
+      - name: Sync from HolodoriDB
+        run: uv run python scripts/sync_holodori.py
+
+      - name: Get updated card count
+        id: after
+        run: |
+          COUNT=$(uv run python -c "from solver import load_cards; print(len(load_cards()))")
+          echo "count=$COUNT" >> $GITHUB_OUTPUT
+          echo "After sync: $COUNT cards"
+
+      - name: Check for changes
+        id: check
+        run: |
+          if [ -n "$(git diff --name-only)" ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No changes detected"
+          fi
+
+      - name: Detect new cards
+        if: steps.check.outputs.has_changes == 'true'
+        id: diff
+        run: |
+          {
+            echo "summary<<DIFF_EOF"
+            uv run python -c "
+          import json
+          from subprocess import run as sp
+          old = sp(['git', 'show', 'HEAD:data/cards.json'], capture_output=True, text=True).stdout
+          old_ids = {c['id'] for c in json.loads(old)['cards']}
+          with open('data/cards.json') as f:
+              new_cards = json.load(f)['cards']
+          new_ids = {c['id'] for c in new_cards}
+          added = new_ids - old_ids
+          removed = old_ids - new_ids
+          if added:
+              print('### 追加されたカード')
+              for c in new_cards:
+                  if c['id'] in added:
+                      print(f'- **{c[\"character\"]}** {c[\"card_name\"]} ({c[\"type\"]})')
+          if removed:
+              print('### 削除されたカード')
+              for rid in sorted(removed):
+                  print(f'- {rid}')
+          if not added and not removed:
+              print('### データ更新のみ（カード数変化なし）')
+          "
+            echo "DIFF_EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: Run tests
+        if: steps.check.outputs.has_changes == 'true'
+        run: uv run pytest test_solver.py -v
+
+      - name: Create Pull Request
+        if: steps.check.outputs.has_changes == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: update card data (${{ steps.before.outputs.count }} → ${{ steps.after.outputs.count }} cards)"
+          title: "chore: Update card data (${{ steps.before.outputs.count }} → ${{ steps.after.outputs.count }} cards)"
+          body: |
+            ## カードデータ更新
+
+            - **更新前**: ${{ steps.before.outputs.count }} 枚
+            - **更新後**: ${{ steps.after.outputs.count }} 枚
+            - **ソース**: HolodoriDB/holodori-db-jpn-diff
+
+            ${{ steps.diff.outputs.summary }}
+
+          branch: update/card-data
+          delete-branch: true
+          labels: |
+            dependencies
+            automated
