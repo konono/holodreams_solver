@@ -238,16 +238,18 @@ function evaluateTeam(team, leaderIdx, songLen) {{
     leaderIdx }};
 }}
 
-self.onmessage = function(e) {{
-  const {{ cards, fixedLeaderId, topN, potentials, levels, levelTables, songLength }} = e.data;
-  const SLEN = songLength || SONG_LENGTH;
+function permutations(arr) {{
+  if (arr.length <= 1) return [arr];
+  const result = [];
+  for (let i = 0; i < arr.length; i++) {{
+    const rest = arr.slice(0,i).concat(arr.slice(i+1));
+    for (const p of permutations(rest)) result.push([arr[i], ...p]);
+  }}
+  return result;
+}}
 
-  const resolved = cards.map(c => {{
-    const pot = potentials[c.id] ?? 0;
-    const lv = levels[c.id] ?? MAX_LEVEL;
-    return resolveCard(c, pot, lv, levelTables || {{}});
-  }});
-
+function solveInternal(resolved, fixedLeaderId, topN, songLen, reportProgress) {{
+  const SLEN = songLen || SONG_LENGTH;
   const charGroups = {{}};
   for (const c of resolved) {{
     if (!charGroups[c.character]) charGroups[c.character] = [];
@@ -257,6 +259,7 @@ self.onmessage = function(e) {{
     Math.max(...charGroups[b].map(c=>c.stats.performance+c.stats.technique+c.stats.sense)) -
     Math.max(...charGroups[a].map(c=>c.stats.performance+c.stats.technique+c.stats.sense)));
   const nChars = charNames.length;
+  if (nChars < 5) return {{ results: [], count: 0 }};
 
   const results = [];
   let count = 0;
@@ -273,7 +276,7 @@ self.onmessage = function(e) {{
     for (let a=0;a<nChars-4;a++) for (let b=a+1;b<nChars-3;b++) for (let ci=b+1;ci<nChars-2;ci++) for (let d=ci+1;d<nChars-1;d++) for (let f=d+1;f<nChars;f++)
       totalEst += charSizes[a] * charSizes[b] * charSizes[ci] * charSizes[d] * charSizes[f];
   }}
-  const reportAt = Math.max(1, Math.floor(totalEst / 40));
+  const reportAt = reportProgress ? Math.max(1, Math.floor(totalEst / 40)) : 0;
 
   function pushResult(r) {{
     if (results.length < topN) {{ results.push(r); results.sort((a,b)=>b.unitScore-a.unitScore); }}
@@ -282,10 +285,7 @@ self.onmessage = function(e) {{
 
   if (fixedLeaderId) {{
     const leaderCard = resolved.find(c => c.id === fixedLeaderId);
-    if (!leaderCard) {{
-      self.postMessage({{type:"done", results:[], totalCombinations:0}});
-      return;
-    }}
+    if (!leaderCard) return {{ results: [], count: 0 }};
     const leaderChar = leaderCard.character;
     const otherChars = charNames.filter(ch => ch !== leaderChar);
     const m = otherChars.length;
@@ -297,7 +297,7 @@ self.onmessage = function(e) {{
         const r = evaluateTeam(team, 0, SLEN);
         r.teamIds = team.map(x=>x.id);
         pushResult(r);
-        if (count % reportAt === 0) self.postMessage({{type:"progress",current:count,total:totalEst}});
+        if (reportAt && count % reportAt === 0) self.postMessage({{type:"progress",current:count,total:totalEst}});
       }}
     }}
   }} else {{
@@ -313,19 +313,9 @@ self.onmessage = function(e) {{
         }}
         best.teamIds = team.map(x=>x.id);
         pushResult(best);
-        if (count % reportAt === 0) self.postMessage({{type:"progress",current:count,total:totalEst}});
+        if (reportAt && count % reportAt === 0) self.postMessage({{type:"progress",current:count,total:totalEst}});
       }}
     }}
-  }}
-
-  function permutations(arr) {{
-    if (arr.length <= 1) return [arr];
-    const result = [];
-    for (let i = 0; i < arr.length; i++) {{
-      const rest = arr.slice(0,i).concat(arr.slice(i+1));
-      for (const p of permutations(rest)) result.push([arr[i], ...p]);
-    }}
-    return result;
   }}
 
   const resolvedMap = {{}};
@@ -336,7 +326,6 @@ self.onmessage = function(e) {{
     const leaderCard = resolvedMap[r.teamIds[r.leaderIdx]];
     const otherCards = r.teamIds.filter((_,i) => i !== r.leaderIdx).map(id => resolvedMap[id]);
     const indices = otherCards.map((_,i) => i);
-
     for (const perm of permutations(indices)) {{
       const team = [leaderCard, ...perm.map(i => otherCards[i])];
       const score = evaluateTeam(team, 0, SLEN);
@@ -348,13 +337,145 @@ self.onmessage = function(e) {{
     }}
   }}
   results.sort((a,b) => b.unitScore - a.unitScore);
+  return {{ results, count }};
+}}
 
-  self.postMessage({{type:"done", results: results.map((r,i) => ({{
+function formatSolveResults(solveResult) {{
+  return solveResult.results.map((r,i) => ({{
     rank:i+1, unit_score:Math.round(r.unitScore), total_power:Math.round(r.totalPower),
     score_bonus:r.scoreBonus, active_pct:r.activePct, costume_sb_pct:r.costumeSbPct,
     passive_sb_pct:r.passiveSbPct, special_pct:r.specialPct,
     leader_id:r.teamIds[r.leaderIdx], member_ids:r.teamIds
-  }})), totalCombinations:count}});
+  }}));
+}}
+
+self.onmessage = function(e) {{
+  const d = e.data;
+  if (d.action === "recommend") {{
+    const {{ allCards, ownedSpecs, topN, levelTables, songLength, fixedLeaderId, acquireCount: rawAC }} = d;
+    const SLEN = songLength || SONG_LENGTH;
+    const lt = levelTables || {{}};
+    const fli = fixedLeaderId || null;
+    const acquireCount = Math.max(1, Math.min(rawAC || 1, 5));
+
+    const ownedResolved = ownedSpecs.map(s => {{ const raw = allCards.find(c => c.id === s.id); return raw ? resolveCard(raw, s.potential, s.level, lt) : null; }}).filter(Boolean);
+    const baseResult = solveInternal(ownedResolved, fli, 1, SLEN, false);
+    const baseScore = baseResult.results.length > 0 ? Math.round(baseResult.results[0].unitScore) : 0;
+
+    const ownedMap = {{}};
+    for (const s of ownedSpecs) ownedMap[s.id] = s;
+
+    const candidates = [];
+    for (const card of allCards) {{
+      if (!ownedMap[card.id]) {{
+        candidates.push({{ card_id: card.id, card_name: card.card_name || "", character: card.character,
+          action: "acquire", current_potential: null, target_potential: 0 }});
+      }} else {{
+        const cur = ownedMap[card.id].potential;
+        const maxPot = (card.potential_data || []).length - 1;
+        if (cur < maxPot) {{
+          candidates.push({{ card_id: card.id, card_name: card.card_name || "", character: card.character,
+            action: "uncap", current_potential: cur, target_potential: cur + 1 }});
+        }}
+      }}
+    }}
+
+    function applyCandidate(specs, cand) {{
+      const s = specs.map(x => ({{ ...x }}));
+      if (cand.action === "acquire") {{
+        s.push({{ id: cand.card_id, potential: 0, level: MAX_LEVEL }});
+      }} else {{
+        const idx = s.findIndex(x => x.id === cand.card_id);
+        if (idx >= 0) s[idx] = {{ ...s[idx], potential: cand.target_potential }};
+      }}
+      return s;
+    }}
+
+    function resolveSpecs(specs) {{
+      return specs.map(s => {{
+        const raw = allCards.find(c => c.id === s.id);
+        return raw ? resolveCard(raw, s.potential, s.level, lt) : null;
+      }}).filter(Boolean);
+    }}
+
+    // Phase 1: single-card evaluation
+    const singleResults = [];
+    for (let ci = 0; ci < candidates.length; ci++) {{
+      const trialSpecs = applyCandidate(ownedSpecs, candidates[ci]);
+      const trialResult = solveInternal(resolveSpecs(trialSpecs), fli, 1, SLEN, false);
+      if (trialResult.results.length > 0) {{
+        const best = trialResult.results[0];
+        const newScore = Math.round(best.unitScore);
+        const delta = newScore - baseScore;
+        if (delta > 0) singleResults.push({{ idx: ci, delta, newScore, best }});
+      }}
+      if ((ci + 1) % 5 === 0 || ci === candidates.length - 1) {{
+        self.postMessage({{ type: "progress", current: ci + 1, total: candidates.length + (acquireCount > 1 ? 100 : 0) }});
+      }}
+    }}
+    singleResults.sort((a,b) => b.delta - a.delta);
+
+    let recResults = [];
+
+    if (acquireCount === 1) {{
+      for (const sr of singleResults.slice(0, topN)) {{
+        const cand = candidates[sr.idx];
+        const best = sr.best;
+        recResults.push({{
+          cards: [cand], new_score: sr.newScore, delta: sr.delta,
+          best_team: {{ leader_id: best.teamIds[best.leaderIdx], member_ids: best.teamIds }},
+        }});
+      }}
+    }} else {{
+      let shortlist = singleResults.filter(sr => sr.delta > 0).map(sr => sr.idx);
+      if (shortlist.length > 20) shortlist = shortlist.slice(0, 20);
+      const combos = [];
+      function genCombos(start, chosen) {{
+        if (chosen.length === acquireCount) {{ combos.push([...chosen]); return; }}
+        for (let i = start; i < shortlist.length; i++) genCombos(i + 1, [...chosen, shortlist[i]]);
+      }}
+      genCombos(0, []);
+
+      const phase2Base = candidates.length;
+      for (let ci = 0; ci < combos.length; ci++) {{
+        const comboCards = combos[ci].map(i => candidates[i]);
+        const acqChars = comboCards.filter(c => c.action === "acquire").map(c => c.character);
+        if (new Set(acqChars).size !== acqChars.length) continue;
+        let trialSpecs = [...ownedSpecs.map(s => ({{ ...s }}))];
+        for (const cand of comboCards) trialSpecs = applyCandidate(trialSpecs, cand);
+        const trialResult = solveInternal(resolveSpecs(trialSpecs), fli, 1, SLEN, false);
+        if (trialResult.results.length > 0) {{
+          const newScore = Math.round(trialResult.results[0].unitScore);
+          const delta = newScore - baseScore;
+          if (delta > 0) {{
+            const best = trialResult.results[0];
+            recResults.push({{
+              cards: comboCards, new_score: newScore, delta,
+              best_team: {{ leader_id: best.teamIds[best.leaderIdx], member_ids: best.teamIds }},
+            }});
+          }}
+        }}
+        if ((ci + 1) % 10 === 0 || ci === combos.length - 1) {{
+          self.postMessage({{ type: "progress", current: phase2Base + ci + 1, total: phase2Base + combos.length }});
+        }}
+      }}
+      recResults.sort((a,b) => b.delta - a.delta);
+      recResults = recResults.slice(0, topN);
+    }}
+
+    recResults.forEach((r, i) => r.rank = i + 1);
+    self.postMessage({{ type: "recommend_done", base_score: baseScore, acquire_count: acquireCount, recommendations: recResults }});
+  }} else {{
+    const {{ cards, fixedLeaderId, topN, potentials, levels, levelTables, songLength }} = d;
+    const SLEN = songLength || SONG_LENGTH;
+    const resolved = cards.map(c => {{
+      const pot = potentials[c.id] ?? 0;
+      const lv = levels[c.id] ?? MAX_LEVEL;
+      return resolveCard(c, pot, lv, levelTables || {{}});
+    }});
+    const result = solveInternal(resolved, fixedLeaderId, topN, SLEN, true);
+    self.postMessage({{ type:"done", results: formatSolveResults(result), totalCombinations: result.count }});
+  }}
 }};
 """
 
@@ -404,6 +525,18 @@ def build():
 
   <div class="controls">
     <button class="btn-solve" id="btnSolve" disabled>最強編成を探す</button>
+    <button class="btn-solve" id="btnRecommend" style="background:linear-gradient(135deg,#ff8c4f,#d96b3b);font-size:0.85rem;padding:8px 16px" disabled>強化レコメンド</button>
+    <select id="acquireCount" style="background:#1e2d3d;border:1px solid #3a4f66;color:#f0a040;padding:6px 8px;border-radius:4px;font-size:0.8rem">
+      <option value="1" selected>+1枚</option>
+      <option value="2">+2枚</option>
+      <option value="3">+3枚</option>
+      <option value="4">+4枚</option>
+      <option value="5">+5枚</option>
+    </select>
+    <select id="recommendTopN" style="background:#1e2d3d;border:1px solid #3a4f66;color:#f0a040;padding:6px 8px;border-radius:4px;font-size:0.8rem">
+      <option value="5" selected>Top 5</option>
+      <option value="10">Top 10</option>
+    </select>
     <select id="topN" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:6px 8px;border-radius:4px;font-size:0.8rem">
       <option value="10" selected>Top 10</option>
       <option value="30">Top 30</option>
@@ -699,6 +832,7 @@ function updateCounter() {{
   document.getElementById("selectedCount").textContent = selected.size;
   document.getElementById("totalCount").textContent = CARDS.length;
   document.getElementById("btnSolve").disabled = selected.size > 0 && selected.size < 5;
+  document.getElementById("btnRecommend").disabled = selected.size < 5;
   const leader = document.getElementById("fixedLeader").value;
   document.getElementById("limitWarn").textContent =
     selected.size === 0 ? (leader ? "(リーダー固定 + 全カードで探索)" : "(全カードで探索)") : "";
@@ -857,6 +991,7 @@ document.getElementById("fixedLeader").addEventListener("change", () => updateCo
 const workerBlob = URL.createObjectURL(new Blob([{json.dumps(solver_js)}], {{type:"application/javascript"}}));
 
 let fabMode = "solve";
+let isComputing = false;
 
 function expandResults() {{
   const wrapper = document.getElementById("resultsWrapper");
@@ -895,10 +1030,13 @@ function updateFab() {{
 }}
 
 function doSolve() {{
+  if (isComputing) return;
+  isComputing = true;
   const btn = document.getElementById("btnSolve");
+  const btnRec = document.getElementById("btnRecommend");
   const fab = document.getElementById("fabSolve");
   const pa = document.getElementById("progressArea");
-  btn.disabled = true; btn.textContent = "計算中...";
+  btn.disabled = true; btnRec.disabled = true; btn.textContent = "計算中...";
   fab.classList.add("disabled"); fab.textContent = "計算中...";
   pa.classList.add("visible");
   document.getElementById("resultsArea").innerHTML = "";
@@ -919,7 +1057,8 @@ function doSolve() {{
 
   w.onerror = function() {{
     w.terminate();
-    btn.disabled = false; btn.textContent = "最強編成を探す";
+    isComputing = false;
+    btn.disabled = false; btnRec.disabled = selected.size < 5; btn.textContent = "最強編成を探す";
     pa.classList.remove("visible");
     expandResults();
     document.getElementById("resultsArea").innerHTML = '<div class="empty-msg">計算中にエラーが発生しました。</div>';
@@ -933,7 +1072,8 @@ function doSolve() {{
         `${{ev.data.current.toLocaleString()}} / ${{ev.data.total.toLocaleString()}} 組み合わせを評価中...`;
     }} else if (ev.data.type === "done") {{
       w.terminate();
-      btn.disabled = false; btn.textContent = "最強編成を探す";
+      isComputing = false;
+      btn.disabled = false; btnRec.disabled = selected.size < 5; btn.textContent = "最強編成を探す";
       document.getElementById("progressFill").style.width = "100%";
       document.getElementById("progressText").textContent =
         `完了！ ${{ev.data.totalCombinations.toLocaleString()}} 通りを評価`;
@@ -947,6 +1087,135 @@ function doSolve() {{
 }}
 
 document.getElementById("btnSolve").addEventListener("click", doSolve);
+
+document.getElementById("btnRecommend").addEventListener("click", doRecommend);
+
+function doRecommend() {{
+  if (selected.size < 5) return;
+  const uniqueChars = new Set([...selected].map(id => cardMap[id]?.character).filter(Boolean));
+  if (uniqueChars.size < 5) {{
+    expandResults();
+    document.getElementById("resultsArea").innerHTML = '<div class="empty-msg">レコメンドには5キャラ以上のカードが必要です。</div>';
+    return;
+  }}
+  if (isComputing) return;
+  isComputing = true;
+  const btn = document.getElementById("btnRecommend");
+  const btnSolve = document.getElementById("btnSolve");
+  const pa = document.getElementById("progressArea");
+  btn.disabled = true; btnSolve.disabled = true; btn.textContent = "分析中...";
+  pa.classList.add("visible");
+  document.getElementById("progressFill").style.width = "0%";
+  const ac = parseInt(document.getElementById("acquireCount").value);
+  const timeNote = ac >= 4 ? "（候補が多い場合1〜2分かかることがあります）" : "";
+  document.getElementById("progressText").textContent = `強化レコメンドを分析中...${{timeNote}}`;
+  document.getElementById("resultsArea").innerHTML = "";
+
+  const ownedSpecs = [...selected].map(id => ({{ id, potential: getCardPotential(id), level: getCardLevel(id) }}));
+  const selSong = document.getElementById("songSelect").value;
+
+  const w = new Worker(workerBlob);
+  w.postMessage({{
+    action: "recommend",
+    allCards: CARDS,
+    ownedSpecs,
+    fixedLeaderId: document.getElementById("fixedLeader").value || null,
+    acquireCount: parseInt(document.getElementById("acquireCount").value),
+    topN: parseInt(document.getElementById("recommendTopN").value),
+    levelTables: LEVEL_TABLES,
+    songLength: selSong ? parseFloat(selSong) : null,
+  }});
+
+  w.onerror = function() {{
+    w.terminate();
+    isComputing = false;
+    btn.disabled = selected.size < 5; btnSolve.disabled = selected.size > 0 && selected.size < 5; btn.textContent = "強化レコメンド";
+    pa.classList.remove("visible");
+    expandResults();
+    document.getElementById("resultsArea").innerHTML = '<div class="empty-msg">計算中にエラーが発生しました。</div>';
+  }};
+  w.onmessage = function(ev) {{
+    if (ev.data.type === "progress") {{
+      const pct = Math.min(100, ev.data.current / ev.data.total * 100);
+      document.getElementById("progressFill").style.width = pct + "%";
+      document.getElementById("progressText").textContent =
+        `${{ev.data.current}} / ${{ev.data.total}} 候補を評価中...`;
+    }} else if (ev.data.type === "recommend_done") {{
+      w.terminate();
+      isComputing = false;
+      btn.disabled = selected.size < 5; btnSolve.disabled = selected.size > 0 && selected.size < 5; btn.textContent = "強化レコメンド";
+      document.getElementById("progressFill").style.width = "100%";
+      document.getElementById("progressText").textContent = "完了！";
+      expandResults();
+      renderRecommendations(ev.data);
+      document.getElementById("resultsWrapper").scrollIntoView({{ behavior: "smooth" }});
+    }}
+  }};
+}}
+
+function renderRecommendations(data) {{
+  const area = document.getElementById("resultsArea");
+  const recs = data.recommendations;
+  if (!recs || !recs.length) {{
+    area.innerHTML = `<div class="empty-msg">現在の編成からスコアを上げる候補が見つかりませんでした。<br>ベーススコア: ${{(data.base_score || 0).toLocaleString()}}</div>`;
+    return;
+  }}
+  const maxDelta = recs[0]?.delta || 1;
+  const pctUp = (d) => data.base_score > 0 ? (d / data.base_score * 100).toFixed(2) : "0.00";
+
+  let html = "";
+  if (data.warnings && data.warnings.length) {{
+    html += `<div style="background:#3d2a0f;color:#f0a040;padding:8px 12px;border-radius:6px;margin-bottom:8px;font-size:0.85rem">${{data.warnings.join("<br>")}}</div>`;
+  }}
+  const ac = data.acquire_count || 1;
+  html += `<div class="results-title">強化レコメンド Top ${{recs.length}}（+${{ac}}枚 / ベーススコア: <span style="color:#4f8cff">${{data.base_score.toLocaleString()}}</span>）</div>`;
+  html += `<div style="font-size:0.78rem;color:#6b7f92;margin-bottom:12px">${{ac === 1 ? '各カードを取得/凸した場合' : `単体で効果のある候補（最大20件）から${{ac}}枚の組み合わせを探索した結果`}}のスコア上昇幅を比較しています</div>`;
+
+  for (const r of recs) {{
+    const cards = r.cards || [r];
+    const rankColors = {{ 1: "#ffd700", 2: "#c0c0c0", 3: "#cd7f32" }};
+    const rankColor = rankColors[r.rank] || "#4f8cff";
+    const barWidth = Math.max(4, (r.delta / maxDelta) * 100);
+
+    html += `<div class="result-card">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
+        <span class="result-rank" style="color:${{rankColor}};font-size:1.2rem">#${{r.rank}}</span>
+        <span style="font-size:1.3rem;font-weight:800;color:#40d080">+${{r.delta.toLocaleString()}}</span>
+        <span style="font-size:0.85rem;color:#40d080;font-weight:600">(+${{pctUp(r.delta)}}%)</span>
+        <span style="font-size:0.8rem;color:#8899aa">→ ${{r.new_score.toLocaleString()}}</span>
+      </div>
+      <div style="background:#1a2735;border-radius:4px;height:8px;overflow:hidden;margin-bottom:10px">
+        <div style="background:linear-gradient(90deg,#40d080,#30a060);height:100%;width:${{barWidth}}%;border-radius:4px;transition:width 0.3s"></div>
+      </div>`;
+
+    for (const c of cards) {{
+      const card = cardMap[c.card_id];
+      const actionLabel = c.action === "acquire"
+        ? '<span style="background:#0f3d1a;color:#40d080;padding:2px 8px;border-radius:3px;font-size:0.72rem;font-weight:600">新規取得</span>'
+        : `<span style="background:#3d2a0f;color:#f0a040;padding:2px 8px;border-radius:3px;font-size:0.72rem;font-weight:600">${{c.current_potential}}凸→${{c.target_potential}}凸</span>`;
+      html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+        ${{actionLabel}}
+        <span style="font-weight:700;font-size:0.9rem">${{c.character}}</span>
+        <span style="font-size:0.72rem;color:#7a8c9e">${{c.card_name}}</span>
+        ${{card ? `<span class="type-badge type-${{card.type}}">${{TYPE_LABELS[card.type]}}</span>` : ''}}
+      </div>`;
+    }}
+
+    if (r.best_team) {{
+      html += `<div style="font-size:0.72rem;color:#6b7f92;margin-top:6px">ベストチーム: `;
+      const leaderCard = cardMap[r.best_team.leader_id];
+      html += `<span style="color:#ffd700">★${{leaderCard ? leaderCard.character : r.best_team.leader_id}}</span>`;
+      for (const mid of r.best_team.member_ids) {{
+        if (mid === r.best_team.leader_id) continue;
+        const mc = cardMap[mid];
+        html += ` / ${{mc ? mc.character : mid}}`;
+      }}
+      html += `</div>`;
+    }}
+    html += `</div>`;
+  }}
+  area.innerHTML = html;
+}}
 
 document.getElementById("fabSolve").addEventListener("click", () => {{
   if (fabMode === "back") {{

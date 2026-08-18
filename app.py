@@ -8,7 +8,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, field_validator
 
-from solver import _load_card_data, calibrate, load_cards, resolve_card, solve
+from solver import _load_card_data, calibrate, load_cards, recommend, resolve_card, solve
 
 app = FastAPI(title="HoloSolve")
 
@@ -123,6 +123,59 @@ def post_solve(req: SolveRequest):
     result = solve(actual, **kwargs)
     if dropped > 0:
         result["warnings"] = [f"{dropped}枚の不明なカードIDを除外しました"]
+    return result
+
+
+class RecommendRequest(BaseModel):
+    cards: list[CardSpec]
+    stat_scale: float = 1.0
+    baseline: float = 0
+    fixed_leader_id: str | None = None
+    top_n: int = 5
+    acquire_count: int = 1
+    song_length: float | None = None
+
+    @field_validator("song_length")
+    @classmethod
+    def check_song_length(cls, v):
+        return _validate_song_length(v)
+
+
+@app.post("/api/recommend")
+def post_recommend(req: RecommendRequest):
+    if not req.cards:
+        raise HTTPException(status_code=400, detail="レコメンドにはカードの選択が必要です")
+
+    cm = _card_map()
+    seen = set()
+    card_specs = []
+    for c in req.cards:
+        if c.id in cm and c.id not in seen:
+            seen.add(c.id)
+            card_specs.append({"id": c.id, "potential": c.potential, "level": c.level})
+
+    if len(card_specs) < 5:
+        raise HTTPException(status_code=400, detail="レコメンドには5枚以上のカードが必要です")
+
+    unique_chars = {cm[s["id"]]["character"] for s in card_specs}
+    if len(unique_chars) < 5:
+        raise HTTPException(status_code=400, detail="レコメンドには5キャラ以上のカードが必要です")
+
+    owned_ids = {s["id"] for s in card_specs}
+    if req.fixed_leader_id and req.fixed_leader_id not in owned_ids:
+        raise HTTPException(status_code=400, detail="リーダーは選択カードに含まれている必要があります")
+
+    dropped = len(req.cards) - len(card_specs)
+
+    top_n = max(1, min(req.top_n, 20))
+    acquire_count = max(1, min(req.acquire_count, 5))
+    kwargs = dict(top_n=top_n, acquire_count=acquire_count, stat_scale=req.stat_scale, baseline=req.baseline, fixed_leader_id=req.fixed_leader_id)
+    if req.song_length is not None:
+        kwargs["song_length"] = req.song_length
+
+    result = recommend(card_specs, **kwargs)
+    if dropped > 0:
+        result.setdefault("warnings", []).append(f"{dropped}枚の不明または重複カードIDを除外しました")
     return result
 
 

@@ -259,6 +259,12 @@
       "score_coefficient_permil": 6
     },
     {
+      "id": "m0334",
+      "name": "NIGHTBREAK",
+      "playing_seconds": 126,
+      "score_coefficient_permil": 5
+    },
+    {
       "id": "m0031",
       "name": "NoDistance",
       "playing_seconds": 152,
@@ -268,6 +274,12 @@
       "id": "m0148",
       "name": "ORANGE PARADE feat.戌神ころね",
       "playing_seconds": 123,
+      "score_coefficient_permil": 5
+    },
+    {
+      "id": "m0335",
+      "name": "Oshi Mode ON",
+      "playing_seconds": 129,
       "score_coefficient_permil": 5
     },
     {
@@ -727,6 +739,12 @@
       "score_coefficient_permil": 7
     },
     {
+      "id": "m0353",
+      "name": "ナイトループ",
+      "playing_seconds": 134,
+      "score_coefficient_permil": 7
+    },
+    {
       "id": "m0087",
       "name": "ネコカブリーナ",
       "playing_seconds": 133,
@@ -823,6 +841,12 @@
       "score_coefficient_permil": 5
     },
     {
+      "id": "m0332",
+      "name": "万歳☆満開",
+      "playing_seconds": 136,
+      "score_coefficient_permil": 7
+    },
+    {
       "id": "m0069",
       "name": "今日も大天才っ！",
       "playing_seconds": 112,
@@ -913,6 +937,12 @@
       "score_coefficient_permil": 3
     },
     {
+      "id": "m0333",
+      "name": "天たこ観測",
+      "playing_seconds": 131,
+      "score_coefficient_permil": 7
+    },
+    {
       "id": "m0012",
       "name": "失礼しますが、RIP♡",
       "playing_seconds": 91,
@@ -991,6 +1021,12 @@
       "score_coefficient_permil": 5
     },
     {
+      "id": "m0336",
+      "name": "星屑カプセル",
+      "playing_seconds": 117,
+      "score_coefficient_permil": 5
+    },
+    {
       "id": "m0329",
       "name": "毒の王子さま",
       "playing_seconds": 146,
@@ -1041,7 +1077,7 @@
     {
       "id": "m0337",
       "name": "美少女戦士まつりみっとZero",
-      "playing_seconds": 117,
+      "playing_seconds": 116,
       "score_coefficient_permil": 5
     },
     {

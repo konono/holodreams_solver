@@ -476,6 +476,126 @@ def calibrate(
     return result
 
 
+def recommend(
+    owned_cards_input: list,
+    top_n: int = 5,
+    acquire_count: int = 1,
+    stat_scale: float = 1.0,
+    baseline: float = 0,
+    fixed_leader_id: str | None = None,
+    song_length: float = SONG_LENGTH,
+) -> dict:
+    """未所持カードの取得・既所持カードの凸UPによるスコア向上の優先度を算出"""
+    all_cards = load_cards()
+    acquire_count = max(1, min(acquire_count, 5))
+
+    owned_specs = {}
+    for spec in owned_cards_input:
+        cid = spec["id"] if isinstance(spec, dict) else spec
+        pot = spec.get("potential", 0) if isinstance(spec, dict) else 0
+        lv = spec.get("level") if isinstance(spec, dict) else None
+        owned_specs[cid] = {"id": cid, "potential": pot, "level": lv}
+
+    solve_kwargs = dict(top_n=1, stat_scale=stat_scale, baseline=baseline, fixed_leader_id=fixed_leader_id, song_length=song_length)
+
+    base_result = solve(list(owned_specs.values()), **solve_kwargs)
+    base_score = base_result["results"][0]["unit_score"] if base_result["results"] else 0
+
+    candidates = []
+    for card in all_cards:
+        cid = card["id"]
+        if cid not in owned_specs:
+            candidates.append({
+                "card_id": cid,
+                "card_name": card.get("card_name", ""),
+                "character": card["character"],
+                "action": "acquire",
+                "current_potential": None,
+                "target_potential": 0,
+            })
+        else:
+            cur_pot = owned_specs[cid]["potential"]
+            max_pot = len(card.get("potential_data", [])) - 1
+            if cur_pot < max_pot:
+                candidates.append({
+                    "card_id": cid,
+                    "card_name": card.get("card_name", ""),
+                    "character": card["character"],
+                    "action": "uncap",
+                    "current_potential": cur_pot,
+                    "target_potential": cur_pot + 1,
+                })
+
+    def _apply_candidate(specs, cand):
+        specs = dict(specs)
+        if cand["action"] == "acquire":
+            specs[cand["card_id"]] = {"id": cand["card_id"], "potential": 0, "level": None}
+        else:
+            old = specs[cand["card_id"]]
+            specs[cand["card_id"]] = {**old, "potential": cand["target_potential"]}
+        return specs
+
+    # Phase 1: 1枚ずつ評価して delta > 0 の候補を抽出
+    single_results = []
+    for cand in candidates:
+        trial_specs = _apply_candidate(owned_specs, cand)
+        trial_result = solve(list(trial_specs.values()), **solve_kwargs)
+        if trial_result["results"]:
+            best = trial_result["results"][0]
+            delta = best["unit_score"] - base_score
+            if delta > 0:
+                single_results.append((cand, delta, best))
+
+    single_results.sort(key=lambda x: x[1], reverse=True)
+
+    if acquire_count == 1:
+        results = []
+        for cand, delta, best in single_results[:top_n]:
+            results.append({
+                "cards": [cand],
+                "new_score": best["unit_score"],
+                "delta": delta,
+                "best_team": {"leader_id": best["leader_id"], "member_ids": best["member_ids"]},
+            })
+    else:
+        shortlist = [c for c, d, _ in single_results if d > 0]
+        if len(shortlist) > 20:
+            shortlist = shortlist[:20]
+        results = []
+        for combo in combinations(range(len(shortlist)), acquire_count):
+            combo_cards = [shortlist[i] for i in combo]
+            acquire_chars = [c["character"] for c in combo_cards if c["action"] == "acquire"]
+            if len(acquire_chars) != len(set(acquire_chars)):
+                continue
+            trial_specs = dict(owned_specs)
+            for cand in combo_cards:
+                trial_specs = _apply_candidate(trial_specs, cand)
+            trial_result = solve(list(trial_specs.values()), **solve_kwargs)
+            if trial_result["results"]:
+                new_score = trial_result["results"][0]["unit_score"]
+                delta = new_score - base_score
+                if delta > 0:
+                    best = trial_result["results"][0]
+                    results.append({
+                        "cards": combo_cards,
+                        "new_score": new_score,
+                        "delta": delta,
+                        "best_team": {"leader_id": best["leader_id"], "member_ids": best["member_ids"]},
+                    })
+
+        results.sort(key=lambda x: x["delta"], reverse=True)
+        results = results[:top_n]
+
+    for i, r in enumerate(results):
+        r["rank"] = i + 1
+
+    return {
+        "base_score": base_score,
+        "acquire_count": acquire_count,
+        "recommendations": results,
+    }
+
+
 def solve(
     owned_cards_input: list,
     top_n: int = 10,

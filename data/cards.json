@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "generated": "2026-08-07T07:27:41.075871+00:00",
+  "generated": "2026-08-18T02:07:38.806862+00:00",
   "source": "HolodoriDB/holodori-db-jpn-diff",
   "source_commit": "main",
   "level_tables": {
@@ -15431,6 +15431,1366 @@
             "condition": {
               "type": "group_count",
               "group": "0期生",
+              "min_count": 2
+            },
+            "effects": [
+              {
+                "target": "all",
+                "stat": "sense",
+                "value": 135
+              }
+            ]
+          },
+          "special_skill": {
+            "duration": 12,
+            "score_support": 120,
+            "skill_rate_up": 45
+          }
+        }
+      ],
+      "variant": "水着"
+    },
+    {
+      "id": "nakiri_ayame_swim_5",
+      "holodori_id": "card-00010-5-uniq-0069-00",
+      "character": "百鬼あやめ",
+      "card_name": "鬼神流・ぷかぷかリゾート",
+      "rarity": 5,
+      "type": "happy",
+      "group": "2期生",
+      "card_level_group_id": "grp-card-level-rarity_5-05",
+      "permil": {
+        "performance": 302,
+        "technique": 430,
+        "sense": 268
+      },
+      "potential_data": [
+        {
+          "potential": 0,
+          "param_bonus_permil": 0,
+          "ref_stats_lv80": {
+            "performance": 7116,
+            "technique": 10132,
+            "sense": 6315
+          },
+          "center_skill": {
+            "interval": 27,
+            "probability": "medium",
+            "activation_probability_permil": 460,
+            "duration": 10,
+            "score_up": 95,
+            "condition": null,
+            "conditional_score_up": null
+          },
+          "support_skill": {
+            "effect_type": "group_score_support_conditional",
+            "value": 9,
+            "condition": {
+              "type": "group_count",
+              "group": "2期生",
+              "min_count": 2
+            },
+            "target": {
+              "group": "2期生",
+              "count": 2
+            }
+          },
+          "costume_skill": {
+            "condition": {
+              "type": "group_count",
+              "group": "2期生",
+              "min_count": 2
+            },
+            "effects": [
+              {
+                "target": "all",
+                "stat": "technique",
+                "value": 135
+              }
+            ]
+          },
+          "special_skill": {
+            "duration": 12,
+            "score_support": 100,
+            "skill_rate_up": 40
+          }
+        },
+        {
+          "potential": 1,
+          "param_bonus_permil": 0,
+          "ref_stats_lv80": {
+            "performance": 7116,
+            "technique": 10132,
+            "sense": 6315
+          },
+          "center_skill": {
+            "interval": 27,
+            "probability": "medium",
+            "activation_probability_permil": 460,
+            "duration": 10,
+            "score_up": 115,
+            "condition": null,
+            "conditional_score_up": null
+          },
+          "support_skill": {
+            "effect_type": "group_score_support_conditional",
+            "value": 9,
+            "condition": {
+              "type": "group_count",
+              "group": "2期生",
+              "min_count": 2
+            },
+            "target": {
+              "group": "2期生",
+              "count": 2
+            }
+          },
+          "costume_skill": {
+            "condition": {
+              "type": "group_count",
+              "group": "2期生",
+              "min_count": 2
+            },
+            "effects": [
+              {
+                "target": "all",
+                "stat": "technique",
+                "value": 135
+              }
+            ]
+          },
+          "special_skill": {
+            "duration": 12,
+            "score_support": 100,
+            "skill_rate_up": 40
+          }
+        },
+        {
+          "potential": 2,
+          "param_bonus_permil": 100,
+          "ref_stats_lv80": {
+            "performance": 7828,
+            "technique": 11145,
+            "sense": 6947
+          },
+          "center_skill": {
+            "interval": 27,
+            "probability": "medium",
+            "activation_probability_permil": 460,
+            "duration": 10,
+            "score_up": 115,
+            "condition": null,
+            "conditional_score_up": null
+          },
+          "support_skill": {
+            "effect_type": "group_score_support_conditional",
+            "value": 9,
+            "condition": {
+              "type": "group_count",
+              "group": "2期生",
+              "min_count": 2
+            },
+            "target": {
+              "group": "2期生",
+              "count": 2
+            }
+          },
+          "costume_skill": {
+            "condition": {
+              "type": "group_count",
+              "group": "2期生",
+              "min_count": 2
+            },
+            "effects": [
+              {
+                "target": "all",
+                "stat": "technique",
+                "value": 135
+              }
+            ]
+          },
+          "special_skill": {
+            "duration": 12,
+            "score_support": 100,
+            "skill_rate_up": 40
+          }
+        },
+        {
+          "potential": 3,
+          "param_bonus_permil": 100,
+          "ref_stats_lv80": {
+            "performance": 7828,
+            "technique": 11145,
+            "sense": 6947
+          },
+          "center_skill": {
+            "interval": 27,
+            "probability": "medium",
+            "activation_probability_permil": 460,
+            "duration": 10,
+            "score_up": 115,
+            "condition": null,
+            "conditional_score_up": null
+          },
+          "support_skill": {
+            "effect_type": "group_score_support_conditional",
+            "value": 9,
+            "condition": {
+              "type": "group_count",
+              "group": "2期生",
+              "min_count": 2
+            },
+            "target": {
+              "group": "2期生",
+              "count": 2
+            }
+          },
+          "costume_skill": {
+            "condition": {
+              "type": "group_count",
+              "group": "2期生",
+              "min_count": 2
+            },
+            "effects": [
+              {
+                "target": "all",
+                "stat": "technique",
+                "value": 135
+              }
+            ]
+          },
+          "special_skill": {
+            "duration": 12,
+            "score_support": 120,
+            "skill_rate_up": 45
+          }
+        },
+        {
+          "potential": 4,
+          "param_bonus_permil": 100,
+          "ref_stats_lv80": {
+            "performance": 7828,
+            "technique": 11145,
+            "sense": 6947
+          },
+          "center_skill": {
+            "interval": 27,
+            "probability": "medium",
+            "activation_probability_permil": 460,
+            "duration": 10,
+            "score_up": 115,
+            "condition": null,
+            "conditional_score_up": null
+          },
+          "support_skill": {
+            "effect_type": "group_score_support_conditional",
+            "value": 12,
+            "condition": {
+              "type": "group_count",
+              "group": "2期生",
+              "min_count": 2
+            },
+            "target": {
+              "group": "2期生",
+              "count": 2
+            }
+          },
+          "costume_skill": {
+            "condition": {
+              "type": "group_count",
+              "group": "2期生",
+              "min_count": 2
+            },
+            "effects": [
+              {
+                "target": "all",
+                "stat": "technique",
+                "value": 135
+              }
+            ]
+          },
+          "special_skill": {
+            "duration": 12,
+            "score_support": 120,
+            "skill_rate_up": 45
+          }
+        }
+      ],
+      "variant": "水着"
+    },
+    {
+      "id": "himemori_luna_swim_5",
+      "holodori_id": "card-00028-5-uniq-0070-00",
+      "character": "姫森ルーナ",
+      "card_name": "のんびり姫のおねだりビーチ",
+      "rarity": 5,
+      "type": "pure",
+      "group": "4期生",
+      "card_level_group_id": "grp-card-level-rarity_5-05",
+      "permil": {
+        "performance": 430,
+        "technique": 268,
+        "sense": 302
+      },
+      "potential_data": [
+        {
+          "potential": 0,
+          "param_bonus_permil": 0,
+          "ref_stats_lv80": {
+            "performance": 10132,
+            "technique": 6315,
+            "sense": 7116
+          },
+          "center_skill": {
+            "interval": 21,
+            "probability": "medium",
+            "activation_probability_permil": 460,
+            "duration": 7,
+            "score_up": 105,
+            "condition": null,
+            "conditional_score_up": null
+          },
+          "support_skill": {
+            "effect_type": "group_stat",
+            "value": 32,
+            "stat": "performance",
+            "condition": null,
+            "target": {
+              "group": "4期生",
+              "count": 2
+            }
+          },
+          "costume_skill": {
+            "condition": {
+              "type": "group_count",
+              "group": "4期生",
+              "min_count": 2
+            },
+            "effects": [
+              {
+                "target": "all",
+                "stat": "performance",
+                "value": 135
+              }
+            ]
+          },
+          "special_skill": {
+            "duration": 11,
+            "score_support": 110,
+            "skill_rate_up": 40
+          }
+        },
+        {
+          "potential": 1,
+          "param_bonus_permil": 0,
+          "ref_stats_lv80": {
+            "performance": 10132,
+            "technique": 6315,
+            "sense": 7116
+          },
+          "center_skill": {
+            "interval": 21,
+            "probability": "medium",
+            "activation_probability_permil": 460,
+            "duration": 8,
+            "score_up": 110,
+            "condition": null,
+            "conditional_score_up": null
+          },
+          "support_skill": {
+            "effect_type": "group_stat",
+            "value": 32,
+            "stat": "performance",
+            "condition": null,
+            "target": {
+              "group": "4期生",
+              "count": 2
+            }
+          },
+          "costume_skill": {
+            "condition": {
+              "type": "group_count",
+              "group": "4期生",
+              "min_count": 2
+            },
+            "effects": [
+              {
+                "target": "all",
+                "stat": "performance",
+                "value": 135
+              }
+            ]
+          },
+          "special_skill": {
+            "duration": 11,
+            "score_support": 110,
+            "skill_rate_up": 40
+          }
+        },
+        {
+          "potential": 2,
+          "param_bonus_permil": 100,
+          "ref_stats_lv80": {
+            "performance": 11145,
+            "technique": 6947,
+            "sense": 7828
+          },
+          "center_skill": {
+            "interval": 21,
+            "probability": "medium",
+            "activation_probability_permil": 460,
+            "duration": 8,
+            "score_up": 110,
+            "condition": null,
+            "conditional_score_up": null
+          },
+          "support_skill": {
+            "effect_type": "group_stat",
+            "value": 32,
+            "stat": "performance",
+            "condition": null,
+            "target": {
+              "group": "4期生",
+              "count": 2
+            }
+          },
+          "costume_skill": {
+            "condition": {
+              "type": "group_count",
+              "group": "4期生",
+              "min_count": 2
+            },
+            "effects": [
+              {
+                "target": "all",
+                "stat": "performance",
+                "value": 135
+              }
+            ]
+          },
+          "special_skill": {
+            "duration": 11,
+            "score_support": 110,
+            "skill_rate_up": 40
+          }
+        },
+        {
+          "potential": 3,
+          "param_bonus_permil": 100,
+          "ref_stats_lv80": {
+            "performance": 11145,
+            "technique": 6947,
+            "sense": 7828
+          },
+          "center_skill": {
+            "interval": 21,
+            "probability": "medium",
+            "activation_probability_permil": 460,
+            "duration": 8,
+            "score_up": 110,
+            "condition": null,
+            "conditional_score_up": null
+          },
+          "support_skill": {
+            "effect_type": "group_stat",
+            "value": 32,
+            "stat": "performance",
+            "condition": null,
+            "target": {
+              "group": "4期生",
+              "count": 2
+            }
+          },
+          "costume_skill": {
+            "condition": {
+              "type": "group_count",
+              "group": "4期生",
+              "min_count": 2
+            },
+            "effects": [
+              {
+                "target": "all",
+                "stat": "performance",
+                "value": 135
+              }
+            ]
+          },
+          "special_skill": {
+            "duration": 11,
+            "score_support": 130,
+            "skill_rate_up": 50
+          }
+        },
+        {
+          "potential": 4,
+          "param_bonus_permil": 100,
+          "ref_stats_lv80": {
+            "performance": 11145,
+            "technique": 6947,
+            "sense": 7828
+          },
+          "center_skill": {
+            "interval": 21,
+            "probability": "medium",
+            "activation_probability_permil": 460,
+            "duration": 8,
+            "score_up": 110,
+            "condition": null,
+            "conditional_score_up": null
+          },
+          "support_skill": {
+            "effect_type": "group_stat",
+            "value": 43,
+            "stat": "performance",
+            "condition": null,
+            "target": {
+              "group": "4期生",
+              "count": 2
+            }
+          },
+          "costume_skill": {
+            "condition": {
+              "type": "group_count",
+              "group": "4期生",
+              "min_count": 2
+            },
+            "effects": [
+              {
+                "target": "all",
+                "stat": "performance",
+                "value": 135
+              }
+            ]
+          },
+          "special_skill": {
+            "duration": 11,
+            "score_support": 130,
+            "skill_rate_up": 50
+          }
+        }
+      ],
+      "variant": "水着"
+    },
+    {
+      "id": "kureiji_ollie_swim_5",
+      "holodori_id": "card-03004-5-uniq-0073-00",
+      "character": "クレイジー・オリー",
+      "card_name": "常夏のCrazy Dive",
+      "rarity": 5,
+      "type": "happy",
+      "group": "ID2期生",
+      "card_level_group_id": "grp-card-level-rarity_5-05",
+      "permil": {
+        "performance": 268,
+        "technique": 302,
+        "sense": 430
+      },
+      "potential_data": [
+        {
+          "potential": 0,
+          "param_bonus_permil": 0,
+          "ref_stats_lv80": {
+            "performance": 6315,
+            "technique": 7116,
+            "sense": 10132
+          },
+          "center_skill": {
+            "interval": 19,
+            "probability": "high",
+            "activation_probability_permil": 550,
+            "duration": 7,
+            "score_up": 90,
+            "condition": null,
+            "conditional_score_up": null
+          },
+          "support_skill": {
+            "effect_type": "type_stat_conditional",
+            "value": 32,
+            "stat": "sense",
+            "condition": {
+              "type": "type_count",
+              "type_name": "happy",
+              "min_count": 2
+            },
+            "target": {
+              "type_match": "happy",
+              "count": 2
+            }
+          },
+          "costume_skill": {
+            "condition": {
+              "type": "type_count",
+              "type_name": "happy",
+              "min_count": 2
+            },
+            "effects": [
+              {
+                "target": "all",
+                "stat": "sense",
+                "value": 80
+              },
+              {
+                "target": "all",
+                "stat": "score_support",
+                "value": 25
+              }
+            ]
+          },
+          "special_skill": {
+            "duration": 10,
+            "score_support": 135
+          }
+        },
+        {
+          "potential": 1,
+          "param_bonus_permil": 0,
+          "ref_stats_lv80": {
+            "performance": 6315,
+            "technique": 7116,
+            "sense": 10132
+          },
+          "center_skill": {
+            "interval": 19,
+            "probability": "high",
+            "activation_probability_permil": 550,
+            "duration": 7,
+            "score_up": 110,
+            "condition": null,
+            "conditional_score_up": null
+          },
+          "support_skill": {
+            "effect_type": "type_stat_conditional",
+            "value": 32,
+            "stat": "sense",
+            "condition": {
+              "type": "type_count",
+              "type_name": "happy",
+              "min_count": 2
+            },
+            "target": {
+              "type_match": "happy",
+              "count": 2
+            }
+          },
+          "costume_skill": {
+            "condition": {
+              "type": "type_count",
+              "type_name": "happy",
+              "min_count": 2
+            },
+            "effects": [
+              {
+                "target": "all",
+                "stat": "sense",
+                "value": 80
+              },
+              {
+                "target": "all",
+                "stat": "score_support",
+                "value": 25
+              }
+            ]
+          },
+          "special_skill": {
+            "duration": 10,
+            "score_support": 135
+          }
+        },
+        {
+          "potential": 2,
+          "param_bonus_permil": 100,
+          "ref_stats_lv80": {
+            "performance": 6947,
+            "technique": 7828,
+            "sense": 11145
+          },
+          "center_skill": {
+            "interval": 19,
+            "probability": "high",
+            "activation_probability_permil": 550,
+            "duration": 7,
+            "score_up": 110,
+            "condition": null,
+            "conditional_score_up": null
+          },
+          "support_skill": {
+            "effect_type": "type_stat_conditional",
+            "value": 32,
+            "stat": "sense",
+            "condition": {
+              "type": "type_count",
+              "type_name": "happy",
+              "min_count": 2
+            },
+            "target": {
+              "type_match": "happy",
+              "count": 2
+            }
+          },
+          "costume_skill": {
+            "condition": {
+              "type": "type_count",
+              "type_name": "happy",
+              "min_count": 2
+            },
+            "effects": [
+              {
+                "target": "all",
+                "stat": "sense",
+                "value": 80
+              },
+              {
+                "target": "all",
+                "stat": "score_support",
+                "value": 25
+              }
+            ]
+          },
+          "special_skill": {
+            "duration": 10,
+            "score_support": 135
+          }
+        },
+        {
+          "potential": 3,
+          "param_bonus_permil": 100,
+          "ref_stats_lv80": {
+            "performance": 6947,
+            "technique": 7828,
+            "sense": 11145
+          },
+          "center_skill": {
+            "interval": 19,
+            "probability": "high",
+            "activation_probability_permil": 550,
+            "duration": 7,
+            "score_up": 110,
+            "condition": null,
+            "conditional_score_up": null
+          },
+          "support_skill": {
+            "effect_type": "type_stat_conditional",
+            "value": 32,
+            "stat": "sense",
+            "condition": {
+              "type": "type_count",
+              "type_name": "happy",
+              "min_count": 2
+            },
+            "target": {
+              "type_match": "happy",
+              "count": 2
+            }
+          },
+          "costume_skill": {
+            "condition": {
+              "type": "type_count",
+              "type_name": "happy",
+              "min_count": 2
+            },
+            "effects": [
+              {
+                "target": "all",
+                "stat": "sense",
+                "value": 80
+              },
+              {
+                "target": "all",
+                "stat": "score_support",
+                "value": 25
+              }
+            ]
+          },
+          "special_skill": {
+            "duration": 10,
+            "score_support": 160
+          }
+        },
+        {
+          "potential": 4,
+          "param_bonus_permil": 100,
+          "ref_stats_lv80": {
+            "performance": 6947,
+            "technique": 7828,
+            "sense": 11145
+          },
+          "center_skill": {
+            "interval": 19,
+            "probability": "high",
+            "activation_probability_permil": 550,
+            "duration": 7,
+            "score_up": 110,
+            "condition": null,
+            "conditional_score_up": null
+          },
+          "support_skill": {
+            "effect_type": "type_stat_conditional",
+            "value": 43,
+            "stat": "sense",
+            "condition": {
+              "type": "type_count",
+              "type_name": "happy",
+              "min_count": 2
+            },
+            "target": {
+              "type_match": "happy",
+              "count": 2
+            }
+          },
+          "costume_skill": {
+            "condition": {
+              "type": "type_count",
+              "type_name": "happy",
+              "min_count": 2
+            },
+            "effects": [
+              {
+                "target": "all",
+                "stat": "sense",
+                "value": 80
+              },
+              {
+                "target": "all",
+                "stat": "score_support",
+                "value": 25
+              }
+            ]
+          },
+          "special_skill": {
+            "duration": 10,
+            "score_support": 160
+          }
+        }
+      ],
+      "variant": "水着"
+    },
+    {
+      "id": "mori_calliope_swim_5",
+      "holodori_id": "card-04001-5-uniq-0071-00",
+      "character": "森カリオペ",
+      "card_name": "ビーチに刺さるReaper's Spike",
+      "rarity": 5,
+      "type": "cute",
+      "group": "Myth",
+      "card_level_group_id": "grp-card-level-rarity_5-05",
+      "permil": {
+        "performance": 268,
+        "technique": 302,
+        "sense": 430
+      },
+      "potential_data": [
+        {
+          "potential": 0,
+          "param_bonus_permil": 0,
+          "ref_stats_lv80": {
+            "performance": 6315,
+            "technique": 7116,
+            "sense": 10132
+          },
+          "center_skill": {
+            "interval": 31,
+            "probability": "medium",
+            "activation_probability_permil": 460,
+            "duration": 12,
+            "score_up": 90,
+            "condition": null,
+            "conditional_score_up": null
+          },
+          "support_skill": {
+            "effect_type": "type_stat_conditional",
+            "value": 32,
+            "stat": "sense",
+            "condition": {
+              "type": "type_count",
+              "type_name": "cute",
+              "min_count": 2
+            },
+            "target": {
+              "type_match": "cute",
+              "count": 2
+            }
+          },
+          "costume_skill": {
+            "condition": {
+              "type": "type_count",
+              "type_name": "cute",
+              "min_count": 2
+            },
+            "effects": [
+              {
+                "target": "all",
+                "stat": "sense",
+                "value": 80
+              },
+              {
+                "target": "all",
+                "stat": "score_support",
+                "value": 25
+              }
+            ]
+          },
+          "special_skill": {
+            "duration": 14,
+            "score_support": 95
+          }
+        },
+        {
+          "potential": 1,
+          "param_bonus_permil": 0,
+          "ref_stats_lv80": {
+            "performance": 6315,
+            "technique": 7116,
+            "sense": 10132
+          },
+          "center_skill": {
+            "interval": 31,
+            "probability": "medium",
+            "activation_probability_permil": 460,
+            "duration": 12,
+            "score_up": 110,
+            "condition": null,
+            "conditional_score_up": null
+          },
+          "support_skill": {
+            "effect_type": "type_stat_conditional",
+            "value": 32,
+            "stat": "sense",
+            "condition": {
+              "type": "type_count",
+              "type_name": "cute",
+              "min_count": 2
+            },
+            "target": {
+              "type_match": "cute",
+              "count": 2
+            }
+          },
+          "costume_skill": {
+            "condition": {
+              "type": "type_count",
+              "type_name": "cute",
+              "min_count": 2
+            },
+            "effects": [
+              {
+                "target": "all",
+                "stat": "sense",
+                "value": 80
+              },
+              {
+                "target": "all",
+                "stat": "score_support",
+                "value": 25
+              }
+            ]
+          },
+          "special_skill": {
+            "duration": 14,
+            "score_support": 95
+          }
+        },
+        {
+          "potential": 2,
+          "param_bonus_permil": 100,
+          "ref_stats_lv80": {
+            "performance": 6947,
+            "technique": 7828,
+            "sense": 11145
+          },
+          "center_skill": {
+            "interval": 31,
+            "probability": "medium",
+            "activation_probability_permil": 460,
+            "duration": 12,
+            "score_up": 110,
+            "condition": null,
+            "conditional_score_up": null
+          },
+          "support_skill": {
+            "effect_type": "type_stat_conditional",
+            "value": 32,
+            "stat": "sense",
+            "condition": {
+              "type": "type_count",
+              "type_name": "cute",
+              "min_count": 2
+            },
+            "target": {
+              "type_match": "cute",
+              "count": 2
+            }
+          },
+          "costume_skill": {
+            "condition": {
+              "type": "type_count",
+              "type_name": "cute",
+              "min_count": 2
+            },
+            "effects": [
+              {
+                "target": "all",
+                "stat": "sense",
+                "value": 80
+              },
+              {
+                "target": "all",
+                "stat": "score_support",
+                "value": 25
+              }
+            ]
+          },
+          "special_skill": {
+            "duration": 14,
+            "score_support": 95
+          }
+        },
+        {
+          "potential": 3,
+          "param_bonus_permil": 100,
+          "ref_stats_lv80": {
+            "performance": 6947,
+            "technique": 7828,
+            "sense": 11145
+          },
+          "center_skill": {
+            "interval": 31,
+            "probability": "medium",
+            "activation_probability_permil": 460,
+            "duration": 12,
+            "score_up": 110,
+            "condition": null,
+            "conditional_score_up": null
+          },
+          "support_skill": {
+            "effect_type": "type_stat_conditional",
+            "value": 32,
+            "stat": "sense",
+            "condition": {
+              "type": "type_count",
+              "type_name": "cute",
+              "min_count": 2
+            },
+            "target": {
+              "type_match": "cute",
+              "count": 2
+            }
+          },
+          "costume_skill": {
+            "condition": {
+              "type": "type_count",
+              "type_name": "cute",
+              "min_count": 2
+            },
+            "effects": [
+              {
+                "target": "all",
+                "stat": "sense",
+                "value": 80
+              },
+              {
+                "target": "all",
+                "stat": "score_support",
+                "value": 25
+              }
+            ]
+          },
+          "special_skill": {
+            "duration": 14,
+            "score_support": 115
+          }
+        },
+        {
+          "potential": 4,
+          "param_bonus_permil": 100,
+          "ref_stats_lv80": {
+            "performance": 6947,
+            "technique": 7828,
+            "sense": 11145
+          },
+          "center_skill": {
+            "interval": 31,
+            "probability": "medium",
+            "activation_probability_permil": 460,
+            "duration": 12,
+            "score_up": 110,
+            "condition": null,
+            "conditional_score_up": null
+          },
+          "support_skill": {
+            "effect_type": "type_stat_conditional",
+            "value": 43,
+            "stat": "sense",
+            "condition": {
+              "type": "type_count",
+              "type_name": "cute",
+              "min_count": 2
+            },
+            "target": {
+              "type_match": "cute",
+              "count": 2
+            }
+          },
+          "costume_skill": {
+            "condition": {
+              "type": "type_count",
+              "type_name": "cute",
+              "min_count": 2
+            },
+            "effects": [
+              {
+                "target": "all",
+                "stat": "sense",
+                "value": 80
+              },
+              {
+                "target": "all",
+                "stat": "score_support",
+                "value": 25
+              }
+            ]
+          },
+          "special_skill": {
+            "duration": 14,
+            "score_support": 115
+          }
+        }
+      ],
+      "variant": "水着"
+    },
+    {
+      "id": "ninomae_ina_nis_swim_5",
+      "holodori_id": "card-04003-5-uniq-0072-00",
+      "character": "一伊那尓栖",
+      "card_name": "潮騒の記憶をたどって",
+      "rarity": 5,
+      "type": "happy",
+      "group": "Myth",
+      "card_level_group_id": "grp-card-level-rarity_5-05",
+      "permil": {
+        "performance": 302,
+        "technique": 268,
+        "sense": 430
+      },
+      "potential_data": [
+        {
+          "potential": 0,
+          "param_bonus_permil": 0,
+          "ref_stats_lv80": {
+            "performance": 7116,
+            "technique": 6315,
+            "sense": 10132
+          },
+          "center_skill": {
+            "interval": 24,
+            "probability": "medium",
+            "activation_probability_permil": 460,
+            "duration": 10,
+            "score_up": 85,
+            "condition": null,
+            "conditional_score_up": null
+          },
+          "support_skill": {
+            "effect_type": "group_stat",
+            "value": 32,
+            "stat": "sense",
+            "condition": null,
+            "target": {
+              "group": "Myth",
+              "count": 2
+            }
+          },
+          "costume_skill": {
+            "condition": {
+              "type": "group_count",
+              "group": "Myth",
+              "min_count": 2
+            },
+            "effects": [
+              {
+                "target": "all",
+                "stat": "sense",
+                "value": 135
+              }
+            ]
+          },
+          "special_skill": {
+            "duration": 12,
+            "score_support": 100,
+            "skill_rate_up": 40
+          }
+        },
+        {
+          "potential": 1,
+          "param_bonus_permil": 0,
+          "ref_stats_lv80": {
+            "performance": 7116,
+            "technique": 6315,
+            "sense": 10132
+          },
+          "center_skill": {
+            "interval": 24,
+            "probability": "medium",
+            "activation_probability_permil": 460,
+            "duration": 10,
+            "score_up": 100,
+            "condition": null,
+            "conditional_score_up": null
+          },
+          "support_skill": {
+            "effect_type": "group_stat",
+            "value": 32,
+            "stat": "sense",
+            "condition": null,
+            "target": {
+              "group": "Myth",
+              "count": 2
+            }
+          },
+          "costume_skill": {
+            "condition": {
+              "type": "group_count",
+              "group": "Myth",
+              "min_count": 2
+            },
+            "effects": [
+              {
+                "target": "all",
+                "stat": "sense",
+                "value": 135
+              }
+            ]
+          },
+          "special_skill": {
+            "duration": 12,
+            "score_support": 100,
+            "skill_rate_up": 40
+          }
+        },
+        {
+          "potential": 2,
+          "param_bonus_permil": 100,
+          "ref_stats_lv80": {
+            "performance": 7828,
+            "technique": 6947,
+            "sense": 11145
+          },
+          "center_skill": {
+            "interval": 24,
+            "probability": "medium",
+            "activation_probability_permil": 460,
+            "duration": 10,
+            "score_up": 100,
+            "condition": null,
+            "conditional_score_up": null
+          },
+          "support_skill": {
+            "effect_type": "group_stat",
+            "value": 32,
+            "stat": "sense",
+            "condition": null,
+            "target": {
+              "group": "Myth",
+              "count": 2
+            }
+          },
+          "costume_skill": {
+            "condition": {
+              "type": "group_count",
+              "group": "Myth",
+              "min_count": 2
+            },
+            "effects": [
+              {
+                "target": "all",
+                "stat": "sense",
+                "value": 135
+              }
+            ]
+          },
+          "special_skill": {
+            "duration": 12,
+            "score_support": 100,
+            "skill_rate_up": 40
+          }
+        },
+        {
+          "potential": 3,
+          "param_bonus_permil": 100,
+          "ref_stats_lv80": {
+            "performance": 7828,
+            "technique": 6947,
+            "sense": 11145
+          },
+          "center_skill": {
+            "interval": 24,
+            "probability": "medium",
+            "activation_probability_permil": 460,
+            "duration": 10,
+            "score_up": 100,
+            "condition": null,
+            "conditional_score_up": null
+          },
+          "support_skill": {
+            "effect_type": "group_stat",
+            "value": 32,
+            "stat": "sense",
+            "condition": null,
+            "target": {
+              "group": "Myth",
+              "count": 2
+            }
+          },
+          "costume_skill": {
+            "condition": {
+              "type": "group_count",
+              "group": "Myth",
+              "min_count": 2
+            },
+            "effects": [
+              {
+                "target": "all",
+                "stat": "sense",
+                "value": 135
+              }
+            ]
+          },
+          "special_skill": {
+            "duration": 12,
+            "score_support": 120,
+            "skill_rate_up": 45
+          }
+        },
+        {
+          "potential": 4,
+          "param_bonus_permil": 100,
+          "ref_stats_lv80": {
+            "performance": 7828,
+            "technique": 6947,
+            "sense": 11145
+          },
+          "center_skill": {
+            "interval": 24,
+            "probability": "medium",
+            "activation_probability_permil": 460,
+            "duration": 10,
+            "score_up": 100,
+            "condition": null,
+            "conditional_score_up": null
+          },
+          "support_skill": {
+            "effect_type": "group_stat",
+            "value": 43,
+            "stat": "sense",
+            "condition": null,
+            "target": {
+              "group": "Myth",
+              "count": 2
+            }
+          },
+          "costume_skill": {
+            "condition": {
+              "type": "group_count",
+              "group": "Myth",
               "min_count": 2
             },
             "effects": [

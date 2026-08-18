@@ -257,6 +257,18 @@ header p { color: #8899aa; font-size: 0.85rem; margin-top: 4px; }
 
   <div class="controls">
     <button class="btn-solve" id="btnSolve" disabled>最強編成を探す</button>
+    <button class="btn-solve" id="btnRecommend" style="background:linear-gradient(135deg,#ff8c4f,#d96b3b);font-size:0.85rem;padding:8px 16px" disabled>強化レコメンド</button>
+    <select id="acquireCount" style="background:#1e2d3d;border:1px solid #3a4f66;color:#f0a040;padding:6px 8px;border-radius:4px;font-size:0.8rem">
+      <option value="1" selected>+1枚</option>
+      <option value="2">+2枚</option>
+      <option value="3">+3枚</option>
+      <option value="4">+4枚</option>
+      <option value="5">+5枚</option>
+    </select>
+    <select id="recommendTopN" style="background:#1e2d3d;border:1px solid #3a4f66;color:#f0a040;padding:6px 8px;border-radius:4px;font-size:0.8rem">
+      <option value="5" selected>Top 5</option>
+      <option value="10">Top 10</option>
+    </select>
     <select id="topN" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:6px 8px;border-radius:4px;font-size:0.8rem">
       <option value="10" selected>Top 10</option>
       <option value="30">Top 30</option>
@@ -636,6 +648,7 @@ function toggleCard(id, el) {
 function updateCounter() {
   document.getElementById("selectedCount").textContent = selected.size;
   document.getElementById("btnSolve").disabled = selected.size > 0 && selected.size < 5;
+  document.getElementById("btnRecommend").disabled = selected.size < 5;
   const leader = document.getElementById("fixedLeader").value;
   document.getElementById("limitWarn").textContent =
     selected.size === 0 ? (leader ? "(リーダー固定 + 全カードで探索)" : "(全カードで探索)") : "";
@@ -941,12 +954,17 @@ document.getElementById("btnCalibrate").addEventListener("click", async () => {
 });
 
 let fabMode = "solve";
+let isComputing = false;
 
 async function doSolve() {
+  if (isComputing) return;
+  isComputing = true;
   const btn = document.getElementById("btnSolve");
+  const btnRec = document.getElementById("btnRecommend");
   const fab = document.getElementById("fabSolve");
   const loading = document.getElementById("loadingArea");
   btn.disabled = true;
+  btnRec.disabled = true;
   btn.textContent = "計算中...";
   fab.classList.add("disabled");
   fab.textContent = "計算中...";
@@ -985,7 +1003,9 @@ async function doSolve() {
     document.getElementById("resultsArea").innerHTML =
       `<div class="empty-msg">エラーが発生しました: ${e.message}</div>`;
   } finally {
+    isComputing = false;
     btn.disabled = false;
+    btnRec.disabled = selected.size < 5;
     btn.textContent = "最強編成を探す";
     loading.classList.remove("visible");
     setFabMode("back");
@@ -1029,6 +1049,130 @@ function updateFab() {
 }
 
 document.getElementById("btnSolve").addEventListener("click", doSolve);
+
+document.getElementById("btnRecommend").addEventListener("click", doRecommend);
+
+async function doRecommend() {
+  if (selected.size < 5) return;
+  const uniqueChars = new Set([...selected].map(id => cardMap[id]?.character).filter(Boolean));
+  if (uniqueChars.size < 5) {
+    expandResults();
+    document.getElementById("resultsArea").innerHTML = '<div class="empty-msg">レコメンドには5キャラ以上のカードが必要です。</div>';
+    return;
+  }
+  if (isComputing) return;
+  isComputing = true;
+  const btn = document.getElementById("btnRecommend");
+  const btnSolve = document.getElementById("btnSolve");
+  const loading = document.getElementById("loadingArea");
+  btn.disabled = true;
+  btnSolve.disabled = true;
+  btn.textContent = "分析中...";
+  const ac = parseInt(document.getElementById("acquireCount").value);
+  const timeNote = ac >= 4 ? '（候補が多い場合1〜2分かかることがあります）' : '（候補ごとに再計算するため時間がかかります）';
+  loading.innerHTML = `<span class="spinner"></span>強化レコメンドを分析中...${timeNote}`;
+  loading.classList.add("visible");
+  document.getElementById("resultsArea").innerHTML = "";
+
+  try {
+    const cardSpecs = [...selected].map(id => ({ id, potential: getCardPotential(id), level: getCardLevel(id) }));
+    const res = await fetch("/api/recommend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cards: cardSpecs, stat_scale: statScale, baseline,
+        fixed_leader_id: document.getElementById("fixedLeader").value || null,
+        acquire_count: parseInt(document.getElementById("acquireCount").value),
+        top_n: parseInt(document.getElementById("recommendTopN").value),
+        song_length: document.getElementById("songSelect").value ? parseFloat(document.getElementById("songSelect").value) : null,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `サーバーエラー (${res.status})`);
+    }
+    const data = await res.json();
+    expandResults();
+    renderRecommendations(data);
+    document.getElementById("resultsWrapper").scrollIntoView({ behavior: "smooth" });
+  } catch (e) {
+    expandResults();
+    document.getElementById("resultsArea").innerHTML =
+      `<div class="empty-msg">エラーが発生しました: ${e.message}</div>`;
+  } finally {
+    isComputing = false;
+    btn.disabled = selected.size < 5;
+    btnSolve.disabled = selected.size > 0 && selected.size < 5;
+    btn.textContent = "強化レコメンド";
+    loading.innerHTML = '<span class="spinner"></span>最強編成を探索中...';
+    loading.classList.remove("visible");
+  }
+}
+
+function renderRecommendations(data) {
+  const area = document.getElementById("resultsArea");
+  const recs = data.recommendations;
+  if (!recs || !recs.length) {
+    area.innerHTML = `<div class="empty-msg">現在の編成からスコアを上げる候補が見つかりませんでした。<br>ベーススコア: ${(data.base_score || 0).toLocaleString()}</div>`;
+    return;
+  }
+
+  const maxDelta = recs[0]?.delta || 1;
+  const pctUp = (d) => data.base_score > 0 ? (d / data.base_score * 100).toFixed(2) : "0.00";
+
+  let html = "";
+  if (data.warnings && data.warnings.length) {
+    html += `<div style="background:#3d2a0f;color:#f0a040;padding:8px 12px;border-radius:6px;margin-bottom:8px;font-size:0.85rem">${data.warnings.join("<br>")}</div>`;
+  }
+  const ac = data.acquire_count || 1;
+  html += `<div class="results-title">強化レコメンド Top ${recs.length}（+${ac}枚 / ベーススコア: <span style="color:#4f8cff">${data.base_score.toLocaleString()}</span>）</div>`;
+  html += `<div style="font-size:0.78rem;color:#6b7f92;margin-bottom:12px">${ac === 1 ? '各カードを取得/凸した場合' : `単体で効果のある候補（最大20件）から${ac}枚の組み合わせを探索した結果`}のスコア上昇幅を比較しています</div>`;
+
+  for (const r of recs) {
+    const cards = r.cards || [r];
+    const rankColors = { 1: "#ffd700", 2: "#c0c0c0", 3: "#cd7f32" };
+    const rankColor = rankColors[r.rank] || "#4f8cff";
+    const barWidth = Math.max(4, (r.delta / maxDelta) * 100);
+
+    html += `<div class="result-card">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
+        <span class="result-rank" style="color:${rankColor};font-size:1.2rem">#${r.rank}</span>
+        <span style="font-size:1.3rem;font-weight:800;color:#40d080">+${r.delta.toLocaleString()}</span>
+        <span style="font-size:0.85rem;color:#40d080;font-weight:600">(+${pctUp(r.delta)}%)</span>
+        <span style="font-size:0.8rem;color:#8899aa">→ ${r.new_score.toLocaleString()}</span>
+      </div>
+      <div style="background:#1a2735;border-radius:4px;height:8px;overflow:hidden;margin-bottom:10px">
+        <div style="background:linear-gradient(90deg,#40d080,#30a060);height:100%;width:${barWidth}%;border-radius:4px;transition:width 0.3s"></div>
+      </div>`;
+
+    for (const c of cards) {
+      const card = cardMap[c.card_id];
+      const actionLabel = c.action === "acquire"
+        ? '<span style="background:#0f3d1a;color:#40d080;padding:2px 8px;border-radius:3px;font-size:0.72rem;font-weight:600">新規取得</span>'
+        : `<span style="background:#3d2a0f;color:#f0a040;padding:2px 8px;border-radius:3px;font-size:0.72rem;font-weight:600">${c.current_potential}凸→${c.target_potential}凸</span>`;
+      html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+        ${actionLabel}
+        <span style="font-weight:700;font-size:0.9rem">${c.character}</span>
+        <span style="font-size:0.72rem;color:#7a8c9e">${c.card_name}</span>
+        ${card ? `<span class="type-badge type-${card.type}">${TYPE_LABELS[card.type]}</span>` : ''}
+      </div>`;
+    }
+
+    if (r.best_team) {
+      html += `<div style="font-size:0.72rem;color:#6b7f92;margin-top:6px">ベストチーム: `;
+      const leaderCard = cardMap[r.best_team.leader_id];
+      html += `<span style="color:#ffd700">★${leaderCard ? leaderCard.character : r.best_team.leader_id}</span>`;
+      for (const mid of r.best_team.member_ids) {
+        if (mid === r.best_team.leader_id) continue;
+        const mc = cardMap[mid];
+        html += ` / ${mc ? mc.character : mid}`;
+      }
+      html += `</div>`;
+    }
+    html += `</div>`;
+  }
+  area.innerHTML = html;
+}
 
 document.getElementById("fabSolve").addEventListener("click", () => {
   if (fabMode === "back") {
