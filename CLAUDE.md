@@ -52,10 +52,10 @@ uv run python app.py
 - center_skillの条件はタイプ条件のみ計算に反映。ライフ/コンボ条件は基本値を使用
 - データはappmediaの0凸max level値。凸カードは実測で約2%の誤差
 
-## カード追加
+## カードデータ更新
 
-`/add-card` スキルを使用。appmediaから4つのページを参照してデータを収集する。
-詳細は `.claude/skills/add-card.md` を参照。
+`/update-cards` スキルを使用。HolodoriDB（GitHub: `HolodoriDB/holodori-db-jpn-diff`）から `scripts/sync_holodori.py` で全カードを自動生成する。
+詳細は `.claude/skills/update-cards.md` を参照。
 
 ## キャリブレーション
 
