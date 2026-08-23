@@ -369,13 +369,13 @@ self.onmessage = function(e) {{
     for (const card of allCards) {{
       if (!ownedMap[card.id]) {{
         candidates.push({{ card_id: card.id, card_name: card.card_name || "", character: card.character,
-          action: "acquire", current_potential: null, target_potential: 0 }});
+          action: "acquire", current_potential: null, target_potential: 0, cost: 1 }});
       }} else {{
         const cur = ownedMap[card.id].potential;
         const maxPot = (card.potential_data || []).length - 1;
-        if (cur < maxPot) {{
+        for (let target = cur + 1; target <= maxPot; target++) {{
           candidates.push({{ card_id: card.id, card_name: card.card_name || "", character: card.character,
-            action: "uncap", current_potential: cur, target_potential: cur + 1 }});
+            action: "uncap", current_potential: cur, target_potential: target, cost: target - cur }});
         }}
       }}
     }}
@@ -398,16 +398,21 @@ self.onmessage = function(e) {{
       }}).filter(Boolean);
     }}
 
-    // Phase 1: single-card evaluation
+    // Phase 1: cost=1 の候補を1枚ずつ評価
     const singleResults = [];
+    const effectiveCardIds = new Set();
     for (let ci = 0; ci < candidates.length; ci++) {{
+      if (candidates[ci].cost !== 1) continue;
       const trialSpecs = applyCandidate(ownedSpecs, candidates[ci]);
       const trialResult = solveInternal(resolveSpecs(trialSpecs), fli, 1, SLEN, false);
       if (trialResult.results.length > 0) {{
         const best = trialResult.results[0];
         const newScore = Math.round(best.unitScore);
         const delta = newScore - baseScore;
-        if (delta > 0) singleResults.push({{ idx: ci, delta, newScore, best }});
+        if (delta > 0) {{
+          singleResults.push({{ idx: ci, delta, newScore, best }});
+          effectiveCardIds.add(candidates[ci].card_id);
+        }}
       }}
       if ((ci + 1) % 5 === 0 || ci === candidates.length - 1) {{
         self.postMessage({{ type: "progress", current: ci + 1, total: candidates.length + (acquireCount > 1 ? 100 : 0) }});
@@ -427,18 +432,36 @@ self.onmessage = function(e) {{
         }});
       }}
     }} else {{
-      let shortlist = singleResults.filter(sr => sr.delta > 0).map(sr => sr.idx);
-      if (shortlist.length > 20) shortlist = shortlist.slice(0, 20);
-      const combos = [];
-      function genCombos(start, chosen) {{
-        if (chosen.length === acquireCount) {{ combos.push([...chosen]); return; }}
-        for (let i = start; i < shortlist.length; i++) genCombos(i + 1, [...chosen, shortlist[i]]);
+      const multiUncap = [];
+      for (let ci = 0; ci < candidates.length; ci++) {{
+        const c = candidates[ci];
+        if (c.cost > 1 && c.cost <= acquireCount && effectiveCardIds.has(c.card_id)) {{
+          multiUncap.push(ci);
+        }}
       }}
-      genCombos(0, []);
+      const singleCands = singleResults.filter(sr => sr.delta > 0).map(sr => sr.idx);
+      const maxSingle = Math.max(0, 20 - multiUncap.length);
+      const shortlist = [...singleCands.slice(0, maxSingle), ...multiUncap];
+
+      function genCombosByCost(items, totalCost, start) {{
+        const results = [];
+        if (totalCost === 0) {{ results.push([]); return results; }}
+        for (let i = start; i < items.length; i++) {{
+          const c = candidates[items[i]].cost;
+          if (c <= totalCost) {{
+            const rest = genCombosByCost(items, totalCost - c, i + 1);
+            for (const r of rest) results.push([items[i], ...r]);
+          }}
+        }}
+        return results;
+      }}
+      const combos = genCombosByCost(shortlist, acquireCount, 0);
 
       const phase2Base = candidates.length;
       for (let ci = 0; ci < combos.length; ci++) {{
         const comboCards = combos[ci].map(i => candidates[i]);
+        const cardIds = comboCards.map(c => c.card_id);
+        if (new Set(cardIds).size !== cardIds.length) continue;
         const acqChars = comboCards.filter(c => c.action === "acquire").map(c => c.character);
         if (new Set(acqChars).size !== acqChars.length) continue;
         let trialSpecs = [...ownedSpecs.map(s => ({{ ...s }}))];

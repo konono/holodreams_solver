@@ -564,12 +564,13 @@ def recommend(
                 "best_team": {"leader_id": best["leader_id"], "member_ids": best["member_ids"]},
             })
     else:
-        shortlist = [c for c, d, _ in single_results if d > 0]
-        for cand in candidates:
-            if cand["cost"] > 1 and cand["cost"] <= acquire_count and cand["card_id"] in effective_card_ids:
-                shortlist.append(cand)
-        if len(shortlist) > 20:
-            shortlist = shortlist[:20]
+        multi_uncap = [
+            cand for cand in candidates
+            if cand["cost"] > 1 and cand["cost"] <= acquire_count and cand["card_id"] in effective_card_ids
+        ]
+        single_cands = [c for c, d, _ in single_results if d > 0]
+        max_single = max(0, 20 - len(multi_uncap))
+        shortlist = single_cands[:max_single] + multi_uncap
 
         def _combos_by_cost(items, total_cost, start=0):
             if total_cost == 0:
