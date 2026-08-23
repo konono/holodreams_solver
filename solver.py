@@ -512,18 +512,20 @@ def recommend(
                 "action": "acquire",
                 "current_potential": None,
                 "target_potential": 0,
+                "cost": 1,
             })
         else:
             cur_pot = owned_specs[cid]["potential"]
             max_pot = len(card.get("potential_data", [])) - 1
-            if cur_pot < max_pot:
+            for target in range(cur_pot + 1, max_pot + 1):
                 candidates.append({
                     "card_id": cid,
                     "card_name": card.get("card_name", ""),
                     "character": card["character"],
                     "action": "uncap",
                     "current_potential": cur_pot,
-                    "target_potential": cur_pot + 1,
+                    "target_potential": target,
+                    "cost": target - cur_pot,
                 })
 
     def _apply_candidate(specs, cand):
@@ -535,9 +537,12 @@ def recommend(
             specs[cand["card_id"]] = {**old, "potential": cand["target_potential"]}
         return specs
 
-    # Phase 1: 1枚ずつ評価して delta > 0 の候補を抽出
+    # Phase 1: cost=1の候補を1枚ずつ評価して delta > 0 の候補を抽出
     single_results = []
+    effective_card_ids = set()
     for cand in candidates:
+        if cand["cost"] != 1:
+            continue
         trial_specs = _apply_candidate(owned_specs, cand)
         trial_result = solve(list(trial_specs.values()), **solve_kwargs)
         if trial_result["results"]:
@@ -545,6 +550,7 @@ def recommend(
             delta = best["unit_score"] - base_score
             if delta > 0:
                 single_results.append((cand, delta, best))
+                effective_card_ids.add(cand["card_id"])
 
     single_results.sort(key=lambda x: x[1], reverse=True)
 
@@ -559,11 +565,27 @@ def recommend(
             })
     else:
         shortlist = [c for c, d, _ in single_results if d > 0]
+        for cand in candidates:
+            if cand["cost"] > 1 and cand["cost"] <= acquire_count and cand["card_id"] in effective_card_ids:
+                shortlist.append(cand)
         if len(shortlist) > 20:
             shortlist = shortlist[:20]
+
+        def _combos_by_cost(items, total_cost, start=0):
+            if total_cost == 0:
+                yield []
+                return
+            for i in range(start, len(items)):
+                c = items[i]["cost"]
+                if c <= total_cost:
+                    for rest in _combos_by_cost(items, total_cost - c, i + 1):
+                        yield [items[i]] + rest
+
         results = []
-        for combo in combinations(range(len(shortlist)), acquire_count):
-            combo_cards = [shortlist[i] for i in combo]
+        for combo_cards in _combos_by_cost(shortlist, acquire_count):
+            card_ids = [c["card_id"] for c in combo_cards]
+            if len(card_ids) != len(set(card_ids)):
+                continue
             acquire_chars = [c["character"] for c in combo_cards if c["action"] == "acquire"]
             if len(acquire_chars) != len(set(acquire_chars)):
                 continue
