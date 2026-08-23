@@ -2,7 +2,7 @@
 
 import pytest
 
-from solver import calibrate, evaluate_team, load_cards, resolve_card, solve
+from solver import calibrate, evaluate_team, load_cards, recommend, resolve_card, solve
 
 TEAM_IDS = ["nakiri_ayame_5", "houshou_marine_5", "momosuzu_nene_5", "hakui_koyori_5", "shirogane_noel_swim_5"]
 
@@ -316,3 +316,90 @@ def test_js_constants_match_python():
     assert f"const COSTUME_SS_RATE = {COSTUME_SS_RATE};" in js
     assert f"const SUPPORT_SS_RATE = {SUPPORT_SS_RATE};" in js
     assert f"const SONG_LENGTH = {SONG_LENGTH};" in js
+
+
+# --- recommend() ユニットテスト ---
+
+RECOMMEND_CARDS_15 = [
+    "tokino_sora_5", "robocosan_5", "hoshimachi_suisei_5",
+    "sakura_miko_5", "shirakami_fubuki_5", "natsuiro_matsuri_5",
+    "akai_haato_5", "nakiri_ayame_5", "azki_5",
+    "aki_rosenthal_5", "yuzuki_choco_5", "oozora_subaru_5",
+    "ookami_mio_5", "nekomata_okayu_5", "inugami_korone_5",
+]
+
+
+def test_recommend_acquire1_no_multi_uncap():
+    """acquire_count=1 では cost=1 の候補のみ"""
+    cards = [{"id": cid, "potential": 0} for cid in RECOMMEND_CARDS_15]
+    result = recommend(cards, top_n=10, acquire_count=1)
+    for r in result["recommendations"]:
+        for c in r["cards"]:
+            assert c.get("cost", 1) == 1, f"acquire_count=1 should only have cost=1, got {c}"
+
+
+def test_recommend_acquire2_has_multi_uncap():
+    """acquire_count=2 で同一カード複数凸（cost=2）が候補に含まれる"""
+    cards = [{"id": cid, "potential": 0} for cid in RECOMMEND_CARDS_15]
+    result = recommend(cards, top_n=10, acquire_count=2)
+    has_multi = any(
+        c["cost"] > 1
+        for r in result["recommendations"]
+        for c in r["cards"]
+    )
+    assert has_multi, "Expected at least one multi-uncap (cost>1) recommendation"
+
+
+def test_recommend_acquire2_cost_sum():
+    """各レコメンドの合計コストが acquire_count と一致する"""
+    cards = [{"id": cid, "potential": 0} for cid in RECOMMEND_CARDS_15]
+    result = recommend(cards, top_n=10, acquire_count=2)
+    for r in result["recommendations"]:
+        total_cost = sum(c["cost"] for c in r["cards"])
+        assert total_cost == 2, f"Expected total cost=2, got {total_cost}: {r['cards']}"
+
+
+def test_recommend_acquire3_cost_sum():
+    """acquire_count=3 でも合計コストが一致する"""
+    cards = [{"id": cid, "potential": 0} for cid in RECOMMEND_CARDS_15]
+    result = recommend(cards, top_n=10, acquire_count=3)
+    for r in result["recommendations"]:
+        total_cost = sum(c["cost"] for c in r["cards"])
+        assert total_cost == 3, f"Expected total cost=3, got {total_cost}: {r['cards']}"
+
+
+def test_recommend_no_duplicate_card_ids():
+    """同一 card_id がコンボ内に重複しない"""
+    cards = [{"id": cid, "potential": 0} for cid in RECOMMEND_CARDS_15]
+    result = recommend(cards, top_n=10, acquire_count=2)
+    for r in result["recommendations"]:
+        card_ids = [c["card_id"] for c in r["cards"]]
+        assert len(card_ids) == len(set(card_ids)), f"Duplicate card_ids: {card_ids}"
+
+
+def test_recommend_multi_uncap_shortlist_preserved():
+    """単体候補が多くても複数凸候補が shortlist から落ちない"""
+    all_cards = load_cards()
+    chars_seen = set()
+    cards = []
+    for c in all_cards:
+        if c["character"] not in chars_seen:
+            chars_seen.add(c["character"])
+            cards.append({"id": c["id"], "potential": 0})
+        if len(cards) >= 25:
+            break
+    result = recommend(cards, top_n=20, acquire_count=2)
+    has_multi = any(
+        c["cost"] > 1
+        for r in result["recommendations"]
+        for c in r["cards"]
+    )
+    assert has_multi, "Multi-uncap candidates should survive shortlist truncation even with many single candidates"
+
+
+def test_recommend_delta_positive():
+    """全レコメンドの delta が正"""
+    cards = [{"id": cid, "potential": 0} for cid in RECOMMEND_CARDS_15]
+    result = recommend(cards, top_n=10, acquire_count=2)
+    for r in result["recommendations"]:
+        assert r["delta"] > 0, f"Expected positive delta, got {r['delta']}"
