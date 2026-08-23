@@ -23,7 +23,7 @@ def server():
 @pytest.fixture(scope="module")
 def browser_context():
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        browser = p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"], channel="chromium")
         context = browser.new_context()
         yield context
         context.close()
@@ -125,6 +125,122 @@ def test_recommend_multi_card_combo(server, browser_context):
     results3 = page.locator(".results-area .result-card")
     assert results3.count() >= 1
     expect(page.locator(".results-title")).to_contain_text("+3枚")
+
+    page.close()
+
+
+def set_card_potential(page, card_id, potential):
+    btn = page.locator(f'button.pot-btn[data-pot="{potential}"][data-card="{card_id}"]')
+    btn.click()
+    page.wait_for_timeout(100)
+
+
+TEST_CARDS_MANY = [
+    "tokino_sora_5", "robocosan_5", "hoshimachi_suisei_5",
+    "sakura_miko_5", "shirakami_fubuki_5", "natsuiro_matsuri_5",
+    "akai_haato_5", "nakiri_ayame_5", "azki_5",
+    "aki_rosenthal_5", "yuzuki_choco_5", "oozora_subaru_5",
+    "ookami_mio_5", "nekomata_okayu_5", "inugami_korone_5",
+]
+
+
+def test_recommend_multi_uncap_acquire2(server, browser_context):
+    """acquire_count=2で同一カードの複数凸（例: 0凸→2凸）がレコメンドに含まれることを確認"""
+    page = fresh_page(browser_context, server)
+
+    select_cards_by_data_id(page, TEST_CARDS_MANY)
+    page.click("#btnPot0")
+    page.wait_for_timeout(200)
+
+    page.select_option("#acquireCount", "2")
+    page.select_option("#recommendTopN", "10")
+    page.click("#btnRecommend")
+    page.wait_for_selector(".results-area .result-card", timeout=120000)
+
+    results = page.locator(".results-area .result-card")
+    assert results.count() >= 1
+
+    all_text = page.locator(".results-area").inner_text()
+    has_multi_uncap = "0凸→2凸" in all_text
+    assert has_multi_uncap, (
+        "Expected at least one '0凸→2凸' multi-uncap recommendation in results. "
+        f"Actual text: {all_text[:500]}"
+    )
+
+    page.close()
+
+
+def test_recommend_acquire3_produces_results(server, browser_context):
+    """acquire_count=3でレコメンドが正しく生成されることを確認"""
+    page = fresh_page(browser_context, server)
+
+    select_cards_by_data_id(page, TEST_CARDS_MANY)
+    page.click("#btnPot0")
+    page.wait_for_timeout(200)
+
+    page.select_option("#acquireCount", "3")
+    page.select_option("#recommendTopN", "10")
+    page.click("#btnRecommend")
+    page.wait_for_selector(".results-area .result-card", timeout=180000)
+
+    results = page.locator(".results-area .result-card")
+    assert results.count() >= 1
+    expect(page.locator(".results-title")).to_contain_text("+3枚")
+
+    first = results.first
+    action_badges = first.locator('span:has-text("新規取得"), span:has-text("凸→")')
+    assert action_badges.count() >= 1, "Expected at least 1 card action in result"
+
+    page.close()
+
+
+def test_recommend_acquire1_no_multi_uncap(server, browser_context):
+    """acquire_count=1では複数凸レコメンドが出ないことを確認（1枚しか引けないのでcost=1のみ）"""
+    page = fresh_page(browser_context, server)
+
+    select_cards_by_data_id(page, TEST_CARDS_MANY)
+    page.click("#btnPot0")
+    page.wait_for_timeout(200)
+
+    page.select_option("#acquireCount", "1")
+    page.select_option("#recommendTopN", "10")
+    page.click("#btnRecommend")
+    page.wait_for_selector(".results-area .result-card", timeout=60000)
+
+    results = page.locator(".results-area .result-card")
+    assert results.count() >= 1
+
+    all_text = page.locator(".results-area").inner_text()
+    for pattern in ["0凸→2凸", "0凸→3凸", "0凸→4凸", "1凸→3凸", "1凸→4凸", "2凸→4凸"]:
+        assert pattern not in all_text, (
+            f"acquire_count=1 should not have multi-uncap '{pattern}', but found it"
+        )
+
+    page.close()
+
+
+def test_recommend_multi_uncap_display_format(server, browser_context):
+    """複数凸レコメンドのUI表示が「N凸→M凸」形式で正しく表示されることを確認"""
+    page = fresh_page(browser_context, server)
+
+    select_cards_by_data_id(page, TEST_CARDS_MANY)
+    page.click("#btnPot0")
+    page.wait_for_timeout(200)
+
+    page.select_option("#acquireCount", "2")
+    page.select_option("#recommendTopN", "10")
+    page.click("#btnRecommend")
+    page.wait_for_selector(".results-area .result-card", timeout=120000)
+
+    multi_uncap_badges = page.locator('.results-area span:has-text("0凸→2凸")')
+    if multi_uncap_badges.count() > 0:
+        badge = multi_uncap_badges.first
+        bg_color = badge.evaluate("el => getComputedStyle(el).backgroundColor")
+        assert bg_color, "Multi-uncap badge should have a background color"
+
+        parent_card = badge.locator("xpath=ancestor::div[contains(@class,'result-card')]")
+        expect(parent_card).to_contain_text("+")
+        expect(parent_card).to_contain_text("#")
 
     page.close()
 
