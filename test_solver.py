@@ -129,7 +129,8 @@ def test_solve_rejects_unowned_leader():
     assert r["total_combinations"] == 0
 
 
-def test_solve_costume_only_excludes_card_from_team():
+def test_solve_costume_only_applies_costume_skill():
+    """costume_only_leader_id で衣装スキルが適用され、メンバーにも含まれ得る"""
     cards = [
         {"id": "nakiri_ayame_5", "potential": 4, "level": 80},
         {"id": "houshou_marine_5", "potential": 4, "level": 80},
@@ -141,7 +142,6 @@ def test_solve_costume_only_excludes_card_from_team():
     r = solve(cards, costume_only_leader_id="houshou_marine_5")
     assert r["total_combinations"] > 0
     for x in r["results"]:
-        assert "houshou_marine_5" not in x["member_ids"], "costume_only card should not be in team"
         assert x["costume_only_leader_id"] == "houshou_marine_5"
 
 
@@ -297,7 +297,7 @@ def test_python_js_stats_parity(card_map):
 
 
 def test_api_solve_costume_only():
-    """API経由で costume_only_leader_id が正しくメンバー外になる"""
+    """API経由で costume_only_leader_id が衣装スキルを適用する"""
     from fastapi.testclient import TestClient
     from app import app
     client = TestClient(app)
@@ -313,7 +313,6 @@ def test_api_solve_costume_only():
     assert r.status_code == 200
     data = r.json()
     for x in data["results"]:
-        assert "houshou_marine_5" not in x["member_ids"]
         assert x["costume_only_leader_id"] == "houshou_marine_5"
 
 

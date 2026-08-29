@@ -192,6 +192,16 @@ header p { color: #8899aa; font-size: 0.85rem; margin-top: 4px; }
   font-size: 0.6rem; background: #ffd700; color: #0f1923;
   padding: 0 6px; border-radius: 3px; font-weight: 700;
 }
+.member-card.is-center::before {
+  content: "\2605 \30BB\30F3\30BF\30FC";
+  position: absolute; top: -9px; left: 8px;
+  font-size: 0.6rem; background: #90caf9; color: #0f1923;
+  padding: 0 6px; border-radius: 3px; font-weight: 700;
+}
+.member-card.is-center {
+  border-color: #90caf9;
+  background: #0f1a2a;
+}
 .member-card .m-name { font-weight: 700; font-size: 0.85rem; }
 .member-card .m-card-name { font-size: 0.7rem; color: #6b7f92; }
 .member-card .m-stats {
@@ -282,10 +292,9 @@ header p { color: #8899aa; font-size: 0.85rem; margin-top: 4px; }
       <option value="50">Top 50</option>
       <option value="100">Top 100</option>
     </select>
-    <select id="fixedLeader" style="background:#1e2d3d;border:1px solid #3a4f66;color:#c8d6e0;padding:6px 8px;border-radius:4px;font-size:0.8rem;max-width:260px">
-      <option value="">リーダー自動選択</option>
+    <select id="costumeSelect" style="background:#1e2d3d;border:1px solid #3a4f66;color:#c8d6e0;padding:6px 8px;border-radius:4px;font-size:0.8rem;max-width:260px">
+      <option value="">衣装自動選択</option>
     </select>
-    <label style="cursor:pointer;font-size:0.8rem;color:#8899aa"><input type="checkbox" id="chkCostumeOnly" style="vertical-align:middle;margin-right:2px" disabled>衣装のみ</label>
     <button class="btn-select-all" id="btnSelectAll">全選択</button>
     <button class="btn-clear" id="btnClear">全解除</button>
     <button class="btn-clear" id="btnCopyIds" style="font-size:0.75rem">IDコピー</button>
@@ -661,20 +670,18 @@ function updateCounter() {
   document.getElementById("selectedCount").textContent = selected.size;
   document.getElementById("btnSolve").disabled = selected.size > 0 && selected.size < 5;
   document.getElementById("btnRecommend").disabled = selected.size < 5;
-  const leader = document.getElementById("fixedLeader").value;
+  const costume = document.getElementById("costumeSelect").value;
   document.getElementById("limitWarn").textContent =
-    selected.size === 0 ? (leader ? "(リーダー固定 + 全カードで探索)" : "(全カードで探索)") : "";
-  updateLeaderDropdown();
+    selected.size === 0 ? (costume ? "(衣装固定 + 全カードで探索)" : "(全カードで探索)") : "";
+  updateCostumeDropdown();
   if (typeof updateFab === "function") updateFab();
 }
 
-function updateLeaderDropdown() {
-  const sel = document.getElementById("fixedLeader");
-  const chk = document.getElementById("chkCostumeOnly");
+function updateCostumeDropdown() {
+  const sel = document.getElementById("costumeSelect");
   const current = sel.value;
-  const costumeOnly = document.getElementById("chkCostumeOnly").checked;
-  const pool = costumeOnly ? CARDS : (selected.size > 0 ? CARDS.filter(c => selected.has(c.id)) : CARDS);
-  sel.innerHTML = '<option value="">リーダー自動選択</option>';
+  const pool = CARDS;
+  sel.innerHTML = '<option value="">衣装自動選択</option>';
   const charOrder = [];
   const byChar = {};
   for (const c of pool) {
@@ -690,7 +697,6 @@ function updateLeaderDropdown() {
     }
   }
   if (pool.some(c => c.id === current)) sel.value = current;
-  chk.disabled = !sel.value;
 }
 
 document.getElementById("btnSelectAll").addEventListener("click", () => {
@@ -848,15 +854,7 @@ for (const btn of document.querySelectorAll(".btn-filter")) {
   });
 }
 
-document.getElementById("fixedLeader").addEventListener("change", () => {
-  const chk = document.getElementById("chkCostumeOnly");
-  chk.disabled = !document.getElementById("fixedLeader").value;
-  if (chk.disabled) chk.checked = false;
-  updateCounter();
-});
-document.getElementById("chkCostumeOnly").addEventListener("change", () => {
-  updateLeaderDropdown();
-});
+document.getElementById("costumeSelect").addEventListener("change", () => updateCounter());
 
 let statScale = parseFloat(localStorage.getItem("holodri_stat_scale") || "1");
 let baseline = parseFloat(localStorage.getItem("holodri_baseline") || "0");
@@ -1004,30 +1002,20 @@ async function doSolve() {
   document.getElementById("resultsArea").innerHTML = "";
 
   try {
-    const leaderVal = document.getElementById("fixedLeader").value || null;
-    const costumeOnly = document.getElementById("chkCostumeOnly").checked;
-    const fixedLeader = leaderVal && !costumeOnly ? leaderVal : null;
-    const costumeOnlyLeader = leaderVal && costumeOnly ? leaderVal : null;
+    const costumeLeaderId = document.getElementById("costumeSelect").value || null;
     let cardSpecs;
     if (selected.size === 0) {
       cardSpecs = CARDS.map(c => ({ id: c.id, potential: getCardPotential(c.id), level: getCardLevel(c.id) }));
     } else {
       cardSpecs = [...selected].map(id => ({ id, potential: getCardPotential(id), level: getCardLevel(id) }));
     }
-    if (costumeOnlyLeader) {
-      const effectiveCount = cardSpecs.filter(c => c.id !== costumeOnlyLeader).length;
-      const effectiveChars = new Set(cardSpecs.filter(c => c.id !== costumeOnlyLeader).map(c => cardMap[c.id]?.character).filter(Boolean));
-      if (effectiveCount < 5 || effectiveChars.size < 5) {
-        throw new Error("「衣装のみ」モードでは衣装カードを除いて5キャラ以上必要です。カードを追加してください。");
-      }
-    }
 
     const res = await fetch("/api/solve", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        cards: cardSpecs, stat_scale: statScale, baseline, fixed_leader_id: fixedLeader,
-        costume_only_leader_id: costumeOnlyLeader,
+        cards: cardSpecs, stat_scale: statScale, baseline,
+        costume_only_leader_id: costumeLeaderId,
         top_n: parseInt(document.getElementById("topN").value),
         song_length: document.getElementById("songSelect").value ? parseFloat(document.getElementById("songSelect").value) : null,
         stability_lengths: document.getElementById("chkStability").checked ? [90, 120, 135, 150, 166] : null,
@@ -1128,16 +1116,13 @@ async function doRecommend() {
   document.getElementById("resultsArea").innerHTML = "";
 
   try {
-    if (document.getElementById("chkCostumeOnly").checked) {
-      throw new Error("「衣装のみ」モードではレコメンドは使用できません。チェックを外してください。");
-    }
     const cardSpecs = [...selected].map(id => ({ id, potential: getCardPotential(id), level: getCardLevel(id) }));
     const res = await fetch("/api/recommend", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         cards: cardSpecs, stat_scale: statScale, baseline,
-        fixed_leader_id: document.getElementById("fixedLeader").value || null,
+        fixed_leader_id: document.getElementById("costumeSelect").value || null,
         acquire_count: parseInt(document.getElementById("acquireCount").value),
         top_n: parseInt(document.getElementById("recommendTopN").value),
         song_length: document.getElementById("songSelect").value ? parseFloat(document.getElementById("songSelect").value) : null,
@@ -1270,8 +1255,7 @@ function saveToHistory(solveData) {
     label: "",
     settings: {
       topN: parseInt(document.getElementById("topN").value),
-      fixedLeaderId: document.getElementById("fixedLeader").value || null,
-      costumeOnly: document.getElementById("chkCostumeOnly").checked,
+      costumeLeaderId: document.getElementById("costumeSelect").value || null,
       songLength: document.getElementById("songSelect").value ? parseFloat(document.getElementById("songSelect").value) : null,
       statScale, baseline,
     },
@@ -1387,10 +1371,7 @@ function restoreFromHistory(idx) {
     localStorage.setItem("holodri_baseline", baseline.toString());
   }
   if (entry.settings?.topN != null) document.getElementById("topN").value = entry.settings.topN;
-  document.getElementById("fixedLeader").value = entry.settings?.fixedLeaderId || "";
-  const chkCostume = document.getElementById("chkCostumeOnly");
-  chkCostume.disabled = !document.getElementById("fixedLeader").value;
-  chkCostume.checked = !!entry.settings?.costumeOnly && !chkCostume.disabled;
+  document.getElementById("costumeSelect").value = entry.settings?.costumeLeaderId || entry.settings?.fixedLeaderId || "";
   const songSel = document.getElementById("songSelect");
   songSel.value = entry.settings?.songLength != null ? entry.settings.songLength : "";
 
@@ -1430,7 +1411,7 @@ function renderResults(data) {
   if (costumeLeaderId) {
     const clCard = cardMap[costumeLeaderId];
     const clName = clCard ? `${clCard.character} / ${clCard.card_name}` : costumeLeaderId;
-    html += `<div style="background:#2a2d1f;color:#c0c060;padding:8px 12px;border-radius:6px;margin-bottom:8px;font-size:0.85rem">👗 衣装リーダー: ${clName}（メンバー外）</div>`;
+    html += `<div style="background:#2a2d1f;color:#c0c060;padding:8px 12px;border-radius:6px;margin-bottom:8px;font-size:0.85rem">👗 衣装: ${clName}</div>`;
   }
   html += `<div class="results-title">最強編成 Top ${results.length}（${data.total_combinations.toLocaleString()} 通り${bLabel}）</div>`;
 
@@ -1454,10 +1435,12 @@ function renderResults(data) {
       const card = cardMap[mid];
       if (!card) continue;
       const isLeader = mid === r.leader_id;
+      const hasCostumeLeader = !!r.costume_only_leader_id;
+      const badgeClass = isLeader ? (hasCostumeLeader ? " is-center" : " is-leader") : "";
       const pot = getCardPotential(mid);
       const lv = getCardLevel(mid);
       const s = getCardStats(card, pot, lv);
-      html += `<div class="member-card${isLeader ? " is-leader" : ""}">
+      html += `<div class="member-card${badgeClass}">
         <span class="type-badge type-${card.type}" style="float:right;margin-top:2px">${TYPE_LABELS[card.type]}</span>
         <div class="m-name">${card.character}</div>
         <div class="m-card-name">${card.card_name}</div>

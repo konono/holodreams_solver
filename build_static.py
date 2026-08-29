@@ -256,7 +256,6 @@ function solveInternal(resolved, fixedLeaderId, topN, songLen, reportProgress, c
     if (costumeCard && costumeCard.potential_data && costumeCard.potential_data.length > 0) {{
       overrideCostumeSkill = costumeCard.potential_data[0].costume_skill;
     }}
-    resolved = resolved.filter(c => c.id !== costumeOnlyLeaderId);
   }}
   const charGroups = {{}};
   for (const c of resolved) {{
@@ -497,14 +496,14 @@ self.onmessage = function(e) {{
     recResults.forEach((r, i) => r.rank = i + 1);
     self.postMessage({{ type: "recommend_done", base_score: baseScore, acquire_count: acquireCount, recommendations: recResults }});
   }} else {{
-    const {{ cards, fixedLeaderId, costumeOnlyLeaderId, topN, potentials, levels, levelTables, songLength }} = d;
+    const {{ cards, costumeOnlyLeaderId, topN, potentials, levels, levelTables, songLength }} = d;
     const SLEN = songLength || SONG_LENGTH;
     const resolved = cards.map(c => {{
       const pot = potentials[c.id] ?? 0;
       const lv = levels[c.id] ?? MAX_LEVEL;
       return resolveCard(c, pot, lv, levelTables || {{}});
     }});
-    const result = solveInternal(resolved, fixedLeaderId, topN, SLEN, true, costumeOnlyLeaderId || null, cards);
+    const result = solveInternal(resolved, null, topN, SLEN, true, costumeOnlyLeaderId || null, cards);
     self.postMessage({{ type:"done", results: formatSolveResults(result, costumeOnlyLeaderId || null), totalCombinations: result.count }});
   }}
 }};
@@ -574,10 +573,9 @@ def build():
       <option value="50">Top 50</option>
       <option value="100">Top 100</option>
     </select>
-    <select id="fixedLeader" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:6px 8px;border-radius:4px;font-size:0.8rem;max-width:260px">
-      <option value="">リーダー自動選択</option>
+    <select id="costumeSelect" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:6px 8px;border-radius:4px;font-size:0.8rem;max-width:260px">
+      <option value="">衣装自動選択</option>
     </select>
-    <label style="cursor:pointer;font-size:0.8rem;color:#8899aa"><input type="checkbox" id="chkCostumeOnly" style="vertical-align:middle;margin-right:2px" disabled>衣装のみ</label>
     <button class="btn-select-all" id="btnSelectAll">全選択</button>
     <button class="btn-clear" id="btnClear">全解除</button>
     <button class="btn-clear" id="btnCopyIds" style="font-size:0.75rem">IDコピー</button>
@@ -869,15 +867,13 @@ function updateCounter() {{
   document.getElementById("totalCount").textContent = CARDS.length;
   document.getElementById("btnSolve").disabled = selected.size > 0 && selected.size < 5;
   document.getElementById("btnRecommend").disabled = selected.size < 5;
-  const leader = document.getElementById("fixedLeader").value;
+  const costume = document.getElementById("costumeSelect").value;
   document.getElementById("limitWarn").textContent =
-    selected.size === 0 ? (leader ? "(リーダー固定 + 全カードで探索)" : "(全カードで探索)") : "";
-  const sel = document.getElementById("fixedLeader");
-  const chk = document.getElementById("chkCostumeOnly");
+    selected.size === 0 ? (costume ? "(衣装固定 + 全カードで探索)" : "(全カードで探索)") : "";
+  const sel = document.getElementById("costumeSelect");
   const cur = sel.value;
-  const costumeOnly = chk.checked;
-  const pool = costumeOnly ? CARDS : (selected.size > 0 ? CARDS.filter(c => selected.has(c.id)) : CARDS);
-  sel.innerHTML = '<option value="">リーダー自動選択</option>';
+  const pool = CARDS;
+  sel.innerHTML = '<option value="">衣装自動選択</option>';
   const charOrder = [];
   const byChar = {{}};
   for (const c of pool) {{
@@ -892,7 +888,6 @@ function updateCounter() {{
     }}
   }}
   if (pool.some(c => c.id === cur)) sel.value = cur;
-  chk.disabled = !sel.value;
   if (typeof updateFab === "function") updateFab();
 }}
 
@@ -1033,14 +1028,7 @@ for (const btn of document.querySelectorAll(".btn-filter")) {{
   }});
 }}
 
-document.getElementById("fixedLeader").addEventListener("change", () => {{
-  const chk = document.getElementById("chkCostumeOnly");
-  chk.disabled = !document.getElementById("fixedLeader").value;
-  if (chk.disabled) chk.checked = false;
-  updateCounter();
-}});
-
-document.getElementById("chkCostumeOnly").addEventListener("change", () => updateCounter());
+document.getElementById("costumeSelect").addEventListener("change", () => updateCounter());
 
 const workerBlob = URL.createObjectURL(new Blob([{json.dumps(solver_js)}], {{type:"application/javascript"}}));
 
@@ -1101,24 +1089,7 @@ function doSolve() {{
   document.getElementById("resultsArea").innerHTML = "";
 
   const owned = selected.size === 0 ? CARDS : CARDS.filter(c => selected.has(c.id));
-  const leaderVal = document.getElementById("fixedLeader").value || null;
-  const costumeOnly = document.getElementById("chkCostumeOnly").checked;
-  const fixedLeaderId = leaderVal && !costumeOnly ? leaderVal : null;
-  const costumeOnlyLeaderId = leaderVal && costumeOnly ? leaderVal : null;
-
-  if (costumeOnlyLeaderId) {{
-    const effective = owned.filter(c => c.id !== costumeOnlyLeaderId);
-    const effectiveChars = new Set(effective.map(c => c.character));
-    if (effective.length < 5 || effectiveChars.size < 5) {{
-      isComputing = false;
-      btn.disabled = false; btnRec.disabled = selected.size < 5; btn.textContent = "最強編成を探す";
-      fab.classList.remove("disabled"); setFabMode("solve");
-      pa.classList.remove("visible");
-      expandResults();
-      document.getElementById("resultsArea").innerHTML = '<div class="empty-msg">「衣装のみ」モードでは衣装カードを除いて5キャラ以上必要です。カードを追加してください。</div>';
-      return;
-    }}
-  }}
+  const costumeOnlyLeaderId = document.getElementById("costumeSelect").value || null;
 
   const potentials = {{}};
   const levels = {{}};
@@ -1129,7 +1100,7 @@ function doSolve() {{
 
   const w = new Worker(workerBlob);
   const selSong = document.getElementById("songSelect").value;
-  w.postMessage({{ cards: owned, fixedLeaderId, costumeOnlyLeaderId, topN: parseInt(document.getElementById("topN").value), potentials, levels, levelTables: LEVEL_TABLES, songLength: selSong ? parseFloat(selSong) : null }});
+  w.postMessage({{ cards: owned, costumeOnlyLeaderId, topN: parseInt(document.getElementById("topN").value), potentials, levels, levelTables: LEVEL_TABLES, songLength: selSong ? parseFloat(selSong) : null }});
 
   w.onerror = function() {{
     w.terminate();
@@ -1167,11 +1138,6 @@ document.getElementById("btnSolve").addEventListener("click", doSolve);
 document.getElementById("btnRecommend").addEventListener("click", doRecommend);
 
 function doRecommend() {{
-  if (document.getElementById("chkCostumeOnly").checked) {{
-    expandResults();
-    document.getElementById("resultsArea").innerHTML = '<div class="empty-msg">「衣装のみ」モードではレコメンドは使用できません。チェックを外してください。</div>';
-    return;
-  }}
   if (selected.size < 5) return;
   const uniqueChars = new Set([...selected].map(id => cardMap[id]?.character).filter(Boolean));
   if (uniqueChars.size < 5) {{
@@ -1204,7 +1170,7 @@ function doRecommend() {{
     action: "recommend",
     allCards: CARDS,
     ownedSpecs,
-    fixedLeaderId: document.getElementById("fixedLeader").value || null,
+    fixedLeaderId: document.getElementById("costumeSelect").value || null,
     acquireCount: parseInt(document.getElementById("acquireCount").value),
     topN: parseInt(document.getElementById("recommendTopN").value),
     levelTables: LEVEL_TABLES,
@@ -1343,8 +1309,7 @@ function saveToHistory(solveData) {{
     label: "",
     settings: {{
       topN: parseInt(document.getElementById("topN").value),
-      fixedLeaderId: document.getElementById("fixedLeader").value || null,
-      costumeOnly: document.getElementById("chkCostumeOnly").checked,
+      costumeLeaderId: document.getElementById("costumeSelect").value || null,
       songLength: document.getElementById("songSelect").value ? parseFloat(document.getElementById("songSelect").value) : null,
     }},
     snapshot: {{ ids: [...selected], allCards: selected.size === 0, potentials: pots, levels: lvs, defaultPotential, defaultLevel, levelEnabled }},
@@ -1451,10 +1416,7 @@ function restoreFromHistory(idx) {{
     if (snap.levels?.[id] != null) cardLevels[id] = snap.levels[id];
   }}
   if (entry.settings?.topN != null) document.getElementById("topN").value = entry.settings.topN;
-  document.getElementById("fixedLeader").value = entry.settings?.fixedLeaderId || "";
-  const chkCostume = document.getElementById("chkCostumeOnly");
-  chkCostume.disabled = !document.getElementById("fixedLeader").value;
-  chkCostume.checked = !!entry.settings?.costumeOnly && !chkCostume.disabled;
+  document.getElementById("costumeSelect").value = entry.settings?.costumeLeaderId || entry.settings?.fixedLeaderId || "";
   const songSel = document.getElementById("songSelect");
   songSel.value = entry.settings?.songLength != null ? entry.settings.songLength : "";
 
@@ -1486,7 +1448,7 @@ function renderResults(data) {{
   if (costumeLeaderId) {{
     const clCard = cardMap[costumeLeaderId];
     const clName = clCard ? `${{clCard.character}} / ${{clCard.card_name}}` : costumeLeaderId;
-    html += `<div style="background:#2a2d1f;color:#c0c060;padding:8px 12px;border-radius:6px;margin-bottom:8px;font-size:0.85rem">👗 衣装リーダー: ${{clName}}（メンバー外）</div>`;
+    html += `<div style="background:#2a2d1f;color:#c0c060;padding:8px 12px;border-radius:6px;margin-bottom:8px;font-size:0.85rem">👗 衣装: ${{clName}}</div>`;
   }}
   html += `<div class="results-title">最強編成 Top ${{results.length}}（${{data.totalCombinations.toLocaleString()}} 通り）</div>`;
   for (const r of results) {{
@@ -1509,7 +1471,9 @@ function renderResults(data) {{
       const pot = getCardPotential(mid);
       const lv = getCardLevel(mid);
       const s = getCardStats(card, pot, lv);
-      html += `<div class="member-card${{isLeader?" is-leader":""}}">
+      const hasCostumeLeader = !!r.costume_only_leader_id;
+      const badgeClass = isLeader ? (hasCostumeLeader ? " is-center" : " is-leader") : "";
+      html += `<div class="member-card${{badgeClass}}">
         <span class="type-badge type-${{card.type}}" style="float:right;margin-top:2px">${{TYPE_LABELS[card.type]}}</span>
         <div class="m-name">${{card.character}}</div>
         <div class="m-card-name">${{card.card_name}}</div>

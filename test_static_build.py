@@ -68,38 +68,20 @@ class TestStaticBasicUI:
         assert count >= 60, f"Expected >=60 cards, got {count}"
         page.close()
 
-    def test_leader_dropdown_shows_character_and_card_name(self, browser_context):
+    def test_costume_dropdown_shows_character_and_card_name(self, browser_context):
         page = open_page(browser_context)
         options = page.eval_on_selector_all(
-            "#fixedLeader option:not(:first-child)",
+            "#costumeSelect option:not(:first-child)",
             "els => els.map(e => e.textContent)"
         )
         assert len(options) > 0
         assert all(" / " in o for o in options[:5]), "Options should show 'character / card_name' format"
         page.close()
 
-    def test_costume_only_checkbox_exists_and_disabled(self, browser_context):
+    def test_costume_dropdown_default_is_auto(self, browser_context):
         page = open_page(browser_context)
-        disabled = page.eval_on_selector("#chkCostumeOnly", "el => el.disabled")
-        assert disabled, "Costume-only checkbox should be disabled when no leader selected"
-        page.close()
-
-    def test_costume_only_checkbox_enables_on_leader_select(self, browser_context):
-        page = open_page(browser_context)
-        page.select_option("#fixedLeader", index=1)
-        disabled = page.eval_on_selector("#chkCostumeOnly", "el => el.disabled")
-        assert not disabled, "Costume-only checkbox should be enabled when leader is selected"
-        page.close()
-
-    def test_costume_only_checkbox_disables_on_auto(self, browser_context):
-        page = open_page(browser_context)
-        page.select_option("#fixedLeader", index=1)
-        page.check("#chkCostumeOnly")
-        page.select_option("#fixedLeader", value="")
-        disabled = page.eval_on_selector("#chkCostumeOnly", "el => el.disabled")
-        checked = page.eval_on_selector("#chkCostumeOnly", "el => el.checked")
-        assert disabled, "Should be disabled after returning to auto"
-        assert not checked, "Should be unchecked after returning to auto"
+        val = page.eval_on_selector("#costumeSelect", "el => el.value")
+        assert val == "", "Default should be empty (auto)"
         page.close()
 
 
@@ -113,44 +95,23 @@ class TestStaticSolve:
         assert results > 0, "Should produce at least 1 result"
         page.close()
 
-    def test_solve_with_fixed_leader(self, browser_context):
-        """fixed_leader_id 指定カードが全結果でリーダーになる"""
-        page = open_page(browser_context)
-        ids = select_cards(page, 6)
-        leader_id = ids[0]
-        page.select_option("#fixedLeader", value=leader_id)
-        page.click("#btnSolve")
-        page.wait_for_selector(".result-card", timeout=30000)
-        fixed_char = page.evaluate(f"() => CARDS.find(c => c.id === '{leader_id}')?.character")
-        all_leader_names = page.eval_on_selector_all(
-            ".member-card.is-leader .m-name",
-            "els => els.map(e => e.textContent)"
-        )
-        assert len(all_leader_names) > 0, "Should have at least 1 result with a leader"
-        assert all(n == fixed_char for n in all_leader_names), \
-            f"All leaders should be {fixed_char}, got {all_leader_names}"
-        page.close()
-
-    def test_solve_costume_only_excludes_from_members(self, browser_context):
-        """衣装のみモードで衣装カードがメンバーに含まれないことを確認"""
+    def test_solve_with_costume_shows_banner_and_center(self, browser_context):
+        """衣装選択で solve → 衣装バナー + センターバッジ表示"""
         page = open_page(browser_context)
         select_cards(page, 6)
         costume_option = page.eval_on_selector(
-            "#fixedLeader option:nth-child(2)", "el => el.value"
+            "#costumeSelect option:nth-child(2)", "el => el.value"
         )
-        page.select_option("#fixedLeader", value=costume_option)
-        page.check("#chkCostumeOnly")
+        page.select_option("#costumeSelect", value=costume_option)
         page.click("#btnSolve")
         page.wait_for_selector(".result-card", timeout=30000)
-        banner = page.query_selector("text=衣装リーダー")
-        assert banner is not None, "Should show costume leader banner"
-        costume_char = page.evaluate(f"() => CARDS.find(c => c.id === '{costume_option}')?.character")
-        member_names = page.eval_on_selector_all(
-            ".result-card:first-child .member-card .m-name",
-            "els => els.map(e => e.textContent)"
+        banner = page.query_selector("text=👗 衣装:")
+        assert banner is not None, "Should show costume banner"
+        centers = page.eval_on_selector_all(
+            ".member-card.is-center",
+            "els => els.length"
         )
-        assert costume_char not in member_names, \
-            f"Costume-only leader {costume_char} should not be in members: {member_names}"
+        assert centers > 0, "Should have center badge instead of leader badge"
         page.close()
 
 
