@@ -377,6 +377,124 @@ func TestScoreSupportTimeline(t *testing.T) {
 	}
 }
 
+// --- Phase 4: Song-aware score tests ---
+
+func TestComboMultiplier(t *testing.T) {
+	tests := []struct {
+		combo int
+		want  float64
+	}{
+		{0, 1.00},
+		{50, 1.00},
+		{100, 1.01},
+		{200, 1.02},
+		{500, 1.05},
+		{1000, 1.10},
+		{1500, 1.10}, // capped at +10%
+	}
+	for _, tc := range tests {
+		got := comboMultiplier(tc.combo)
+		if math.Abs(got-tc.want) > 0.001 {
+			t.Errorf("comboMultiplier(%d) = %f, want %f", tc.combo, got, tc.want)
+		}
+	}
+}
+
+func TestLiveScoreIndex_Basic(t *testing.T) {
+	// 1 card with p=1.0, scoreUp=120, interval=25, duration=10
+	// Song 100s, 4 events, totalPower=100000
+	card := makeTimelineCard(120, 25, 10, 1000)
+	dummy := makeTimelineCard(0, 100, 0, 0)
+	team := [5]*Card{card, dummy, dummy, dummy, dummy}
+
+	timeline := &SongTimeline{
+		Duration:      100,
+		SpecialPoints: [5]float64{0, 0, 0, 0, 0},
+	}
+
+	events := []ScoreEvent{
+		{Time: 30, ComboIndex: 50, Weight: 1},  // active (120%), combo < 100 → ×1.00
+		{Time: 40, ComboIndex: 150, Weight: 1}, // inactive (0%), combo 150 → ×1.01
+		{Time: 55, ComboIndex: 250, Weight: 1}, // active (120%), combo 250 → ×1.02
+		{Time: 90, ComboIndex: 500, Weight: 1}, // inactive (0%), combo 500 → ×1.05
+	}
+
+	result := EvaluateFullTimeline(team, 100000, 100, timeline, events, 0)
+
+	// Expected per-event:
+	// t=30: (1+120/100)*(1+0) * 1.00 = 2.20 * 1.00 = 2.200
+	// t=40: (1+0/100)*(1+0) * 1.01 = 1.00 * 1.01 = 1.010
+	// t=55: (1+120/100)*(1+0) * 1.02 = 2.20 * 1.02 = 2.244
+	// t=90: (1+0/100)*(1+0) * 1.05 = 1.00 * 1.05 = 1.050
+	// Sum = 6.504
+	// LiveScoreIndex = 100000 * 6.504 = 650400
+	expectedRelative := 2.200 + 1.010 + 2.244 + 1.050
+	expectedLSI := 100000 * expectedRelative
+
+	if math.Abs(result.LiveScoreIndex-expectedLSI) > 1 {
+		t.Errorf("LiveScoreIndex=%f, want %f", result.LiveScoreIndex, expectedLSI)
+	}
+}
+
+func TestLiveScoreIndex_WithScoreSupport(t *testing.T) {
+	// Active card + SP with 160% score support
+	// Score Support amplifies Active: (1 + active%/100) × (1 + support%/100)
+	card := makeTimelineCard(120, 25, 10, 1000)
+	spCard := makeTimelineCard(0, 100, 0, 0)
+	spCard.SpecialSkill = &SpecialSkill{Duration: 20, ScoreSupport: 160}
+	dummy := makeTimelineCard(0, 100, 0, 0)
+
+	team := [5]*Card{card, spCard, dummy, dummy, dummy}
+	timeline := &SongTimeline{
+		Duration:      100,
+		SpecialPoints: [5]float64{0, 20, 0, 0, 0}, // SP at t=20-40
+	}
+
+	events := []ScoreEvent{
+		{Time: 30, ComboIndex: 0, Weight: 1}, // active + SP support
+		{Time: 50, ComboIndex: 0, Weight: 1}, // active, no SP
+	}
+
+	result := EvaluateFullTimeline(team, 100000, 100, timeline, events, 0)
+
+	// t=30: active=120, support=160 → (1+1.2)*(1+1.6) = 2.2 * 2.6 = 5.72
+	// t=50: active=120, support=0 → (1+1.2)*(1+0) = 2.2 * 1.0 = 2.20
+	// Sum = 7.92
+	// With SP: 100000 * 7.92 = 792000
+	expected := 100000 * (5.72 + 2.20)
+	if math.Abs(result.LiveScoreIndex-expected) > 1 {
+		t.Errorf("LiveScoreIndex=%f, want %f", result.LiveScoreIndex, expected)
+	}
+}
+
+func TestLiveScoreIndex_SupportOnlyNoActive(t *testing.T) {
+	// SP with Score Support but no Active → support alone still has value
+	dummy := makeTimelineCard(0, 100, 0, 0)
+	spCard := makeTimelineCard(0, 100, 0, 0)
+	spCard.SpecialSkill = &SpecialSkill{Duration: 10, ScoreSupport: 160}
+
+	team := [5]*Card{dummy, spCard, dummy, dummy, dummy}
+	timeline := &SongTimeline{
+		Duration:      100,
+		SpecialPoints: [5]float64{0, 20, 0, 0, 0},
+	}
+
+	events := []ScoreEvent{
+		{Time: 25, ComboIndex: 0, Weight: 1}, // inside SP, no active
+		{Time: 50, ComboIndex: 0, Weight: 1}, // outside SP, no active
+	}
+
+	result := EvaluateFullTimeline(team, 100000, 100, timeline, events, 0)
+
+	// t=25: (1+0)*(1+1.6) = 2.6
+	// t=50: (1+0)*(1+0) = 1.0
+	// Sum = 3.6
+	expected := 100000 * 3.6
+	if math.Abs(result.LiveScoreIndex-expected) > 1 {
+		t.Errorf("LiveScoreIndex=%f, want %f (support without active)", result.LiveScoreIndex, expected)
+	}
+}
+
 func TestSPEfficiency(t *testing.T) {
 	// Card with active at t=25 (p=1.0, scoreUp=120)
 	// SP with ScoreSupport=160 at t=20-30 (covers t=25 active window)
@@ -396,7 +514,7 @@ func TestSPEfficiency(t *testing.T) {
 		{Time: 27, Weight: 1}, // inside SP [20,30), inside active [25,35)
 	}
 
-	result := EvaluateFullTimeline(team, 100, timeline, events, 0)
+	result := EvaluateFullTimeline(team, 100000, 100, timeline, events, 0)
 
 	// SP efficiency for slot 1 (spCard): average E[max active] during SP window
 	// t=22: no active → 0, t=27: active 120 → 120

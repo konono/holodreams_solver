@@ -152,18 +152,74 @@ func EvaluateActiveTimeline(team [5]*Card, songDuration float64, rateUpAvg float
 	return evaluateTimeline(team, songDuration, rateUpAvg, nil, scoreEvents, 0)
 }
 
+// comboMultiplier returns the combo bonus multiplier for a given combo index.
+// +1% per 100 combo, max +10%.
+func comboMultiplier(comboIndex int) float64 {
+	bonus := comboIndex / 100
+	if bonus > 10 {
+		bonus = 10
+	}
+	return 1.0 + float64(bonus)/100.0
+}
+
 // EvaluateFullTimeline computes the full Timeline Expected Score including
 // Special Skill windows (rate-up and score support).
-// alwaysOnSupport is the sum of costume + passive score support (always active).
-func EvaluateFullTimeline(team [5]*Card, songDuration float64, timeline *SongTimeline, scoreEvents []ScoreEvent, alwaysOnSupport float64) TimelineEvalResult {
+// alwaysOnSupport is the sum of costume + passive score support (always active),
+// expressed as a percentage value (e.g., 20.0 for 20%).
+// totalPower is the team's total power for LiveScoreIndex calculation.
+func EvaluateFullTimeline(team [5]*Card, totalPower, songDuration float64, timeline *SongTimeline, scoreEvents []ScoreEvent, alwaysOnSupport float64) TimelineEvalResult {
 	spWindows := generateSpecialWindows(team, timeline)
+	cardStates := buildCardStates(team, songDuration, 0, spWindows)
 
-	avgActive, overlapLoss := evaluateTimeline(team, songDuration, 0, spWindows, scoreEvents, alwaysOnSupport)
+	// Compute per-event metrics
+	totalWeightedEmax := 0.0
+	totalWeightedRaw := 0.0
+	totalWeight := 0.0
+	relativeSongScore := 0.0
+
+	for i := range scoreEvents {
+		ev := &scoreEvents[i]
+		t := ev.Time
+		w := ev.Weight
+		if w <= 0 {
+			w = 1.0
+		}
+
+		emax := expectedMaxActiveAtTime(cardStates, t)
+		raw := rawActiveExposureAtTime(cardStates, t)
+
+		totalWeightedEmax += emax * w
+		totalWeightedRaw += raw * w
+		totalWeight += w
+
+		// Score Support at this time
+		spSupport := 0.0
+		if spWindows != nil {
+			spSupport = scoreSupportAtTime(spWindows, t)
+		}
+		totalSupport := alwaysOnSupport + spSupport
+
+		// Expected skill multiplier: (1 + active%/100) × (1 + support%/100)
+		skillMultiplier := (1.0 + emax/100.0) * (1.0 + totalSupport/100.0)
+
+		combo := comboMultiplier(ev.ComboIndex)
+
+		relativeSongScore += w * combo * skillMultiplier
+	}
+
+	var avgActive, overlapLoss float64
+	if totalWeight > 0 {
+		avgActive = totalWeightedEmax / totalWeight
+	}
+	if totalWeightedRaw > 0 {
+		overlapLoss = 1.0 - totalWeightedEmax/totalWeightedRaw
+	}
+
+	liveScoreIndex := totalPower * relativeSongScore
 
 	// SP efficiency per slot
 	var spEfficiency [5]float64
 	if timeline != nil {
-		cardStates := buildCardStates(team, songDuration, 0, spWindows)
 		for i, card := range team {
 			if card.SpecialSkill == nil || card.SpecialSkill.ScoreSupport <= 0 {
 				continue
@@ -174,21 +230,22 @@ func EvaluateFullTimeline(team [5]*Card, songDuration float64, timeline *SongTim
 				continue
 			}
 			count := 0
-			totalActive := 0.0
+			totalActiveInSP := 0.0
 			for j := range scoreEvents {
 				t := scoreEvents[j].Time
 				if t >= start && t < end {
-					totalActive += expectedMaxActiveAtTime(cardStates, t)
+					totalActiveInSP += expectedMaxActiveAtTime(cardStates, t)
 					count++
 				}
 			}
 			if count > 0 {
-				spEfficiency[i] = totalActive / float64(count)
+				spEfficiency[i] = totalActiveInSP / float64(count)
 			}
 		}
 	}
 
 	return TimelineEvalResult{
+		LiveScoreIndex:    liveScoreIndex,
 		ExpectedActive:    avgActive,
 		ActiveOverlapLoss: overlapLoss,
 		SPEfficiency:      spEfficiency,
