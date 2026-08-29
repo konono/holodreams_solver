@@ -181,6 +181,7 @@ def _compute_team_scores(team, leader_idx, song_length=SONG_LENGTH, override_cos
     costume_sense_rate = 0.0
     costume_ss = 0.0
     cs = override_costume_skill if override_costume_skill is not None else leader["costume_skill"]
+    # NOTE: leader_character/leader_group条件はチーム内リーダー基準。現データにこの条件の衣装スキルはないが、追加時は要検討。
     if check_condition(cs.get("condition"), type_counts, group_counts, leader=leader):
         for effect in cs["effects"]:
             val = effect["value"] / 100.0

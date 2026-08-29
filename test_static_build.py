@@ -3,6 +3,9 @@
 build_static.py で生成した HTML が正しく動作するか確認する。
 サーバー不要（file:// で開く）。
 
+実行前提:
+    uv run playwright install chromium
+
 実行:
     uv run python build_static.py
     uv run pytest test_static_build.py -v
