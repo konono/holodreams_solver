@@ -161,6 +161,46 @@ func TestRecommendGolden(t *testing.T) {
 	}
 }
 
+func TestRecommendMultiAcquire(t *testing.T) {
+	cf, owned := loadTestData(t)
+
+	start := time.Now()
+	result := recommend(owned, cf.Cards, 5, 2, 1.0, 0.0, 192.0, "", "", false, cf)
+	elapsed := time.Since(start)
+
+	t.Logf("BaseScore: %d, AcquireCount: %d", result.BaseScore, result.AcquireCount)
+	t.Logf("Recommendations: %d, Elapsed: %v", len(result.Recommendations), elapsed)
+	for _, r := range result.Recommendations {
+		names := make([]string, len(r.Cards))
+		for i, c := range r.Cards {
+			names[i] = c.CardName
+		}
+		t.Logf("  #%d: %v delta=%d score=%d", r.Rank, names, r.Delta, r.NewScore)
+	}
+}
+
+func TestRecommendMultiAcquireSweep(t *testing.T) {
+	cf, owned := loadTestData(t)
+
+	start := time.Now()
+	result := recommend(owned, cf.Cards, 5, 2, 1.0, 0.0, 192.0, "", "", true, cf)
+	elapsed := time.Since(start)
+
+	t.Logf("BaseScore: %d, AcquireCount: %d", result.BaseScore, result.AcquireCount)
+	t.Logf("Recommendations: %d, Elapsed: %v", len(result.Recommendations), elapsed)
+	for _, r := range result.Recommendations {
+		names := make([]string, len(r.Cards))
+		for i, c := range r.Cards {
+			names[i] = c.CardName
+		}
+		costumeID := ""
+		if r.BestTeam.CostumeOnlyLeaderID != nil {
+			costumeID = *r.BestTeam.CostumeOnlyLeaderID
+		}
+		t.Logf("  #%d: %v delta=%d score=%d costume=%s", r.Rank, names, r.Delta, r.NewScore, costumeID)
+	}
+}
+
 // TestRecommendEquivalence verifies that solveWithRequiredCard finds the same
 // best score as a full solve for each candidate.
 func TestRecommendEquivalence(t *testing.T) {

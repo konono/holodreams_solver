@@ -935,24 +935,6 @@ func recommend(ownedSpecs map[string]CardSpec, allRawCards []CardRaw, topN, acqu
 		return cards
 	}
 
-	// solveOne is kept for multi-acquire combos where multiple cards change
-	solveOne := func(specs map[string]CardSpec) JSONOutput {
-		cards := resolveOwned(specs)
-		var overrideCostumeSkill *CostumeSkill
-		effectiveCostumeOnly := costumeOnlyLeaderID
-		if fixedLeaderID != "" && costumeOnlyLeaderID != "" {
-			effectiveCostumeOnly = ""
-		}
-		if effectiveCostumeOnly != "" {
-			raw := rawCardMap[effectiveCostumeOnly]
-			if raw != nil && len(raw.PotentialData) > 0 {
-				cs := raw.PotentialData[0].CostumeSkill
-				overrideCostumeSkill = &cs
-			}
-		}
-		return solve(cards, 1, statScale, baseline, songLength, fixedLeaderID, effectiveCostumeOnly, overrideCostumeSkill, nil)
-	}
-
 	// Resolve the costume override once
 	var overrideCostumeSkill *CostumeSkill
 	effectiveCostumeOnly := costumeOnlyLeaderID
@@ -1272,34 +1254,105 @@ func recommend(ownedSpecs map[string]CardSpec, allRawCards []CardRaw, topN, acqu
 			for _, cand := range combo {
 				trialSpecs = applyCandidate(trialSpecs, cand)
 			}
-			trialResult := solveOne(trialSpecs)
-			if len(trialResult.Results) > 0 {
-				newScore := trialResult.Results[0].UnitScore
-				delta := newScore - baseScore
-				if delta > 0 {
-					cards := make([]RecommendCard, len(combo))
-					for i, c := range combo {
-						cards[i] = RecommendCard{
-							CardID:           c.cardID,
-							CardName:         c.cardName,
-							Character:        c.character,
-							Action:           c.action,
-							CurrentPotential: c.currentPotential,
-							TargetPotential:  c.targetPotential,
-							Cost:             c.cost,
+			trialCards := resolveOwned(trialSpecs)
+
+			// Optimization: at least one combo card must be in the best team.
+			// Try each combo card as required and take the best.
+			var bestUnitScore float64
+			var bestTeamIDs [5]string
+			var bestLeaderIdx int
+			var bestCostumeID string
+
+			for _, cand := range combo {
+				candRaw := rawCardMap[cand.cardID]
+				if candRaw == nil {
+					continue
+				}
+				candPot := 0
+				if cand.action == "uncap" {
+					candPot = cand.targetPotential
+				}
+				resolvedCand := resolveCard(candRaw, candPot, nil, cf)
+
+				if sweepCostumes && fixedLeaderID == "" && effectiveCostumeOnly == "" {
+					// Build costume list: owned + all combo cards' costumes
+					comboCostumes := make([]CostumeEntry, len(sweepCostumeSkills))
+					copy(comboCostumes, sweepCostumeSkills)
+					for _, cc := range combo {
+						ccRaw := rawCardMap[cc.cardID]
+						if ccRaw != nil && len(ccRaw.PotentialData) > 0 {
+							alreadyOwned := false
+							for _, ce := range sweepCostumeSkills {
+								if ce.CardID == cc.cardID {
+									alreadyOwned = true
+									break
+								}
+							}
+							if !alreadyOwned {
+								comboCostumes = append(comboCostumes, CostumeEntry{cc.cardID, ccRaw.PotentialData[0].CostumeSkill})
+							}
 						}
 					}
-					best := trialResult.Results[0]
-					comboResults = append(comboResults, RecommendResult{
-						Cards:    cards,
-						NewScore: newScore,
-						Delta:    delta,
-						BestTeam: RecommendBestTeam{
-							LeaderID:  best.LeaderID,
-							MemberIDs: best.MemberIDs,
-						},
-					})
+
+					// Path A: this card as member, sweep costumes
+					usA, teamA, liA, costumeA := solveWithRequiredCardSweep(trialCards, &resolvedCand, comboCostumes, statScale, baseline, songLength)
+					if usA > bestUnitScore {
+						bestUnitScore = usA
+						bestTeamIDs = teamA
+						bestLeaderIdx = liA
+						bestCostumeID = costumeA
+					}
+
+					// Path B: this card's costume with existing+combo members
+					if len(candRaw.PotentialData) > 0 {
+						candCostume := candRaw.PotentialData[0].CostumeSkill
+						// Use precomputed owned bases + also check trial cards
+						usB, teamB, liB := solveForcedCostumeFromBases(ownedBases, &candCostume)
+						if usB > bestUnitScore {
+							bestUnitScore = usB
+							bestTeamIDs = teamB
+							bestLeaderIdx = liB
+							bestCostumeID = cand.cardID
+						}
+					}
+				} else {
+					score, teamIDs, leaderIdx := solveWithRequiredCard(trialCards, &resolvedCand, statScale, baseline, songLength, fixedLeaderID, overrideCostumeSkill)
+					if score.UnitScore > bestUnitScore {
+						bestUnitScore = score.UnitScore
+						bestTeamIDs = teamIDs
+						bestLeaderIdx = leaderIdx
+					}
 				}
+			}
+
+			unitScore := int(math.Round(bestUnitScore))
+			delta := unitScore - baseScore
+			if delta > 0 {
+				cards := make([]RecommendCard, len(combo))
+				for i, c := range combo {
+					cards[i] = RecommendCard{
+						CardID:           c.cardID,
+						CardName:         c.cardName,
+						Character:        c.character,
+						Action:           c.action,
+						CurrentPotential: c.currentPotential,
+						TargetPotential:  c.targetPotential,
+						Cost:             c.cost,
+					}
+				}
+				bt := RecommendBestTeam{
+					LeaderID:  bestTeamIDs[bestLeaderIdx],
+					MemberIDs: bestTeamIDs[:],
+				}
+				if bestCostumeID != "" {
+					bt.CostumeOnlyLeaderID = &bestCostumeID
+				}
+				comboResults = append(comboResults, RecommendResult{
+					Cards:    cards,
+					NewScore: unitScore,
+					Delta:    delta,
+					BestTeam: bt,
+				})
 			}
 		}
 
