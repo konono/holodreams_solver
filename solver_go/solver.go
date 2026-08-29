@@ -8,6 +8,8 @@ import (
 
 const defaultSongLength = 192.0
 
+var progressCallback func(current, total int)
+
 func solve(cards []*Card, topN int, statScale, baseline, songLength float64, fixedLeaderID string, costumeOnlyLeaderID string, overrideCostumeSkill *CostumeSkill, stabilityLengths []float64) JSONOutput {
 	if len(cards) < 5 {
 		return JSONOutput{TotalCombinations: 0, StatScale: statScale, Baseline: baseline}
@@ -69,10 +71,25 @@ func solve(cards []*Card, topN int, statScale, baseline, songLength float64, fix
 			}
 		}
 		nOther := len(otherChars)
+		charComboCount := 0
 		for a := 0; a < nOther-3; a++ {
 			for b := a + 1; b < nOther-2; b++ {
 				for c := b + 1; c < nOther-1; c++ {
 					for d := c + 1; d < nOther; d++ {
+						charComboCount++
+					}
+				}
+			}
+		}
+		charCombosDone := 0
+		for a := 0; a < nOther-3; a++ {
+			for b := a + 1; b < nOther-2; b++ {
+				for c := b + 1; c < nOther-1; c++ {
+					for d := c + 1; d < nOther; d++ {
+						charCombosDone++
+						if progressCallback != nil {
+							progressCallback(charCombosDone, charComboCount)
+						}
 						lists := [4][]*Card{
 							charGroups[otherChars[a]],
 							charGroups[otherChars[b]],
@@ -107,11 +124,28 @@ func solve(cards []*Card, topN int, statScale, baseline, songLength float64, fix
 			}
 		}
 	} else {
+		charComboCount := 0
 		for a := 0; a < nChars-4; a++ {
 			for b := a + 1; b < nChars-3; b++ {
 				for ci := b + 1; ci < nChars-2; ci++ {
 					for d := ci + 1; d < nChars-1; d++ {
 						for e := d + 1; e < nChars; e++ {
+							charComboCount++
+						}
+					}
+				}
+			}
+		}
+		charCombosDone := 0
+		for a := 0; a < nChars-4; a++ {
+			for b := a + 1; b < nChars-3; b++ {
+				for ci := b + 1; ci < nChars-2; ci++ {
+					for d := ci + 1; d < nChars-1; d++ {
+						for e := d + 1; e < nChars; e++ {
+							charCombosDone++
+							if progressCallback != nil && charCombosDone%20 == 0 {
+								progressCallback(charCombosDone, charComboCount)
+							}
 							lists := [5][]*Card{
 								charGroups[charNames[a]],
 								charGroups[charNames[b]],
@@ -494,6 +528,10 @@ func calibrate(memberIDs []string, leaderID1 string, gameScore1 int, leaderID2 s
 }
 
 func recommend(ownedSpecs map[string]CardSpec, allRawCards []CardRaw, topN, acquireCount int, statScale, baseline, songLength float64, fixedLeaderID, costumeOnlyLeaderID string, cf *CardsFile) RecommendOutput {
+	outerProgress := progressCallback
+	progressCallback = nil
+	defer func() { progressCallback = outerProgress }()
+
 	acquireCount = max(1, min(acquireCount, 5))
 
 	rawCardMap := map[string]*CardRaw{}
@@ -604,9 +642,20 @@ func recommend(ownedSpecs map[string]CardSpec, allRawCards []CardRaw, topN, acqu
 	var singleResults []singleResult
 	effectiveCardIDs := map[string]bool{}
 
+	cost1Count := 0
+	for _, c := range candidates {
+		if c.cost == 1 {
+			cost1Count++
+		}
+	}
+	evaluated := 0
 	for _, cand := range candidates {
 		if cand.cost != 1 {
 			continue
+		}
+		evaluated++
+		if outerProgress != nil {
+			outerProgress(evaluated, cost1Count)
 		}
 		trialSpecs := applyCandidate(ownedSpecs, cand)
 		trialResult := solveOne(trialSpecs)

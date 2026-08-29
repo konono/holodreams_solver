@@ -25,6 +25,10 @@ async function initWasm(cardsJSON) {
   return initResult;
 }
 
+self._solverProgress = function (current, total) {
+  self.postMessage({ type: "progress", current, total });
+};
+
 function callSolver(payload) {
   if (!solverReady) throw new Error("Solver not ready");
   const resultJSON = _solverCall(JSON.stringify(payload));
@@ -60,9 +64,7 @@ self.onmessage = async function (e) {
         payload.costume_only_leader_id = d.costumeOnlyLeaderId;
       if (d.stabilityLengths) payload.stability_lengths = d.stabilityLengths;
 
-      self.postMessage({ type: "progress", current: 1, total: 2 });
       const result = callSolver(payload);
-      self.postMessage({ type: "progress", current: 2, total: 2 });
 
       // Convert stability keys from string to number
       if (result.results) {
@@ -103,9 +105,7 @@ self.onmessage = async function (e) {
       if (d.costumeOnlyLeaderId)
         payload.costume_only_leader_id = d.costumeOnlyLeaderId;
 
-      self.postMessage({ type: "progress", current: 1, total: 2 });
       const result = callSolver(payload);
-      self.postMessage({ type: "progress", current: 2, total: 2 });
 
       self.postMessage({
         type: "recommend_done",
