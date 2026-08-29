@@ -628,6 +628,7 @@ def solve(
     fixed_leader_id: str | None = None,
     costume_only_leader_id: str | None = None,
     song_length: float = SONG_LENGTH,
+    stability_lengths: list[float] | None = None,
 ) -> dict:
     all_cards = load_cards()
     card_map = {c["id"]: c for c in all_cards}
@@ -729,24 +730,34 @@ def solve(
     resolved_map = {c["id"]: c for c in owned}
     results = _optimize_results(results, resolved_map, stat_scale, baseline, song_length, override_costume_skill=override_costume_skill)
 
+    formatted = []
+    for i, r in enumerate(results):
+        entry = {
+            "rank": i + 1,
+            "unit_score": round(r["unit_score"]),
+            "total_power": round(r["total_power"]),
+            "score_bonus": round(r["score_bonus"], 1),
+            "active_pct": round(r["active_pct"], 1),
+            "costume_sb_pct": round(r.get("costume_sb_pct", 0), 1),
+            "passive_sb_pct": round(r["passive_sb_pct"], 1),
+            "special_pct": round(r["special_pct"], 1),
+            "leader_id": r["team_ids"][r["leader_idx"]],
+            "costume_only_leader_id": costume_only_leader_id,
+            "member_ids": r["team_ids"],
+        }
+        if stability_lengths:
+            team = [resolved_map[cid] for cid in r["team_ids"]]
+            leader_idx = r["leader_idx"]
+            scores_by_length = {}
+            for sl in stability_lengths:
+                s = evaluate_team(team, leader_idx, stat_scale, baseline, sl, override_costume_skill=override_costume_skill)
+                scores_by_length[sl] = round(s["unit_score"])
+            entry["stability"] = scores_by_length
+        formatted.append(entry)
+
     return {
         "total_combinations": total_combos,
         "stat_scale": stat_scale,
         "baseline": baseline,
-        "results": [
-            {
-                "rank": i + 1,
-                "unit_score": round(r["unit_score"]),
-                "total_power": round(r["total_power"]),
-                "score_bonus": round(r["score_bonus"], 1),
-                "active_pct": round(r["active_pct"], 1),
-                "costume_sb_pct": round(r.get("costume_sb_pct", 0), 1),
-                "passive_sb_pct": round(r["passive_sb_pct"], 1),
-                "special_pct": round(r["special_pct"], 1),
-                "leader_id": r["team_ids"][r["leader_idx"]],
-                "costume_only_leader_id": costume_only_leader_id,
-                "member_ids": r["team_ids"],
-            }
-            for i, r in enumerate(results)
-        ],
+        "results": formatted,
     }

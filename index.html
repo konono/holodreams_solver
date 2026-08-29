@@ -319,6 +319,7 @@ header p { color: #8899aa; font-size: 0.85rem; margin-top: 4px; }
     <select id="songSelect" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:4px 6px;border-radius:4px;font-size:0.75rem;max-width:200px">
       <option value="">汎用（192秒）</option>
     </select>
+    <label style="cursor:pointer;font-size:0.75rem;color:#8899aa"><input type="checkbox" id="chkStability" style="vertical-align:middle;margin-right:2px">安定性分析</label>
     <span style="color:#3a4f66">|</span>
     <label>補正:</label>
     <span id="baselineDisplay" style="color:#4f8cff;font-weight:600;font-size:0.8rem">未補正</span>
@@ -1029,6 +1030,7 @@ async function doSolve() {
         costume_only_leader_id: costumeOnlyLeader,
         top_n: parseInt(document.getElementById("topN").value),
         song_length: document.getElementById("songSelect").value ? parseFloat(document.getElementById("songSelect").value) : null,
+        stability_lengths: document.getElementById("chkStability").checked ? [90, 120, 135, 150, 166] : null,
       }),
     });
     if (!res.ok) {
@@ -1468,6 +1470,24 @@ function renderResults(data) {
       </div>`;
     }
     html += `</div>`;
+    if (r.stability) {
+      const entries = Object.entries(r.stability).sort((a, b) => a[0] - b[0]);
+      const baseScore = r.unit_score;
+      html += `<div style="margin-top:10px;padding-top:8px;border-top:1px solid #2a3a4a">
+        <div style="font-size:0.72rem;color:#6b7f92;margin-bottom:6px">曲長別スコア安定性:</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">`;
+      for (const [len, score] of entries) {
+        const diff = score - baseScore;
+        const diffColor = diff > 0 ? "#40d080" : diff < 0 ? "#f06060" : "#8899aa";
+        const diffText = diff > 0 ? `+${diff.toLocaleString()}` : diff.toLocaleString();
+        html += `<div style="background:#0f1923;border:1px solid #2a3a4a;border-radius:4px;padding:4px 8px;font-size:0.7rem;text-align:center;min-width:70px">
+          <div style="color:#8899aa">${len}秒</div>
+          <div style="color:#e0e6ed;font-weight:600">${score.toLocaleString()}</div>
+          <div style="color:${diffColor};font-size:0.65rem">${diffText}</div>
+        </div>`;
+      }
+      html += `</div></div>`;
+    }
     html += `</div>`;
   }
   area.innerHTML = html;
