@@ -42,6 +42,7 @@ class SolveRequest(BaseModel):
     stat_scale: float = 1.0
     baseline: float = 0
     fixed_leader_id: str | None = None
+    costume_only_leader_id: str | None = None
     top_n: int = 10
     song_length: float | None = None
 
@@ -117,7 +118,7 @@ def post_solve(req: SolveRequest):
         actual = [{"id": cid, "potential": 0} for cid in cm.keys()]
         dropped = 0
 
-    kwargs = dict(top_n=req.top_n, stat_scale=req.stat_scale, baseline=req.baseline, fixed_leader_id=req.fixed_leader_id)
+    kwargs = dict(top_n=req.top_n, stat_scale=req.stat_scale, baseline=req.baseline, fixed_leader_id=req.fixed_leader_id, costume_only_leader_id=req.costume_only_leader_id)
     if req.song_length is not None:
         kwargs["song_length"] = req.song_length
     result = solve(actual, **kwargs)

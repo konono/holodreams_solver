@@ -275,9 +275,10 @@ header p { color: #8899aa; font-size: 0.85rem; margin-top: 4px; }
       <option value="50">Top 50</option>
       <option value="100">Top 100</option>
     </select>
-    <select id="fixedLeader" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:6px 8px;border-radius:4px;font-size:0.8rem">
+    <select id="fixedLeader" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:6px 8px;border-radius:4px;font-size:0.8rem;max-width:260px">
       <option value="">リーダー自動選択</option>
     </select>
+    <label style="cursor:pointer;font-size:0.8rem;color:#8899aa"><input type="checkbox" id="chkCostumeOnly" style="vertical-align:middle;margin-right:2px" disabled>衣装のみ</label>
     <button class="btn-select-all" id="btnSelectAll">全選択</button>
     <button class="btn-clear" id="btnClear">全解除</button>
     <button class="btn-clear" id="btnCopyIds" style="font-size:0.75rem">IDコピー</button>
@@ -658,16 +659,27 @@ function updateCounter() {
 
 function updateLeaderDropdown() {
   const sel = document.getElementById("fixedLeader");
+  const chk = document.getElementById("chkCostumeOnly");
   const current = sel.value;
-  const pool = selected.size > 0 ? CARDS.filter(c => selected.has(c.id)) : CARDS;
+  const pool = CARDS;
   sel.innerHTML = '<option value="">リーダー自動選択</option>';
+  const byChar = {};
   for (const c of pool) {
-    const opt = document.createElement("option");
-    opt.value = c.id;
-    opt.textContent = c.character + (c.variant ? `[${c.variant}]` : "");
-    sel.appendChild(opt);
+    (byChar[c.character] || (byChar[c.character] = [])).push(c);
+  }
+  for (const [char, cards] of Object.entries(byChar)) {
+    const grp = document.createElement("optgroup");
+    grp.label = char;
+    for (const c of cards) {
+      const opt = document.createElement("option");
+      opt.value = c.id;
+      opt.textContent = c.card_name + (c.variant ? ` [${c.variant}]` : "");
+      grp.appendChild(opt);
+    }
+    sel.appendChild(grp);
   }
   if (pool.some(c => c.id === current)) sel.value = current;
+  chk.disabled = !sel.value;
 }
 
 document.getElementById("btnSelectAll").addEventListener("click", () => {
@@ -825,7 +837,12 @@ for (const btn of document.querySelectorAll(".btn-filter")) {
   });
 }
 
-document.getElementById("fixedLeader").addEventListener("change", () => updateCounter());
+document.getElementById("fixedLeader").addEventListener("change", () => {
+  const chk = document.getElementById("chkCostumeOnly");
+  chk.disabled = !document.getElementById("fixedLeader").value;
+  if (chk.disabled) chk.checked = false;
+  updateCounter();
+});
 
 let statScale = parseFloat(localStorage.getItem("holodri_stat_scale") || "1");
 let baseline = parseFloat(localStorage.getItem("holodri_baseline") || "0");
@@ -972,7 +989,10 @@ async function doSolve() {
   document.getElementById("resultsArea").innerHTML = "";
 
   try {
-    const fixedLeader = document.getElementById("fixedLeader").value || null;
+    const leaderVal = document.getElementById("fixedLeader").value || null;
+    const costumeOnly = document.getElementById("chkCostumeOnly").checked;
+    const fixedLeader = leaderVal && !costumeOnly ? leaderVal : null;
+    const costumeOnlyLeader = leaderVal && costumeOnly ? leaderVal : null;
     let cardSpecs;
     if (selected.size === 0) {
       cardSpecs = CARDS.map(c => ({ id: c.id, potential: getCardPotential(c.id), level: getCardLevel(c.id) }));
@@ -985,6 +1005,7 @@ async function doSolve() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         cards: cardSpecs, stat_scale: statScale, baseline, fixed_leader_id: fixedLeader,
+        costume_only_leader_id: costumeOnlyLeader,
         top_n: parseInt(document.getElementById("topN").value),
         song_length: document.getElementById("songSelect").value ? parseFloat(document.getElementById("songSelect").value) : null,
       }),
@@ -1161,11 +1182,12 @@ function renderRecommendations(data) {
     if (r.best_team) {
       html += `<div style="font-size:0.72rem;color:#6b7f92;margin-top:6px">ベストチーム: `;
       const leaderCard = cardMap[r.best_team.leader_id];
-      html += `<span style="color:#ffd700">★${leaderCard ? leaderCard.character : r.best_team.leader_id}</span>`;
+      const leaderLabel = leaderCard ? `${leaderCard.character}(${leaderCard.card_name})` : r.best_team.leader_id;
+      html += `<span style="color:#ffd700">★${leaderLabel}</span>`;
       for (const mid of r.best_team.member_ids) {
         if (mid === r.best_team.leader_id) continue;
         const mc = cardMap[mid];
-        html += ` / ${mc ? mc.character : mid}`;
+        html += ` / ${mc ? `${mc.character}(${mc.card_name})` : mid}`;
       }
       html += `</div>`;
     }
@@ -1359,6 +1381,12 @@ function renderResults(data) {
   let html = "";
   if (data.warnings && data.warnings.length) {
     html += `<div style="background:#3d2a0f;color:#f0a040;padding:8px 12px;border-radius:6px;margin-bottom:8px;font-size:0.85rem">${data.warnings.join("<br>")}</div>`;
+  }
+  const costumeLeaderId = results[0] && results[0].costume_only_leader_id;
+  if (costumeLeaderId) {
+    const clCard = cardMap[costumeLeaderId];
+    const clName = clCard ? `${clCard.character} / ${clCard.card_name}` : costumeLeaderId;
+    html += `<div style="background:#2a2d1f;color:#c0c060;padding:8px 12px;border-radius:6px;margin-bottom:8px;font-size:0.85rem">👗 衣装リーダー: ${clName}（メンバー外）</div>`;
   }
   html += `<div class="results-title">最強編成 Top ${results.length}（${data.total_combinations.toLocaleString()} 通り${bLabel}）</div>`;
 
