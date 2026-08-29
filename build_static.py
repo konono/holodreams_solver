@@ -810,20 +810,19 @@ function renderRecommendations(data) {{
     }}
 
     if (r.best_team) {{
-      const hasCostume = !!r.best_team.costume_only_leader_id;
-      if (hasCostume) {{
+      html += `<div style="font-size:0.72rem;color:#6b7f92;margin-top:6px">ベストチーム: `;
+      const leaderCard = cardMap[r.best_team.leader_id];
+      const leaderLabel = leaderCard ? `${{leaderCard.character}}(${{leaderCard.card_name}})` : r.best_team.leader_id;
+      html += `<span style="color:#ffd700">★${{leaderLabel}}</span>`;
+      for (const mid of r.best_team.member_ids) {{
+        if (mid === r.best_team.leader_id) continue;
+        const mc = cardMap[mid];
+        html += ` / ${{mc ? `${{mc.character}}(${{mc.card_name}})` : mid}}`;
+      }}
+      if (r.best_team.costume_only_leader_id) {{
         const costumeCard = cardMap[r.best_team.costume_only_leader_id];
         const costumeLabel = costumeCard ? `${{costumeCard.character}}(${{costumeCard.card_name}})` : r.best_team.costume_only_leader_id;
-        html += `<div style="font-size:0.72rem;color:#c0c060;margin-top:6px">👗衣装: ${{costumeLabel}}</div>`;
-      }}
-      html += `<div style="font-size:0.72rem;color:#6b7f92;margin-top:${{hasCostume ? '2' : '6'}}px">メンバー: `;
-      for (let mi = 0; mi < r.best_team.member_ids.length; mi++) {{
-        const mid = r.best_team.member_ids[mi];
-        const mc = cardMap[mid];
-        const isLeader = mid === r.best_team.leader_id && !hasCostume;
-        const label = mc ? `${{mc.character}}(${{mc.card_name}})` : mid;
-        if (mi > 0) html += ' / ';
-        html += isLeader ? `<span style="color:#ffd700">★${{label}}</span>` : label;
+        html += ` <span style="color:#c0c060">👗${{costumeLabel}}</span>`;
       }}
       html += `</div>`;
     }}
