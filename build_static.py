@@ -918,7 +918,7 @@ function updateCounter() {{
   const sel = document.getElementById("costumeSelect");
   const cur = sel.value;
   const pool = CARDS;
-  sel.innerHTML = '<option value="">衣装自動選択</option>';
+  sel.innerHTML = '<option value="">衣装+編成を自動選択</option>';
   const charOrder = [];
   const byChar = {{}};
   for (const c of pool) {{
