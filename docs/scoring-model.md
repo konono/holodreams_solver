@@ -182,7 +182,7 @@ SS を最大化するより、アクティブスキルとスペシャルスキ�
 
 ### 凸（開花）の影響
 
-- データベースは 0凸 max level の値（appmedia 掲載値）
+- データベースは HolodoriDB の 0凸 max level 値
 - 1凸: アクティブスキル強化 → アクティブ% に影響
 - 3凸: スペシャルスキル強化 → スペシャル% に影響
 - 凸カード（おかゆ5凸等）が含まれるチームでは約2%の誤差
@@ -205,8 +205,8 @@ v2では曲セレクターで個別の曲の長さ（`playingSeconds`）を使�
 
 ### データソース移行
 
-v1: appmedia攻略サイトから手入力（0凸max level値）
-v2: HolodoriDBから自動生成（0〜4凸、任意レベル対応）
+HolodoriDB（`HolodoriDB/holodori-db-jpn-diff`）から `scripts/sync_holodori.py` で自動生成（0〜4凸、任意レベル対応）。
+初期は appmedia 攻略サイトから手入力していたが、HolodoriDB への移行により全カード自動生成に切り替え済み。
 
 ### ゲーム公式係数 K=2.3 について
 

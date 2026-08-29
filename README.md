@@ -1,33 +1,42 @@
 # HoloSolve
 
-ホロライブドリームスの星5カードから最適な5人編成を探索するソルバー。ゲーム内スコア計算式を実測解明し、ユニットスコアを高精度で予測する。
+ホロライブドリームスのカードから最適な5人編成を探索するソルバー。ゲーム内スコア計算式を実測解明し、ユニットスコアを高精度で予測する。
 
 **Web版**: https://konono.github.io/holodreams_solver/
 
 ## セットアップ
 
 ```bash
-# 依存インストール
-uv sync
+# mise で開発環境を一括セットアップ（Go ビルド + Python 依存 + テスト用ブラウザ）
+mise run setup
 
-# 起動
-uv run python app.py
+# 開発サーバー起動
+mise run dev
 # → http://localhost:8000
+```
+
+手動セットアップする場合:
+
+```bash
+uv sync --group dev
+cd solver_go && go build -o solver . && cd ..
+uv run python app.py
 ```
 
 ## 使い方
 
 ### 1. カード選択
 
-ブラウザで `http://localhost:8000` にアクセスし、手持ちの星5カードをクリックして選択する。
+ブラウザで `http://localhost:8000` にアクセスし、手持ちのカードをクリックして選択する。
 
 - 「全選択」「全解除」で一括操作
 - Happy / Pure / Cute でタイプフィルタリング
+- 凸数（0〜4凸）とレベルをカードごとに指定可能
 - 「IDコピー」で選択をJSON配列としてコピー、「ID貼付」で復元
 
 ### 2. 最強編成を探す
 
-5枚以上選択して「最強編成を探す」ボタンを押すと、全組み合わせを探索してTop 10を表示する。サーバー版は**最大40枚**まで。全カードで探索する場合は静的版（`dist/index.html`）を使う。
+5枚以上選択して「最強編成を探す」ボタンを押すと、全組み合わせを探索してTop Nを表示する。
 
 結果には以下が表示される:
 
@@ -41,7 +50,23 @@ uv run python app.py
 
 ドロップダウンで特定のキャラをリーダーに固定して探索できる。「この推しをリーダーにした最強編成は？」という使い方。
 
-### 4. キャリブレーション
+### 4. 衣装スイープ
+
+「衣装スイープ」を有効にすると、リーダーの衣装だけ別カードのものを使う組み合わせも含めて探索する。リーダーとして最適なカードと、衣装として最適なカードが異なる場合に有効。
+
+### 5. 曲セレクター
+
+曲を選択すると、その曲の再生秒数でスペシャルスキルの寄与を計算する。デフォルトは192秒。
+
+### 6. レコメンド（次に取るべきカード推薦）
+
+手持ちカードを選択した状態で「レコメンド」ボタンを押すと、次に入手すべきカード（新規取得 or 凸進め）を提案する。
+
+- 全未所持カードおよび凸進め候補を評価
+- 取得枚数（1〜5枚）を指定可能
+- 現在のベストスコアからの伸び幅（Delta）で順位付け
+
+### 7. キャリブレーション
 
 ゲーム内のユニットスコアとソルバーの予測を合わせるための補正機能。
 
@@ -52,52 +77,159 @@ uv run python app.py
 
 補正値は `localStorage` に保存され、以降の計算に自動適用される。レベルやボード育成が変わったら再キャリブレーション。
 
+## Go ソルバー CLI
+
+Go ソルバーは stdin から JSON を受け取り、stdout に JSON を出力するCLIツール。
+
+```bash
+cd solver_go && go build -o solver .
+```
+
+### solve — 最強編成探索
+
+```bash
+echo '{
+  "action": "solve",
+  "cards": ["hoshimachi_suisei_1", "shirakami_fubuki_1", "tokino_sora_1", "sakura_miko_1", "houshou_marine_1"],
+  "top_n": 3
+}' | ./solver_go/solver
+```
+
+カードIDの代わりに凸・レベル指定も可能:
+
+```bash
+echo '{
+  "action": "solve",
+  "cards": [
+    {"id": "hoshimachi_suisei_1", "potential": 2, "level": 70},
+    {"id": "shirakami_fubuki_1", "potential": 0}
+  ],
+  "top_n": 5,
+  "stat_scale": 0.85,
+  "baseline": 5000
+}' | ./solver_go/solver
+```
+
+オプション:
+- `top_n`: 上位N件を返す（デフォルト: 10）
+- `stat_scale`, `baseline`: キャリブレーション補正値
+- `fixed_leader_id`: リーダーを固定
+- `costume_only_leader_id`: 衣装だけ別カードのものを使用
+- `song_length`: 曲の再生秒数（デフォルト: 192）
+- `stability_lengths`: 複数の曲長でスコアを計算し安定性を評価
+- `sweep_costumes`: 全衣装候補を自動探索
+
+### recommend — カード推薦
+
+```bash
+echo '{
+  "action": "recommend",
+  "cards": [
+    {"id": "hoshimachi_suisei_1", "potential": 0},
+    {"id": "shirakami_fubuki_1", "potential": 1}
+  ],
+  "top_n": 5,
+  "acquire_count": 1
+}' | ./solver_go/solver
+```
+
+オプション:
+- `acquire_count`: 同時に取得するカード枚数（デフォルト: 1）
+- `sweep_costumes`: 衣装スイープを有効化
+
+### calibrate — キャリブレーション
+
+```bash
+echo '{
+  "action": "calibrate",
+  "member_ids": ["card_a", "card_b", "card_c", "card_d", "card_e"],
+  "leader_id_1": "card_a",
+  "game_score_1": 678413,
+  "leader_id_2": "card_b",
+  "game_score_2": 642056
+}' | ./solver_go/solver
+```
+
+出力: `{"stat_scale": 0.85, "baseline": 5000}`
+
 ## ファイル構成
 
 ```
 holodre_sim/
-├── data/cards.json          # 星5カードデータベース（59枚）
-├── solver.py                # スコア計算エンジン
-├── app.py                   # FastAPI サーバー
-├── index.html               # フロントエンド UI
-├── CLAUDE.md                # Claude Code 用プロジェクト設定
-├── .claude/skills/add-card.md  # カード追加スキル
-└── docs/scoring-model.md    # スコア計算モデル技術資料
+├── data/
+│   ├── cards.json            # カードデータベース（70枚、0-4凸対応）
+│   ├── songs.json            # 曲データ（194曲）
+│   └── id_map.json           # HolodoriDB ID ↔ HoloSolve ID マッピング
+├── solver_go/                # Go ソルバー（CLI + WASM）
+│   ├── main.go               # CLI エントリポイント
+│   ├── solver.go             # コアロジック
+│   ├── evaluate.go           # スコア評価
+│   ├── resolve.go            # カード解決・凸/レベル適用
+│   ├── parse.go              # 入力パース
+│   ├── types.go              # 型定義
+│   ├── wasm.go               # WASM 版エントリポイント
+│   └── recommend_test.go     # Go テスト
+├── solver.py                 # Python 参照実装
+├── solver_go_bridge.py       # Go CLI の Python ラッパー
+├── app.py                    # FastAPI サーバー
+├── index.html                # フロントエンド UI
+├── build_static.py           # WASM 版 HTML 生成
+├── wasm_bridge.js            # WASM Web Worker
+├── wasm_exec.js              # Go 標準 WASM ブリッジ
+├── scripts/
+│   ├── sync_holodori.py      # HolodoriDB からデータ生成
+│   └── validate_against_yagoo.py  # 検算スクリプト
+├── test_solver.py            # ソルバーユニットテスト
+├── test_e2e.py               # E2E テスト
+├── test_recommend_ui.py      # レコメンド UI テスト（Playwright）
+├── test_static_build.py      # 静的ビルドテスト
+├── mise.toml                 # タスクランナー・ツールバージョン管理
+├── docs/scoring-model.md     # スコア計算モデル技術資料
+└── CLAUDE.md                 # Claude Code 用プロジェクト設定
 ```
 
-## カードの追加
+## カードデータの更新
 
-新しいガチャでカードが追加された場合、appmedia から以下の4ページを参照してデータを収集する:
+HolodoriDB（GitHub: `HolodoriDB/holodori-db-jpn-diff`）から自動生成する:
 
-1. [キャラ一覧](https://appmedia.jp/hololive-dreams/80237596) — 基本ステ・アクティブ・サポートスキル
-2. [タイプ別一覧](https://appmedia.jp/hololive-dreams/80244547) — Happy/Pure/Cute 分類
-3. [衣装スキル一覧](https://appmedia.jp/hololive-dreams/80246569) — リーダースキル
-4. [スキル検索](https://appmedia.jp/hololive-dreams/80243005) — スペシャルスキル
+```bash
+uv run python scripts/sync_holodori.py
+```
 
-詳細なデータ構造と追加手順は `.claude/skills/add-card.md` を参照。
+GitHub Actions (`update-cards.yml`) による定期自動更新もある。
 
 ## テスト
 
 ```bash
-uv run pytest
+# 全テスト
+mise run test
+
+# ユニットテストのみ
+mise run test:unit
+
+# E2Eテストのみ
+mise run test:e2e
+
+# Go テスト
+cd solver_go && go test -v
 ```
 
-実測値ベースの回帰テスト（11件）。キャリブレーション精度、スコアボーナス内訳、パフォ135% > 全パラ50% の逆転、リーダー固定、同キャラ排除を検証。
+Python テスト 81件 + Go テスト 8件。実測値ベースの回帰テスト、キャリブレーション精度、レコメンド機能、Playwright による UI テストを含む。
 
 ## 静的 HTML ビルド
 
 GitHub Pages 用の WASM 版を生成できる。カードデータを埋め込んだ HTML + Go WASM ソルバーで動作する。
 
 ```bash
-# Go ソルバーのビルド（初回のみ）
-cd solver_go && go build -o solver . && GOOS=js GOARCH=wasm go build -o solver.wasm . && cd ..
+# Go ソルバーの WASM ビルド（初回のみ）
+mise run build:solver
 
 # HTML + WASM ファイル生成
-uv run python build_static.py
+mise run build
 # → dist/index.html, dist/solver.wasm, dist/wasm_bridge.js, dist/wasm_exec.js
 ```
 
-WASM 版は HTTP サーバー経由で配信する必要がある（`file://` では動作しない）。GitHub Pages にデプロイするか、ローカルで `python -m http.server -d dist` で確認できる。キャリブレーション機能は含まれない（サーバー版のみ）。
+WASM 版は HTTP サーバー経由で配信する必要がある（`file://` では動作しない）。GitHub Pages にデプロイするか、ローカルで `python -m http.server -d dist` で確認できる。
 
 ## 技術資料
 
