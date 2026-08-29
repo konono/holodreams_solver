@@ -6,9 +6,10 @@ python = "3.13"
 uv = "latest"
 
 [tasks.setup]
-description = "開発環境セットアップ（依存+ブラウザ）"
+description = "開発環境セットアップ（依存+ソルバー+ブラウザ）"
 run = """
 uv sync --group dev
+cd solver_go && go build -o solver . && GOOS=js GOARCH=wasm go build -o solver.wasm .
 uv run playwright install --with-deps chromium
 """
 
@@ -32,7 +33,7 @@ run = "uv run python build_static.py"
 description = "Goソルバービルド（CLI + WASM）"
 run = """
 cd solver_go && go build -o solver .
-cd solver_go && GOOS=js GOARCH=wasm go build -o ../dist/solver.wasm .
+cd solver_go && GOOS=js GOARCH=wasm go build -o solver.wasm .
 """
 
 [tasks.dev]

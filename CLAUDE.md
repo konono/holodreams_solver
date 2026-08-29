@@ -8,6 +8,9 @@ FastAPI + HTML のWebアプリケーション。
 ## 起動方法
 
 ```bash
+# 初回: Goソルバーのビルドが必要
+cd solver_go && go build -o solver . && cd ..
+
 uv run python app.py
 # → http://localhost:8000
 ```

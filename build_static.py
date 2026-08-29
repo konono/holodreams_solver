@@ -1076,6 +1076,8 @@ renderHistory();
     wasm_src = ROOT / "solver_go" / "solver.wasm"
     if wasm_src.exists():
         shutil.copy2(wasm_src, dist / "solver.wasm")
+    else:
+        print("WARNING: solver_go/solver.wasm not found. Run: cd solver_go && GOOS=js GOARCH=wasm go build -o solver.wasm .")
     print(f"Built: {out} ({out.stat().st_size / 1024:.0f} KB)")
 
 
