@@ -105,6 +105,26 @@ class TestStaticBasicUI:
         page.close()
 
 
+class TestStaticWasm:
+    def test_solve_loads_wasm(self, browser_context):
+        """solve実行時にsolver.wasmがロードされることを確認（WASM版の証明）"""
+        page = open_page(browser_context)
+        wasm_loaded = []
+        page.on("response", lambda res: wasm_loaded.append(res.url) if "solver.wasm" in res.url else None)
+        select_cards(page, 6)
+        page.click("#btnSolve")
+        page.wait_for_selector(".result-card", timeout=30000)
+        assert any("solver.wasm" in url for url in wasm_loaded), "solver.wasm should be loaded (WASM version)"
+        page.close()
+
+    def test_html_does_not_contain_js_solver(self, browser_context):
+        """生成HTMLにJSソルバーが含まれていないことを確認"""
+        html = (DIST_DIR / "index.html").read_text()
+        assert "function evaluateTeam" not in html, "JS solver should not be embedded"
+        assert "function solveInternal" not in html, "JS solver should not be embedded"
+        assert "wasm_bridge.js" in html, "Should reference WASM bridge"
+
+
 class TestStaticSolve:
     def test_solve_produces_results(self, browser_context):
         page = open_page(browser_context)
