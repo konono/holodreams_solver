@@ -9,10 +9,13 @@ import (
 	"os"
 	"strings"
 	"text/tabwriter"
+	"time"
 )
 
+var httpClient = &http.Client{Timeout: 5 * time.Minute}
+
 func apiGet(server, path string) ([]byte, error) {
-	resp, err := http.Get(server + path)
+	resp, err := httpClient.Get(server + path)
 	if err != nil {
 		return nil, fmt.Errorf("接続エラー: %w", err)
 	}
@@ -32,7 +35,7 @@ func apiPost(server, path string, payload any) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp, err := http.Post(server+path, "application/json", bytes.NewReader(data))
+	resp, err := httpClient.Post(server+path, "application/json", bytes.NewReader(data))
 	if err != nil {
 		return nil, fmt.Errorf("接続エラー: %w", err)
 	}
@@ -45,6 +48,37 @@ func apiPost(server, path string, payload any) ([]byte, error) {
 		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	return body, nil
+}
+
+func fetchAllCardIDs(server string) ([]string, error) {
+	body, err := apiGet(server, "/api/cards")
+	if err != nil {
+		return nil, err
+	}
+	var resp struct {
+		Cards []struct {
+			ID string `json:"id"`
+		} `json:"cards"`
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, err
+	}
+	ids := make([]string, len(resp.Cards))
+	for i, c := range resp.Cards {
+		ids[i] = c.ID
+	}
+	return ids, nil
+}
+
+func printWarnings(data []byte) {
+	var w struct {
+		Warnings []string `json:"warnings"`
+	}
+	if json.Unmarshal(data, &w) == nil {
+		for _, msg := range w.Warnings {
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", msg)
+		}
+	}
 }
 
 func newTabWriter() *tabwriter.Writer {

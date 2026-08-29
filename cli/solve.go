@@ -15,6 +15,7 @@ type SolveRequest struct {
 	CostumeOnlyLeaderID *string    `json:"costume_only_leader_id,omitempty"`
 	TopN                int        `json:"top_n"`
 	SongLength          *float64   `json:"song_length,omitempty"`
+	StabilityLengths    []float64  `json:"stability_lengths,omitempty"`
 	SweepCostumes       bool       `json:"sweep_costumes,omitempty"`
 }
 
@@ -44,6 +45,7 @@ func runSolve(args []string) {
 	topN := 10
 	var leaderID, costumeLeaderID *string
 	var songLength *float64
+	var stabilityLengths []float64
 	sweepCostumes := false
 
 	for i := 0; i < len(rest); i++ {
@@ -72,6 +74,17 @@ func runSolve(args []string) {
 				songLength = &f
 				i++
 			}
+		case "--stability":
+			if i+1 < len(rest) {
+				for _, s := range strings.Split(rest[i+1], ",") {
+					f, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
+					if err != nil {
+						fatalf("--stability の値が不正です: %s", s)
+					}
+					stabilityLengths = append(stabilityLengths, f)
+				}
+				i++
+			}
 		case "--sweep-costumes":
 			sweepCostumes = true
 		case "--help", "-h":
@@ -82,6 +95,7 @@ Options:
   --leader ID            リーダー固定
   --costume-leader ID    衣装リーダー固定
   --song-length SEC      曲長（秒）
+  --stability S1,S2,...  安定性チェック（カンマ区切りの曲長リスト）
   --sweep-costumes       衣装スイープ有効`)
 			return
 		}
@@ -93,13 +107,14 @@ Options:
 	}
 
 	req := SolveRequest{
-		Cards:               cfg.buildCardSpecs(),
+		Cards:               cfg.buildCardSpecs(flags.server),
 		StatScale:           cfg.statScaleVal(),
 		Baseline:            cfg.baselineVal(),
 		FixedLeaderID:       leaderID,
 		CostumeOnlyLeaderID: costumeLeaderID,
 		TopN:                topN,
 		SongLength:          songLength,
+		StabilityLengths:    stabilityLengths,
 		SweepCostumes:       sweepCostumes,
 	}
 
@@ -109,9 +124,12 @@ Options:
 	}
 
 	if flags.jsonOutput {
+		printWarnings(body)
 		fmt.Println(string(body))
 		return
 	}
+
+	printWarnings(body)
 
 	var resp SolveResponse
 	if err := json.Unmarshal(body, &resp); err != nil {

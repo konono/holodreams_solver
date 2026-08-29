@@ -112,7 +112,7 @@ Options:
 	}
 
 	req := RecommendAPIRequest{
-		Cards:               cfg.buildCardSpecs(),
+		Cards:               cfg.buildCardSpecs(flags.server),
 		StatScale:           cfg.statScaleVal(),
 		Baseline:            cfg.baselineVal(),
 		FixedLeaderID:       leaderID,
@@ -129,9 +129,12 @@ Options:
 	}
 
 	if flags.jsonOutput {
+		printWarnings(body)
 		fmt.Println(string(body))
 		return
 	}
+
+	printWarnings(body)
 
 	var resp RecommendResponse
 	if err := json.Unmarshal(body, &resp); err != nil {

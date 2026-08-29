@@ -29,6 +29,10 @@ jobs:
           go build -o solver .
           GOOS=js GOARCH=wasm go build -o solver.wasm .
 
+      - name: Build CLI
+        working-directory: cli
+        run: go build -o holosolve .
+
       - name: Run tests
         run: |
           uv run python build_static.py

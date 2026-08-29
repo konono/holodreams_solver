@@ -46,9 +46,17 @@ func saveConfig(path string, cfg *Config) error {
 	return os.WriteFile(path, append(data, '\n'), 0644)
 }
 
-func (cfg *Config) buildCardSpecs() []CardSpec {
-	specs := make([]CardSpec, 0, len(cfg.IDs))
-	for _, id := range cfg.IDs {
+func (cfg *Config) buildCardSpecs(server string) []CardSpec {
+	ids := cfg.IDs
+	if cfg.AllCards || len(ids) == 0 {
+		allIDs, err := fetchAllCardIDs(server)
+		if err != nil {
+			fatalf("全カードID取得エラー: %v", err)
+		}
+		ids = allIDs
+	}
+	specs := make([]CardSpec, 0, len(ids))
+	for _, id := range ids {
 		pot := cfg.DefaultPotential
 		if p, ok := cfg.Potentials[id]; ok {
 			pot = p
