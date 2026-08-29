@@ -663,7 +663,8 @@ function updateLeaderDropdown() {
   const current = sel.value;
   const pool = CARDS;
   sel.innerHTML = '<option value="">リーダー自動選択</option>';
-  for (const c of pool) {
+  const sorted = [...pool].sort((a, b) => a.character.localeCompare(b.character, "ja"));
+  for (const c of sorted) {
     const opt = document.createElement("option");
     opt.value = c.id;
     opt.textContent = c.character + " / " + c.card_name;
