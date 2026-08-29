@@ -33,6 +33,14 @@ func jsSolve(this js.Value, args []js.Value) interface{} {
 		return js.ValueOf(errorJSON(err.Error()))
 	}
 
+	progressFn := js.Global().Get("_solverProgress")
+	if progressFn.Truthy() {
+		progressCallback = func(current, total int) {
+			progressFn.Invoke(current, total)
+		}
+	}
+	defer func() { progressCallback = nil }()
+
 	result, err := dispatchAction(input, wasmCardsFile)
 	if err != nil {
 		return js.ValueOf(errorJSON(err.Error()))

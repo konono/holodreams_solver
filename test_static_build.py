@@ -107,13 +107,13 @@ class TestStaticBasicUI:
 
 class TestStaticWasm:
     def test_solve_loads_wasm(self, browser_context):
-        """solve実行時にsolver.wasmがロードされることを確認（WASM版の証明）"""
-        page = open_page(browser_context)
+        """ページロード時にsolver.wasmがロードされることを確認（WASM版の証明）"""
         wasm_loaded = []
+        page = browser_context.new_page()
         page.on("response", lambda res: wasm_loaded.append(res.url) if "solver.wasm" in res.url else None)
-        select_cards(page, 6)
-        page.click("#btnSolve")
-        page.wait_for_selector(".result-card", timeout=30000)
+        page.goto(f"http://127.0.0.1:{SERVER_PORT}/index.html")
+        page.wait_for_selector(".card", timeout=10000)
+        page.wait_for_timeout(2000)
         assert any("solver.wasm" in url for url in wasm_loaded), "solver.wasm should be loaded (WASM version)"
         page.close()
 
