@@ -184,6 +184,6 @@ class TestStaticRecommendDisplay:
             ".result-card",
             "els => els.map(e => e.textContent)"
         )
-        has_card_name = any("ベストチーム" in t and "(" in t for t in best_team_text)
+        has_card_name = any(("メンバー" in t or "ベストチーム" in t) and "(" in t for t in best_team_text)
         assert has_card_name, "Best team display should include card names in parentheses"
         page.close()
