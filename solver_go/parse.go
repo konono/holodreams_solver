@@ -152,7 +152,8 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 		if input.CostumeOnlyLeaderID != nil {
 			costumeOnly = *input.CostumeOnlyLeaderID
 		}
-		return recommend(ownedSpecs, cf.Cards, topN, acquireCount, statScale, baseline, songLength, fixedLeader, costumeOnly, cf), nil
+		sweepCostumes := input.SweepCostumes
+		return recommend(ownedSpecs, cf.Cards, topN, acquireCount, statScale, baseline, songLength, fixedLeader, costumeOnly, sweepCostumes, cf), nil
 
 	default:
 		return nil, fmt.Errorf("unknown action: %s", input.Action)

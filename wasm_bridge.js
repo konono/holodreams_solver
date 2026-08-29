@@ -104,6 +104,7 @@ self.onmessage = async function (e) {
       if (d.fixedLeaderId) payload.fixed_leader_id = d.fixedLeaderId;
       if (d.costumeOnlyLeaderId)
         payload.costume_only_leader_id = d.costumeOnlyLeaderId;
+      if (d.sweepCostumes) payload.sweep_costumes = true;
 
       const result = callSolver(payload);
 

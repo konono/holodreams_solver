@@ -720,6 +720,7 @@ function doRecommend() {{
     acquireCount: parseInt(document.getElementById("acquireCount").value),
     topN: parseInt(document.getElementById("recommendTopN").value),
     songLength: selSong ? parseFloat(selSong) : null,
+    sweepCostumes: !recCostumeVal && selected.size >= 5,
   }});
 
   w.onerror = function() {{
@@ -817,6 +818,11 @@ function renderRecommendations(data) {{
         if (mid === r.best_team.leader_id) continue;
         const mc = cardMap[mid];
         html += ` / ${{mc ? `${{mc.character}}(${{mc.card_name}})` : mid}}`;
+      }}
+      if (r.best_team.costume_only_leader_id) {{
+        const costumeCard = cardMap[r.best_team.costume_only_leader_id];
+        const costumeLabel = costumeCard ? `${{costumeCard.character}}(${{costumeCard.card_name}})` : r.best_team.costume_only_leader_id;
+        html += ` <span style="color:#c0c060">👗${{costumeLabel}}</span>`;
       }}
       html += `</div>`;
     }}

@@ -148,6 +148,7 @@ class RecommendRequest(BaseModel):
     top_n: int = 5
     acquire_count: int = 1
     song_length: float | None = None
+    sweep_costumes: bool = False
 
     @field_validator("song_length")
     @classmethod
@@ -186,6 +187,8 @@ def post_recommend(req: RecommendRequest):
     kwargs = dict(top_n=top_n, acquire_count=acquire_count, stat_scale=req.stat_scale, baseline=req.baseline, fixed_leader_id=req.fixed_leader_id, costume_only_leader_id=req.costume_only_leader_id)
     if req.song_length is not None:
         kwargs["song_length"] = req.song_length
+    if req.sweep_costumes:
+        kwargs["sweep_costumes"] = True
 
     result = recommend(card_specs, **kwargs)
     if dropped > 0:
