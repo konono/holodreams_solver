@@ -95,6 +95,7 @@ def recommend(
     fixed_leader_id: str | None = None,
     costume_only_leader_id: str | None = None,
     song_length: float = 192,
+    sweep_costumes: bool = False,
 ) -> dict:
     payload = {
         "action": "recommend",
@@ -110,6 +111,8 @@ def recommend(
         payload["costume_only_leader_id"] = costume_only_leader_id
     if song_length != 192:
         payload["song_length"] = song_length
+    if sweep_costumes:
+        payload["sweep_costumes"] = True
 
     return _call_go(payload)
 

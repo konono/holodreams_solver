@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math"
 	"sort"
 )
@@ -349,6 +350,118 @@ func applyCostume(base *BaseScores, cs *CostumeSkill) (unitScore, totalPower, sc
 	scoreBonus = base.BaseBonus + costumeSBPct
 	unitScore = totalPower * (1 + scoreBonus/100) * unitScoreK
 	return
+}
+
+type costumeVector struct {
+	perf         float64
+	tech         float64
+	sense        float64
+	scoreSupport float64
+}
+
+func costumeConditionKey(cond *ConditionObj) string {
+	if cond == nil {
+		return ""
+	}
+	switch cond.Type {
+	case "type_count":
+		return fmt.Sprintf("type:%s:%d", cond.TypeName, cond.MinCount)
+	case "group_count":
+		return fmt.Sprintf("group:%s:%d", cond.Group, cond.MinCount)
+	default:
+		return fmt.Sprintf("%s:%s:%s:%d", cond.Type, cond.TypeName, cond.Group, cond.MinCount)
+	}
+}
+
+func costumeToVector(cs *CostumeSkill) costumeVector {
+	var v costumeVector
+	for _, eff := range cs.Effects {
+		val := eff.Value
+		switch eff.Stat {
+		case "score_support":
+			v.scoreSupport += val
+		case "all":
+			v.perf += val
+			v.tech += val
+			v.sense += val
+		case "performance":
+			v.perf += val
+		case "technique":
+			v.tech += val
+		case "sense":
+			v.sense += val
+		}
+	}
+	return v
+}
+
+type CostumeEntry struct {
+	CardID string
+	Skill  CostumeSkill
+}
+
+// pruneCostumes removes Pareto-dominated costumes within the same condition group.
+// A costume B is dominated by A if all stat bonuses of A >= B.
+// Also deduplicates costumes with identical effects.
+func pruneCostumes(costumes []CostumeEntry) []CostumeEntry {
+	type keyed struct {
+		entry CostumeEntry
+		vec   costumeVector
+		ckey  string
+	}
+
+	items := make([]keyed, len(costumes))
+	for i, ce := range costumes {
+		items[i] = keyed{ce, costumeToVector(&ce.Skill), costumeConditionKey(ce.Skill.Condition)}
+	}
+
+	// Group by condition key
+	groups := map[string][]int{}
+	for i, item := range items {
+		groups[item.ckey] = append(groups[item.ckey], i)
+	}
+
+	kept := make([]bool, len(items))
+	for _, indices := range groups {
+		// Deduplicate identical vectors first
+		type vecKey struct {
+			p, t, s, ss float64
+		}
+		seen := map[vecKey]bool{}
+		for _, i := range indices {
+			v := items[i].vec
+			k := vecKey{v.perf, v.tech, v.sense, v.scoreSupport}
+			if seen[k] {
+				continue
+			}
+			seen[k] = true
+
+			// Check if dominated by any other in the group
+			dominated := false
+			for _, j := range indices {
+				if i == j {
+					continue
+				}
+				o := items[j].vec
+				if o.perf >= v.perf && o.tech >= v.tech && o.sense >= v.sense && o.scoreSupport >= v.scoreSupport &&
+					(o.perf > v.perf || o.tech > v.tech || o.sense > v.sense || o.scoreSupport > v.scoreSupport) {
+					dominated = true
+					break
+				}
+			}
+			if !dominated {
+				kept[i] = true
+			}
+		}
+	}
+
+	result := make([]CostumeEntry, 0, len(costumes))
+	for i, k := range kept {
+		if k {
+			result = append(result, items[i].entry)
+		}
+	}
+	return result
 }
 
 func statByName(s *Stats, name string) float64 {

@@ -253,8 +253,9 @@ type RecommendResult struct {
 }
 
 type RecommendBestTeam struct {
-	LeaderID  string   `json:"leader_id"`
-	MemberIDs []string `json:"member_ids"`
+	LeaderID            string   `json:"leader_id"`
+	MemberIDs           []string `json:"member_ids"`
+	CostumeOnlyLeaderID *string  `json:"costume_only_leader_id,omitempty"`
 }
 
 type RecommendOutput struct {

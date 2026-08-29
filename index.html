@@ -1128,6 +1128,7 @@ async function doRecommend() {
         acquire_count: parseInt(document.getElementById("acquireCount").value),
         top_n: parseInt(document.getElementById("recommendTopN").value),
         song_length: document.getElementById("songSelect").value ? parseFloat(document.getElementById("songSelect").value) : null,
+        sweep_costumes: !recCostumeVal && selected.size > 0,
       }),
     });
     if (!res.ok) {
@@ -1211,6 +1212,11 @@ function renderRecommendations(data) {
         if (mid === r.best_team.leader_id) continue;
         const mc = cardMap[mid];
         html += ` / ${mc ? `${mc.character}(${mc.card_name})` : mid}`;
+      }
+      if (r.best_team.costume_only_leader_id) {
+        const costumeCard = cardMap[r.best_team.costume_only_leader_id];
+        const costumeLabel = costumeCard ? `${costumeCard.character}(${costumeCard.card_name})` : r.best_team.costume_only_leader_id;
+        html += ` <span style="color:#c0c060">👗${costumeLabel}</span>`;
       }
       html += `</div>`;
     }
