@@ -228,23 +228,30 @@ header p { color: #8899aa; font-size: 0.85rem; margin-top: 4px; }
 }
 .h-label-input:focus { border-color: #4f8cff; outline: none; }
 
-.fab-solve {
+.fab-container {
   display: none; position: fixed; bottom: 20px; right: 20px; z-index: 100;
+  flex-direction: column; gap: 10px; align-items: flex-end;
+}
+.fab-btn {
   background: linear-gradient(135deg, #4f8cff, #3b6fd9); color: #fff;
   padding: 12px 20px; border-radius: 28px; font-size: 0.9rem; font-weight: 700;
   cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,0.4);
   transition: transform 0.1s, opacity 0.15s; user-select: none;
 }
-.fab-solve:active { transform: scale(0.95); }
-.fab-solve.disabled { opacity: 0.4; pointer-events: none; }
-.fab-solve.fab-back {
+.fab-btn:active { transform: scale(0.95); }
+.fab-btn.disabled { opacity: 0.4; pointer-events: none; }
+.fab-btn.fab-back {
   background: linear-gradient(135deg, #3a4f66, #2a3a4a);
+}
+.fab-recommend {
+  background: linear-gradient(135deg, #ff8c4f, #d96b3b);
+  font-size: 0.8rem; padding: 10px 16px;
 }
 
 @media (max-width: 600px) {
   .card-grid { grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); }
   .result-members { grid-template-columns: 1fr; }
-  .fab-solve { display: block; }
+  .fab-container { display: flex; }
 }
 </style>
 </head>
@@ -275,9 +282,10 @@ header p { color: #8899aa; font-size: 0.85rem; margin-top: 4px; }
       <option value="50">Top 50</option>
       <option value="100">Top 100</option>
     </select>
-    <select id="fixedLeader" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:6px 8px;border-radius:4px;font-size:0.8rem">
+    <select id="fixedLeader" style="background:#1e2d3d;border:1px solid #3a4f66;color:#c8d6e0;padding:6px 8px;border-radius:4px;font-size:0.8rem;max-width:260px">
       <option value="">リーダー自動選択</option>
     </select>
+    <label style="cursor:pointer;font-size:0.8rem;color:#8899aa"><input type="checkbox" id="chkCostumeOnly" style="vertical-align:middle;margin-right:2px" disabled>衣装のみ</label>
     <button class="btn-select-all" id="btnSelectAll">全選択</button>
     <button class="btn-clear" id="btnClear">全解除</button>
     <button class="btn-clear" id="btnCopyIds" style="font-size:0.75rem">IDコピー</button>
@@ -372,7 +380,10 @@ header p { color: #8899aa; font-size: 0.85rem; margin-top: 4px; }
   </div>
 </div>
 
-<div id="fabSolve" class="fab-solve">最強編成を探す</div>
+<div class="fab-container">
+  <div id="fabRecommend" class="fab-btn fab-recommend disabled">レコメンド</div>
+  <div id="fabSolve" class="fab-btn">最強編成を探す</div>
+</div>
 
 <script>
 const GROUP_ORDER = [
@@ -658,16 +669,27 @@ function updateCounter() {
 
 function updateLeaderDropdown() {
   const sel = document.getElementById("fixedLeader");
+  const chk = document.getElementById("chkCostumeOnly");
   const current = sel.value;
-  const pool = selected.size > 0 ? CARDS.filter(c => selected.has(c.id)) : CARDS;
+  const costumeOnly = document.getElementById("chkCostumeOnly").checked;
+  const pool = costumeOnly ? CARDS : (selected.size > 0 ? CARDS.filter(c => selected.has(c.id)) : CARDS);
   sel.innerHTML = '<option value="">リーダー自動選択</option>';
+  const charOrder = [];
+  const byChar = {};
   for (const c of pool) {
-    const opt = document.createElement("option");
-    opt.value = c.id;
-    opt.textContent = c.character + (c.variant ? `[${c.variant}]` : "");
-    sel.appendChild(opt);
+    if (!byChar[c.character]) { charOrder.push(c.character); byChar[c.character] = []; }
+    byChar[c.character].push(c);
+  }
+  for (const char of charOrder) {
+    for (const c of byChar[char]) {
+      const opt = document.createElement("option");
+      opt.value = c.id;
+      opt.textContent = c.character + " / " + c.card_name;
+      sel.appendChild(opt);
+    }
   }
   if (pool.some(c => c.id === current)) sel.value = current;
+  chk.disabled = !sel.value;
 }
 
 document.getElementById("btnSelectAll").addEventListener("click", () => {
@@ -825,7 +847,15 @@ for (const btn of document.querySelectorAll(".btn-filter")) {
   });
 }
 
-document.getElementById("fixedLeader").addEventListener("change", () => updateCounter());
+document.getElementById("fixedLeader").addEventListener("change", () => {
+  const chk = document.getElementById("chkCostumeOnly");
+  chk.disabled = !document.getElementById("fixedLeader").value;
+  if (chk.disabled) chk.checked = false;
+  updateCounter();
+});
+document.getElementById("chkCostumeOnly").addEventListener("change", () => {
+  updateLeaderDropdown();
+});
 
 let statScale = parseFloat(localStorage.getItem("holodri_stat_scale") || "1");
 let baseline = parseFloat(localStorage.getItem("holodri_baseline") || "0");
@@ -968,16 +998,27 @@ async function doSolve() {
   btn.textContent = "計算中...";
   fab.classList.add("disabled");
   fab.textContent = "計算中...";
+  document.getElementById("fabRecommend").classList.add("disabled");
   loading.classList.add("visible");
   document.getElementById("resultsArea").innerHTML = "";
 
   try {
-    const fixedLeader = document.getElementById("fixedLeader").value || null;
+    const leaderVal = document.getElementById("fixedLeader").value || null;
+    const costumeOnly = document.getElementById("chkCostumeOnly").checked;
+    const fixedLeader = leaderVal && !costumeOnly ? leaderVal : null;
+    const costumeOnlyLeader = leaderVal && costumeOnly ? leaderVal : null;
     let cardSpecs;
     if (selected.size === 0) {
       cardSpecs = CARDS.map(c => ({ id: c.id, potential: getCardPotential(c.id), level: getCardLevel(c.id) }));
     } else {
       cardSpecs = [...selected].map(id => ({ id, potential: getCardPotential(id), level: getCardLevel(id) }));
+    }
+    if (costumeOnlyLeader) {
+      const effectiveCount = cardSpecs.filter(c => c.id !== costumeOnlyLeader).length;
+      const effectiveChars = new Set(cardSpecs.filter(c => c.id !== costumeOnlyLeader).map(c => cardMap[c.id]?.character).filter(Boolean));
+      if (effectiveCount < 5 || effectiveChars.size < 5) {
+        throw new Error("「衣装のみ」モードでは衣装カードを除いて5キャラ以上必要です。カードを追加してください。");
+      }
     }
 
     const res = await fetch("/api/solve", {
@@ -985,6 +1026,7 @@ async function doSolve() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         cards: cardSpecs, stat_scale: statScale, baseline, fixed_leader_id: fixedLeader,
+        costume_only_leader_id: costumeOnlyLeader,
         top_n: parseInt(document.getElementById("topN").value),
         song_length: document.getElementById("songSelect").value ? parseFloat(document.getElementById("songSelect").value) : null,
       }),
@@ -1031,16 +1073,20 @@ function collapseResults() {
 function setFabMode(mode) {
   fabMode = mode;
   const fab = document.getElementById("fabSolve");
+  const fabRec = document.getElementById("fabRecommend");
   fab.classList.remove("disabled");
   if (mode === "back") {
     fab.textContent = "カード編集に戻る";
     fab.classList.add("fab-back");
+    fabRec.style.display = "none";
   } else {
     fab.classList.remove("fab-back");
     const disabled = selected.size > 0 && selected.size < 5;
     fab.classList.toggle("disabled", disabled);
     const count = selected.size || "全";
     fab.textContent = `探索 (${count}枚)`;
+    fabRec.style.display = "";
+    fabRec.classList.toggle("disabled", selected.size < 5);
   }
 }
 
@@ -1064,10 +1110,15 @@ async function doRecommend() {
   isComputing = true;
   const btn = document.getElementById("btnRecommend");
   const btnSolve = document.getElementById("btnSolve");
+  const fab = document.getElementById("fabSolve");
+  const fabRec = document.getElementById("fabRecommend");
   const loading = document.getElementById("loadingArea");
   btn.disabled = true;
   btnSolve.disabled = true;
   btn.textContent = "分析中...";
+  fab.classList.add("disabled");
+  fab.textContent = "分析中...";
+  fabRec.classList.add("disabled");
   const ac = parseInt(document.getElementById("acquireCount").value);
   const timeNote = ac >= 4 ? '（候補が多い場合1〜2分かかることがあります）' : '（候補ごとに再計算するため時間がかかります）';
   loading.innerHTML = `<span class="spinner"></span>強化レコメンドを分析中...${timeNote}`;
@@ -1075,6 +1126,9 @@ async function doRecommend() {
   document.getElementById("resultsArea").innerHTML = "";
 
   try {
+    if (document.getElementById("chkCostumeOnly").checked) {
+      throw new Error("「衣装のみ」モードではレコメンドは使用できません。チェックを外してください。");
+    }
     const cardSpecs = [...selected].map(id => ({ id, potential: getCardPotential(id), level: getCardLevel(id) }));
     const res = await fetch("/api/recommend", {
       method: "POST",
@@ -1106,6 +1160,7 @@ async function doRecommend() {
     btn.textContent = "強化レコメンド";
     loading.innerHTML = '<span class="spinner"></span>最強編成を探索中...';
     loading.classList.remove("visible");
+    setFabMode("back");
   }
 }
 
@@ -1161,11 +1216,12 @@ function renderRecommendations(data) {
     if (r.best_team) {
       html += `<div style="font-size:0.72rem;color:#6b7f92;margin-top:6px">ベストチーム: `;
       const leaderCard = cardMap[r.best_team.leader_id];
-      html += `<span style="color:#ffd700">★${leaderCard ? leaderCard.character : r.best_team.leader_id}</span>`;
+      const leaderLabel = leaderCard ? `${leaderCard.character}(${leaderCard.card_name})` : r.best_team.leader_id;
+      html += `<span style="color:#ffd700">★${leaderLabel}</span>`;
       for (const mid of r.best_team.member_ids) {
         if (mid === r.best_team.leader_id) continue;
         const mc = cardMap[mid];
-        html += ` / ${mc ? mc.character : mid}`;
+        html += ` / ${mc ? `${mc.character}(${mc.card_name})` : mid}`;
       }
       html += `</div>`;
     }
@@ -1182,6 +1238,10 @@ document.getElementById("fabSolve").addEventListener("click", () => {
   } else {
     doSolve();
   }
+});
+
+document.getElementById("fabRecommend").addEventListener("click", () => {
+  if (fabMode !== "back") doRecommend();
 });
 
 document.getElementById("resultsToggle").addEventListener("click", () => {
@@ -1209,6 +1269,7 @@ function saveToHistory(solveData) {
     settings: {
       topN: parseInt(document.getElementById("topN").value),
       fixedLeaderId: document.getElementById("fixedLeader").value || null,
+      costumeOnly: document.getElementById("chkCostumeOnly").checked,
       songLength: document.getElementById("songSelect").value ? parseFloat(document.getElementById("songSelect").value) : null,
       statScale, baseline,
     },
@@ -1325,6 +1386,9 @@ function restoreFromHistory(idx) {
   }
   if (entry.settings?.topN != null) document.getElementById("topN").value = entry.settings.topN;
   document.getElementById("fixedLeader").value = entry.settings?.fixedLeaderId || "";
+  const chkCostume = document.getElementById("chkCostumeOnly");
+  chkCostume.disabled = !document.getElementById("fixedLeader").value;
+  chkCostume.checked = !!entry.settings?.costumeOnly && !chkCostume.disabled;
   const songSel = document.getElementById("songSelect");
   songSel.value = entry.settings?.songLength != null ? entry.settings.songLength : "";
 
@@ -1359,6 +1423,12 @@ function renderResults(data) {
   let html = "";
   if (data.warnings && data.warnings.length) {
     html += `<div style="background:#3d2a0f;color:#f0a040;padding:8px 12px;border-radius:6px;margin-bottom:8px;font-size:0.85rem">${data.warnings.join("<br>")}</div>`;
+  }
+  const costumeLeaderId = results[0] && results[0].costume_only_leader_id;
+  if (costumeLeaderId) {
+    const clCard = cardMap[costumeLeaderId];
+    const clName = clCard ? `${clCard.character} / ${clCard.card_name}` : costumeLeaderId;
+    html += `<div style="background:#2a2d1f;color:#c0c060;padding:8px 12px;border-radius:6px;margin-bottom:8px;font-size:0.85rem">👗 衣装リーダー: ${clName}（メンバー外）</div>`;
   }
   html += `<div class="results-title">最強編成 Top ${results.length}（${data.total_combinations.toLocaleString()} 通り${bLabel}）</div>`;
 

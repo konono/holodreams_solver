@@ -42,6 +42,7 @@ class SolveRequest(BaseModel):
     stat_scale: float = 1.0
     baseline: float = 0
     fixed_leader_id: str | None = None
+    costume_only_leader_id: str | None = None
     top_n: int = 10
     song_length: float | None = None
 
@@ -117,12 +118,17 @@ def post_solve(req: SolveRequest):
         actual = [{"id": cid, "potential": 0} for cid in cm.keys()]
         dropped = 0
 
-    kwargs = dict(top_n=req.top_n, stat_scale=req.stat_scale, baseline=req.baseline, fixed_leader_id=req.fixed_leader_id)
+    warnings = []
+    if req.fixed_leader_id and req.costume_only_leader_id:
+        warnings.append("fixed_leader_id と costume_only_leader_id が同時に指定されました。fixed_leader_id を優先し、costume_only_leader_id は無視されます。")
+    kwargs = dict(top_n=req.top_n, stat_scale=req.stat_scale, baseline=req.baseline, fixed_leader_id=req.fixed_leader_id, costume_only_leader_id=req.costume_only_leader_id)
     if req.song_length is not None:
         kwargs["song_length"] = req.song_length
     result = solve(actual, **kwargs)
     if dropped > 0:
-        result["warnings"] = [f"{dropped}枚の不明なカードIDを除外しました"]
+        warnings.append(f"{dropped}枚の不明なカードIDを除外しました")
+    if warnings:
+        result["warnings"] = warnings
     return result
 
 

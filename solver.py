@@ -170,7 +170,7 @@ def _check_center_type_condition(condition, type_counts, group_counts):
     return False
 
 
-def _compute_team_scores(team, leader_idx, song_length=SONG_LENGTH):
+def _compute_team_scores(team, leader_idx, song_length=SONG_LENGTH, override_costume_skill=None):
     leader = team[leader_idx]
     type_counts = count_types(team)
     group_counts = count_groups(team)
@@ -180,7 +180,8 @@ def _compute_team_scores(team, leader_idx, song_length=SONG_LENGTH):
     costume_tech_rate = 0.0
     costume_sense_rate = 0.0
     costume_ss = 0.0
-    cs = leader["costume_skill"]
+    cs = override_costume_skill if override_costume_skill is not None else leader["costume_skill"]
+    # NOTE: leader_character/leader_group条件はチーム内リーダー基準。現データにこの条件の衣装スキルはないが、追加時は要検討。
     if check_condition(cs.get("condition"), type_counts, group_counts, leader=leader):
         for effect in cs["effects"]:
             val = effect["value"] / 100.0
@@ -332,8 +333,8 @@ def _compute_team_scores(team, leader_idx, song_length=SONG_LENGTH):
     }
 
 
-def evaluate_team(team, leader_idx, stat_scale=1.0, baseline=0, song_length=SONG_LENGTH):
-    scores = _compute_team_scores(team, leader_idx, song_length=song_length)
+def evaluate_team(team, leader_idx, stat_scale=1.0, baseline=0, song_length=SONG_LENGTH, override_costume_skill=None):
+    scores = _compute_team_scores(team, leader_idx, song_length=song_length, override_costume_skill=override_costume_skill)
 
     total_perf = sum(c["stats"]["performance"] for c in team) * stat_scale
     total_tech = sum(c["stats"]["technique"] for c in team) * stat_scale
@@ -395,7 +396,7 @@ def optimize_order(team_ids: list[str], leader_id: str, stat_scale: float = 1.0,
     return best
 
 
-def _optimize_results(results: list[dict], card_map: dict, stat_scale: float, baseline: float, song_length: float = SONG_LENGTH) -> list[dict]:
+def _optimize_results(results: list[dict], card_map: dict, stat_scale: float, baseline: float, song_length: float = SONG_LENGTH, override_costume_skill=None) -> list[dict]:
     """Top 結果の配置順を最適化する"""
     optimized = []
     for r in results:
@@ -406,7 +407,7 @@ def _optimize_results(results: list[dict], card_map: dict, stat_scale: float, ba
         best = r
         for perm in permutations(range(len(others))):
             team = [leader_card] + [others[i] for i in perm]
-            score = evaluate_team(team, 0, stat_scale, baseline, song_length)
+            score = evaluate_team(team, 0, stat_scale, baseline, song_length, override_costume_skill=override_costume_skill)
             if score["unit_score"] > best["unit_score"]:
                 score["leader_idx"] = 0
                 score["team_ids"] = [leader_id] + [others[i]["id"] for i in perm]
@@ -625,6 +626,7 @@ def solve(
     stat_scale: float = 1.0,
     baseline: float = 0,
     fixed_leader_id: str | None = None,
+    costume_only_leader_id: str | None = None,
     song_length: float = SONG_LENGTH,
 ) -> dict:
     all_cards = load_cards()
@@ -646,6 +648,18 @@ def solve(
     owned_ids = {c["id"] for c in owned}
     if fixed_leader_id and (fixed_leader_id not in card_map or fixed_leader_id not in owned_ids):
         return {"total_combinations": 0, "results": []}
+    if costume_only_leader_id and costume_only_leader_id not in card_map:
+        return {"total_combinations": 0, "results": []}
+
+    if fixed_leader_id and costume_only_leader_id:
+        costume_only_leader_id = None
+
+    override_costume_skill = None
+    if costume_only_leader_id:
+        costume_card = card_map[costume_only_leader_id]
+        costume_pot_data = costume_card.get("potential_data", [{}])
+        override_costume_skill = costume_pot_data[0].get("costume_skill") if costume_pot_data else None
+        owned = [c for c in owned if c["id"] != costume_only_leader_id]
 
     if len(owned) < 5:
         return {"total_combinations": 0, "results": []}
@@ -676,7 +690,7 @@ def solve(
                         for c3 in cards_lists[3]:
                             team = [leader_card, c0, c1, c2, c3]
                             total_combos += 1
-                            score = evaluate_team(team, 0, stat_scale, baseline, song_length)
+                            score = evaluate_team(team, 0, stat_scale, baseline, song_length, override_costume_skill=override_costume_skill)
                             score["leader_idx"] = 0
                             score["team_ids"] = [c["id"] for c in team]
                             results.append(score)
@@ -697,7 +711,7 @@ def solve(
 
                                 best = None
                                 for leader_idx in range(5):
-                                    score = evaluate_team(team, leader_idx, stat_scale, baseline, song_length)
+                                    score = evaluate_team(team, leader_idx, stat_scale, baseline, song_length, override_costume_skill=override_costume_skill)
                                     if best is None or score["unit_score"] > best["unit_score"]:
                                         best = score
                                         best["leader_idx"] = leader_idx
@@ -713,7 +727,7 @@ def solve(
     results = results[:top_n]
 
     resolved_map = {c["id"]: c for c in owned}
-    results = _optimize_results(results, resolved_map, stat_scale, baseline, song_length)
+    results = _optimize_results(results, resolved_map, stat_scale, baseline, song_length, override_costume_skill=override_costume_skill)
 
     return {
         "total_combinations": total_combos,
@@ -730,6 +744,7 @@ def solve(
                 "passive_sb_pct": round(r["passive_sb_pct"], 1),
                 "special_pct": round(r["special_pct"], 1),
                 "leader_id": r["team_ids"][r["leader_idx"]],
+                "costume_only_leader_id": costume_only_leader_id,
                 "member_ids": r["team_ids"],
             }
             for i, r in enumerate(results)

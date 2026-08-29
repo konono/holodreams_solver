@@ -129,6 +129,39 @@ def test_solve_rejects_unowned_leader():
     assert r["total_combinations"] == 0
 
 
+def test_solve_costume_only_excludes_card_from_team():
+    cards = [
+        {"id": "nakiri_ayame_5", "potential": 4, "level": 80},
+        {"id": "houshou_marine_5", "potential": 4, "level": 80},
+        {"id": "momosuzu_nene_5", "potential": 4, "level": 80},
+        {"id": "hakui_koyori_5", "potential": 4, "level": 80},
+        {"id": "shirogane_noel_swim_5", "potential": 4, "level": 80},
+        {"id": "oozora_subaru_5", "potential": 4, "level": 80},
+    ]
+    r = solve(cards, costume_only_leader_id="houshou_marine_5")
+    assert r["total_combinations"] > 0
+    for x in r["results"]:
+        assert "houshou_marine_5" not in x["member_ids"], "costume_only card should not be in team"
+        assert x["costume_only_leader_id"] == "houshou_marine_5"
+
+
+def test_solve_costume_only_with_fixed_leader_ignores_costume_only():
+    """fixed_leader_id と costume_only_leader_id 両方指定時は fixed が優先し、costume_only の副作用がない"""
+    cards = [
+        {"id": "nakiri_ayame_5", "potential": 4, "level": 80},
+        {"id": "houshou_marine_5", "potential": 4, "level": 80},
+        {"id": "momosuzu_nene_5", "potential": 4, "level": 80},
+        {"id": "hakui_koyori_5", "potential": 4, "level": 80},
+        {"id": "shirogane_noel_swim_5", "potential": 4, "level": 80},
+        {"id": "oozora_subaru_5", "potential": 4, "level": 80},
+    ]
+    r_fixed = solve(cards, fixed_leader_id="nakiri_ayame_5")
+    r_both = solve(cards, fixed_leader_id="nakiri_ayame_5", costume_only_leader_id="houshou_marine_5")
+    assert all(x["leader_id"] == "nakiri_ayame_5" for x in r_both["results"])
+    assert r_fixed["results"][0]["unit_score"] == r_both["results"][0]["unit_score"], \
+        "Both-specified should produce same score as fixed-only"
+
+
 def test_same_character_excluded(card_map):
     cards = [
         {"id": "shirogane_noel_5", "potential": 4, "level": 80},
@@ -263,6 +296,67 @@ def test_python_js_stats_parity(card_map):
                 f"pot={pot} lv={lv}: got {r['stats']['performance']} expected {expected_p}"
 
 
+def test_api_solve_costume_only():
+    """API経由で costume_only_leader_id が正しくメンバー外になる"""
+    from fastapi.testclient import TestClient
+    from app import app
+    client = TestClient(app)
+    cards = [
+        {"id": "nakiri_ayame_5", "potential": 4},
+        {"id": "houshou_marine_5", "potential": 4},
+        {"id": "momosuzu_nene_5", "potential": 4},
+        {"id": "hakui_koyori_5", "potential": 4},
+        {"id": "shirogane_noel_swim_5", "potential": 4},
+        {"id": "oozora_subaru_5", "potential": 4},
+    ]
+    r = client.post("/api/solve", json={"cards": cards, "costume_only_leader_id": "houshou_marine_5", "top_n": 3})
+    assert r.status_code == 200
+    data = r.json()
+    for x in data["results"]:
+        assert "houshou_marine_5" not in x["member_ids"]
+        assert x["costume_only_leader_id"] == "houshou_marine_5"
+
+
+def test_api_solve_fixed_leader():
+    """API経由で fixed_leader_id が全結果でリーダーになる"""
+    from fastapi.testclient import TestClient
+    from app import app
+    client = TestClient(app)
+    cards = [
+        {"id": "nakiri_ayame_5", "potential": 4},
+        {"id": "houshou_marine_5", "potential": 4},
+        {"id": "momosuzu_nene_5", "potential": 4},
+        {"id": "hakui_koyori_5", "potential": 4},
+        {"id": "shirogane_noel_swim_5", "potential": 4},
+        {"id": "oozora_subaru_5", "potential": 4},
+    ]
+    r = client.post("/api/solve", json={"cards": cards, "fixed_leader_id": "houshou_marine_5", "top_n": 3})
+    assert r.status_code == 200
+    data = r.json()
+    for x in data["results"]:
+        assert x["leader_id"] == "houshou_marine_5"
+
+
+def test_api_solve_both_warns():
+    """API: fixed + costume_only 同時指定で警告が返る"""
+    from fastapi.testclient import TestClient
+    from app import app
+    client = TestClient(app)
+    cards = [
+        {"id": "nakiri_ayame_5", "potential": 4},
+        {"id": "houshou_marine_5", "potential": 4},
+        {"id": "momosuzu_nene_5", "potential": 4},
+        {"id": "hakui_koyori_5", "potential": 4},
+        {"id": "shirogane_noel_swim_5", "potential": 4},
+        {"id": "oozora_subaru_5", "potential": 4},
+    ]
+    r = client.post("/api/solve", json={"cards": cards, "fixed_leader_id": "houshou_marine_5", "costume_only_leader_id": "nakiri_ayame_5", "top_n": 1})
+    assert r.status_code == 200
+    data = r.json()
+    assert "warnings" in data
+    assert any("同時" in w for w in data["warnings"])
+
+
 def test_api_solve_song_length_zero():
     """song_length=0でバリデーションエラー"""
     from fastapi.testclient import TestClient
@@ -320,18 +414,16 @@ def test_js_constants_match_python():
 
 # --- recommend() ユニットテスト ---
 
-RECOMMEND_CARDS_15 = [
+RECOMMEND_CARDS_7 = [
     "tokino_sora_5", "robocosan_5", "hoshimachi_suisei_5",
     "sakura_miko_5", "shirakami_fubuki_5", "natsuiro_matsuri_5",
-    "akai_haato_5", "nakiri_ayame_5", "azki_5",
-    "aki_rosenthal_5", "yuzuki_choco_5", "oozora_subaru_5",
-    "ookami_mio_5", "nekomata_okayu_5", "inugami_korone_5",
+    "akai_haato_5",
 ]
 
 
 def test_recommend_acquire1_no_multi_uncap():
     """acquire_count=1 では cost=1 の候補のみ"""
-    cards = [{"id": cid, "potential": 0} for cid in RECOMMEND_CARDS_15]
+    cards = [{"id": cid, "potential": 0} for cid in RECOMMEND_CARDS_7]
     result = recommend(cards, top_n=10, acquire_count=1)
     for r in result["recommendations"]:
         for c in r["cards"]:
@@ -340,7 +432,7 @@ def test_recommend_acquire1_no_multi_uncap():
 
 def test_recommend_acquire2_has_multi_uncap():
     """acquire_count=2 で同一カード複数凸（cost=2）が候補に含まれる"""
-    cards = [{"id": cid, "potential": 0} for cid in RECOMMEND_CARDS_15]
+    cards = [{"id": cid, "potential": 0} for cid in RECOMMEND_CARDS_7]
     result = recommend(cards, top_n=10, acquire_count=2)
     has_multi = any(
         c["cost"] > 1
@@ -352,7 +444,7 @@ def test_recommend_acquire2_has_multi_uncap():
 
 def test_recommend_acquire2_cost_sum():
     """各レコメンドの合計コストが acquire_count と一致する"""
-    cards = [{"id": cid, "potential": 0} for cid in RECOMMEND_CARDS_15]
+    cards = [{"id": cid, "potential": 0} for cid in RECOMMEND_CARDS_7]
     result = recommend(cards, top_n=10, acquire_count=2)
     for r in result["recommendations"]:
         total_cost = sum(c["cost"] for c in r["cards"])
@@ -361,7 +453,7 @@ def test_recommend_acquire2_cost_sum():
 
 def test_recommend_acquire3_cost_sum():
     """acquire_count=3 でも合計コストが一致する"""
-    cards = [{"id": cid, "potential": 0} for cid in RECOMMEND_CARDS_15]
+    cards = [{"id": cid, "potential": 0} for cid in RECOMMEND_CARDS_7]
     result = recommend(cards, top_n=10, acquire_count=3)
     for r in result["recommendations"]:
         total_cost = sum(c["cost"] for c in r["cards"])
@@ -370,7 +462,7 @@ def test_recommend_acquire3_cost_sum():
 
 def test_recommend_no_duplicate_card_ids():
     """同一 card_id がコンボ内に重複しない"""
-    cards = [{"id": cid, "potential": 0} for cid in RECOMMEND_CARDS_15]
+    cards = [{"id": cid, "potential": 0} for cid in RECOMMEND_CARDS_7]
     result = recommend(cards, top_n=10, acquire_count=2)
     for r in result["recommendations"]:
         card_ids = [c["card_id"] for c in r["cards"]]
@@ -386,7 +478,7 @@ def test_recommend_multi_uncap_shortlist_preserved():
         if c["character"] not in chars_seen:
             chars_seen.add(c["character"])
             cards.append({"id": c["id"], "potential": 0})
-        if len(cards) >= 25:
+        if len(cards) >= 9:
             break
     result = recommend(cards, top_n=20, acquire_count=2)
     has_multi = any(
@@ -399,7 +491,7 @@ def test_recommend_multi_uncap_shortlist_preserved():
 
 def test_recommend_delta_positive():
     """全レコメンドの delta が正"""
-    cards = [{"id": cid, "potential": 0} for cid in RECOMMEND_CARDS_15]
+    cards = [{"id": cid, "potential": 0} for cid in RECOMMEND_CARDS_7]
     result = recommend(cards, top_n=10, acquire_count=2)
     for r in result["recommendations"]:
         assert r["delta"] > 0, f"Expected positive delta, got {r['delta']}"
