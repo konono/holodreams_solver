@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"math"
 	"testing"
 	"time"
 )
@@ -122,15 +122,109 @@ func TestRecommendSweepCostumes(t *testing.T) {
 	}
 }
 
-// Golden test: capture results from current implementation to verify optimized version
 func TestRecommendGolden(t *testing.T) {
 	cf, owned := loadTestData(t)
 
 	result := recommend(owned, cf.Cards, 10, 1, 1.0, 0.0, 192.0, "", "", false, cf)
 
-	fmt.Printf("GOLDEN_BASE_SCORE=%d\n", result.BaseScore)
-	for _, r := range result.Recommendations {
-		fmt.Printf("GOLDEN_REC rank=%d card=%s delta=%d score=%d leader=%s members=%v\n",
-			r.Rank, r.Cards[0].CardID, r.Delta, r.NewScore, r.BestTeam.LeaderID, r.BestTeam.MemberIDs)
+	if result.BaseScore != 805113 {
+		t.Fatalf("BaseScore = %d, want 805113", result.BaseScore)
+	}
+
+	type golden struct {
+		cardID string
+		delta  int
+		score  int
+	}
+	expected := []golden{
+		{"otonose_kanade_swim_5", 18912, 824025},
+		{"ookami_mio_swim_5", 17710, 822823},
+		{"nekomata_okayu_swim_5", 13978, 819091},
+		{"airani_iofifteen_5", 12606, 817719},
+		{"shirogane_noel_swim_5", 11244, 816357},
+		{"sakura_miko_swim_5", 11031, 816144},
+		{"himemori_luna_swim_5", 8473, 813586},
+		{"kobo_kanaeru_5", 6382, 811495},
+		{"kureiji_ollie_swim_5", 2665, 807778},
+		{"hakos_baelz_5", 2165, 807278},
+	}
+
+	if len(result.Recommendations) != len(expected) {
+		t.Fatalf("got %d recommendations, want %d", len(result.Recommendations), len(expected))
+	}
+	for i, exp := range expected {
+		r := result.Recommendations[i]
+		if r.Cards[0].CardID != exp.cardID || r.Delta != exp.delta || r.NewScore != exp.score {
+			t.Errorf("rank %d: got card=%s delta=%d score=%d, want card=%s delta=%d score=%d",
+				i+1, r.Cards[0].CardID, r.Delta, r.NewScore, exp.cardID, exp.delta, exp.score)
+		}
+	}
+}
+
+// TestRecommendEquivalence verifies that solveWithRequiredCard finds the same
+// best score as a full solve for each candidate.
+func TestRecommendEquivalence(t *testing.T) {
+	cf, owned := loadTestData(t)
+
+	rawCardMap := map[string]*CardRaw{}
+	for i := range cf.Cards {
+		rawCardMap[cf.Cards[i].ID] = &cf.Cards[i]
+	}
+	resolveOwned := func(specs map[string]CardSpec) []*Card {
+		cards := make([]*Card, 0, len(specs))
+		for _, spec := range specs {
+			raw := rawCardMap[spec.ID]
+			if raw == nil {
+				continue
+			}
+			c := resolveCard(raw, spec.Potential, spec.Level, cf)
+			cards = append(cards, &c)
+		}
+		return cards
+	}
+
+	// Test a few acquire candidates
+	tested := 0
+	for i := range cf.Cards {
+		raw := &cf.Cards[i]
+		if _, ok := owned[raw.ID]; ok {
+			continue
+		}
+		if tested >= 5 {
+			break
+		}
+		tested++
+
+		trialSpecs := map[string]CardSpec{}
+		for k, v := range owned {
+			trialSpecs[k] = v
+		}
+		trialSpecs[raw.ID] = CardSpec{ID: raw.ID, Potential: 0}
+		trialCards := resolveOwned(trialSpecs)
+
+		fullResult := solve(trialCards, 1, 1.0, 0.0, 192.0, "", "", nil, nil)
+		fullScore := 0
+		if len(fullResult.Results) > 0 {
+			fullScore = fullResult.Results[0].UnitScore
+		}
+
+		resolvedCand := resolveCard(raw, 0, nil, cf)
+		reqScore, _, _ := solveWithRequiredCard(trialCards, &resolvedCand, 1.0, 0.0, 192.0, "", nil)
+		reqScoreInt := int(math.Round(reqScore.UnitScore))
+
+		// Required-card should find score >= full solve's score minus the baseline
+		// (since full solve can find teams without the candidate)
+		baseCards := resolveOwned(owned)
+		baseResult := solve(baseCards, 1, 1.0, 0.0, 192.0, "", "", nil, nil)
+		baseScoreVal := 0
+		if len(baseResult.Results) > 0 {
+			baseScoreVal = baseResult.Results[0].UnitScore
+		}
+
+		if fullScore > baseScoreVal && reqScoreInt < fullScore {
+			// The full solve found a better team using the candidate, but required-card missed it
+			t.Errorf("candidate %s: full=%d required=%d base=%d — required-card missed an improvement",
+				raw.ID, fullScore, reqScoreInt, baseScoreVal)
+		}
 	}
 }

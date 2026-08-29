@@ -678,6 +678,44 @@ func solveWithRequiredCard(cards []*Card, requiredCard *Card, statScale, baselin
 			}
 		}
 	}
+
+	// Post-optimize: try all 24 permutations of non-leader members
+	if bestScore.UnitScore > 0 {
+		leaderID := bestTeamIDs[bestLeaderIdx]
+		var leaderCard *Card
+		var others [4]*Card
+		var otherIDs [4]string
+		oi := 0
+		for _, c := range cards {
+			if c.ID == leaderID {
+				leaderCard = c
+			}
+		}
+		for _, id := range bestTeamIDs {
+			if id != leaderID {
+				for _, c := range cards {
+					if c.ID == id {
+						others[oi] = c
+						otherIDs[oi] = id
+						oi++
+						break
+					}
+				}
+			}
+		}
+		if leaderCard != nil && oi == 4 {
+			for _, perm := range perms4 {
+				team := [5]*Card{leaderCard, others[perm[0]], others[perm[1]], others[perm[2]], others[perm[3]]}
+				score := evaluateTeam(team, 0, statScale, baseline, songLength, overrideCostumeSkill)
+				if score.UnitScore > bestScore.UnitScore {
+					bestScore = score
+					bestLeaderIdx = 0
+					bestTeamIDs = [5]string{leaderID, otherIDs[perm[0]], otherIDs[perm[1]], otherIDs[perm[2]], otherIDs[perm[3]]}
+				}
+			}
+		}
+	}
+
 	return
 }
 
@@ -949,12 +987,21 @@ func recommend(ownedSpecs map[string]CardSpec, allRawCards []CardRaw, topN, acqu
 	}
 
 	// Build costume skills list and precompute bases for sweep mode
+	// Costume pool is limited to owned cards only (consistent with solveSweepCostumes).
+	// Per-candidate costumes are handled separately in the evaluation loop.
 	var sweepCostumeSkills []CostumeEntry
 	var ownedBases []precomputedBase
 	if sweepCostumes {
+		ownedIDs := map[string]bool{}
+		for id := range ownedSpecs {
+			ownedIDs[id] = true
+		}
 		var rawCostumes []CostumeEntry
 		for i := range allRawCards {
 			raw := &allRawCards[i]
+			if !ownedIDs[raw.ID] {
+				continue
+			}
 			if len(raw.PotentialData) > 0 {
 				rawCostumes = append(rawCostumes, CostumeEntry{raw.ID, raw.PotentialData[0].CostumeSkill})
 			}
@@ -1063,8 +1110,16 @@ func recommend(ownedSpecs map[string]CardSpec, allRawCards []CardRaw, topN, acqu
 		var bestCostumeID string
 
 		if sweepCostumes && fixedLeaderID == "" && effectiveCostumeOnly == "" {
+			// Build costume list: owned + candidate's costume (if new acquire)
+			candCostumes := sweepCostumeSkills
+			if cand.action == "acquire" && len(candRaw.PotentialData) > 0 {
+				candCostumes = make([]CostumeEntry, len(sweepCostumeSkills), len(sweepCostumeSkills)+1)
+				copy(candCostumes, sweepCostumeSkills)
+				candCostumes = append(candCostumes, CostumeEntry{cand.cardID, candRaw.PotentialData[0].CostumeSkill})
+			}
+
 			// Path A: candidate as member, sweep all costumes
-			usA, teamA, liA, costumeA := solveWithRequiredCardSweep(trialCards, &resolvedCand, sweepCostumeSkills, statScale, baseline, songLength)
+			usA, teamA, liA, costumeA := solveWithRequiredCardSweep(trialCards, &resolvedCand, candCostumes, statScale, baseline, songLength)
 			bestUnitScore = usA
 			bestTeamIDs = teamA
 			bestLeaderIdx = liA
