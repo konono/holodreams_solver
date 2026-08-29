@@ -1098,6 +1098,20 @@ function doSolve() {{
   const fixedLeaderId = leaderVal && !costumeOnly ? leaderVal : null;
   const costumeOnlyLeaderId = leaderVal && costumeOnly ? leaderVal : null;
 
+  if (costumeOnlyLeaderId) {{
+    const effective = owned.filter(c => c.id !== costumeOnlyLeaderId);
+    const effectiveChars = new Set(effective.map(c => c.character));
+    if (effective.length < 5 || effectiveChars.size < 5) {{
+      isComputing = false;
+      btn.disabled = false; btnRec.disabled = selected.size < 5; btn.textContent = "最強編成を探す";
+      fab.classList.remove("disabled"); setFabMode("solve");
+      pa.classList.remove("visible");
+      expandResults();
+      document.getElementById("resultsArea").innerHTML = '<div class="empty-msg">「衣装のみ」モードでは衣装カードを除いて5キャラ以上必要です。カードを追加してください。</div>';
+      return;
+    }}
+  }}
+
   const potentials = {{}};
   const levels = {{}};
   for (const c of owned) {{
@@ -1312,6 +1326,7 @@ function saveToHistory(solveData) {{
     settings: {{
       topN: parseInt(document.getElementById("topN").value),
       fixedLeaderId: document.getElementById("fixedLeader").value || null,
+      costumeOnly: document.getElementById("chkCostumeOnly").checked,
       songLength: document.getElementById("songSelect").value ? parseFloat(document.getElementById("songSelect").value) : null,
     }},
     snapshot: {{ ids: [...selected], allCards: selected.size === 0, potentials: pots, levels: lvs, defaultPotential, defaultLevel, levelEnabled }},
@@ -1419,6 +1434,9 @@ function restoreFromHistory(idx) {{
   }}
   if (entry.settings?.topN != null) document.getElementById("topN").value = entry.settings.topN;
   document.getElementById("fixedLeader").value = entry.settings?.fixedLeaderId || "";
+  const chkCostume = document.getElementById("chkCostumeOnly");
+  chkCostume.disabled = !document.getElementById("fixedLeader").value;
+  chkCostume.checked = !!entry.settings?.costumeOnly && !chkCostume.disabled;
   const songSel = document.getElementById("songSelect");
   songSel.value = entry.settings?.songLength != null ? entry.settings.songLength : "";
 

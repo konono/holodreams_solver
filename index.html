@@ -1002,6 +1002,13 @@ async function doSolve() {
     } else {
       cardSpecs = [...selected].map(id => ({ id, potential: getCardPotential(id), level: getCardLevel(id) }));
     }
+    if (costumeOnlyLeader) {
+      const effectiveCount = cardSpecs.filter(c => c.id !== costumeOnlyLeader).length;
+      const effectiveChars = new Set(cardSpecs.filter(c => c.id !== costumeOnlyLeader).map(c => cardMap[c.id]?.character).filter(Boolean));
+      if (effectiveCount < 5 || effectiveChars.size < 5) {
+        throw new Error("「衣装のみ」モードでは衣装カードを除いて5キャラ以上必要です。カードを追加してください。");
+      }
+    }
 
     const res = await fetch("/api/solve", {
       method: "POST",
@@ -1237,6 +1244,7 @@ function saveToHistory(solveData) {
     settings: {
       topN: parseInt(document.getElementById("topN").value),
       fixedLeaderId: document.getElementById("fixedLeader").value || null,
+      costumeOnly: document.getElementById("chkCostumeOnly").checked,
       songLength: document.getElementById("songSelect").value ? parseFloat(document.getElementById("songSelect").value) : null,
       statScale, baseline,
     },
@@ -1353,6 +1361,9 @@ function restoreFromHistory(idx) {
   }
   if (entry.settings?.topN != null) document.getElementById("topN").value = entry.settings.topN;
   document.getElementById("fixedLeader").value = entry.settings?.fixedLeaderId || "";
+  const chkCostume = document.getElementById("chkCostumeOnly");
+  chkCostume.disabled = !document.getElementById("fixedLeader").value;
+  chkCostume.checked = !!entry.settings?.costumeOnly && !chkCostume.disabled;
   const songSel = document.getElementById("songSelect");
   songSel.value = entry.settings?.songLength != null ? entry.settings.songLength : "";
 
