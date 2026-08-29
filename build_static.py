@@ -359,13 +359,14 @@ function formatSolveResults(solveResult, costumeOnlyLeaderId) {{
 self.onmessage = function(e) {{
   const d = e.data;
   if (d.action === "recommend") {{
-    const {{ allCards, ownedSpecs, topN, levelTables, songLength, costumeOnlyLeaderId, acquireCount: rawAC }} = d;
+    const {{ allCards, ownedSpecs, topN, levelTables, songLength, fixedLeaderId, costumeOnlyLeaderId, acquireCount: rawAC }} = d;
     const SLEN = songLength || SONG_LENGTH;
     const lt = levelTables || {{}};
+    const fli = fixedLeaderId || null;
     const acquireCount = Math.max(1, Math.min(rawAC || 1, 5));
 
     const ownedResolved = ownedSpecs.map(s => {{ const raw = allCards.find(c => c.id === s.id); return raw ? resolveCard(raw, s.potential, s.level, lt) : null; }}).filter(Boolean);
-    const baseResult = solveInternal(ownedResolved, null, 1, SLEN, false, costumeOnlyLeaderId || null, allCards);
+    const baseResult = solveInternal(ownedResolved, fli, 1, SLEN, false, costumeOnlyLeaderId || null, allCards);
     const baseScore = baseResult.results.length > 0 ? Math.round(baseResult.results[0].unitScore) : 0;
 
     const ownedMap = {{}};
@@ -410,7 +411,7 @@ self.onmessage = function(e) {{
     for (let ci = 0; ci < candidates.length; ci++) {{
       if (candidates[ci].cost !== 1) continue;
       const trialSpecs = applyCandidate(ownedSpecs, candidates[ci]);
-      const trialResult = solveInternal(resolveSpecs(trialSpecs), null, 1, SLEN, false, costumeOnlyLeaderId || null, allCards);
+      const trialResult = solveInternal(resolveSpecs(trialSpecs), fli, 1, SLEN, false, costumeOnlyLeaderId || null, allCards);
       if (trialResult.results.length > 0) {{
         const best = trialResult.results[0];
         const newScore = Math.round(best.unitScore);
@@ -472,7 +473,7 @@ self.onmessage = function(e) {{
         if (new Set(acqChars).size !== acqChars.length) continue;
         let trialSpecs = [...ownedSpecs.map(s => ({{ ...s }}))];
         for (const cand of comboCards) trialSpecs = applyCandidate(trialSpecs, cand);
-        const trialResult = solveInternal(resolveSpecs(trialSpecs), null, 1, SLEN, false, costumeOnlyLeaderId || null, allCards);
+        const trialResult = solveInternal(resolveSpecs(trialSpecs), fli, 1, SLEN, false, costumeOnlyLeaderId || null, allCards);
         if (trialResult.results.length > 0) {{
           const newScore = Math.round(trialResult.results[0].unitScore);
           const delta = newScore - baseScore;
@@ -1200,6 +1201,7 @@ function doRecommend() {{
     action: "recommend",
     allCards: CARDS,
     ownedSpecs,
+    fixedLeaderId: recCostumeVal && recMemberInclude ? recCostumeVal : null,
     costumeOnlyLeaderId: recCostumeVal && !recMemberInclude ? recCostumeVal : null,
     acquireCount: parseInt(document.getElementById("acquireCount").value),
     topN: parseInt(document.getElementById("recommendTopN").value),

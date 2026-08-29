@@ -1124,6 +1124,7 @@ async function doRecommend() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         cards: cardSpecs, stat_scale: statScale, baseline,
+        fixed_leader_id: recCostumeVal && recMemberInclude ? recCostumeVal : null,
         costume_only_leader_id: recCostumeVal && !recMemberInclude ? recCostumeVal : null,
         acquire_count: parseInt(document.getElementById("acquireCount").value),
         top_n: parseInt(document.getElementById("recommendTopN").value),
