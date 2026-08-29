@@ -542,20 +542,24 @@ document.getElementById("costumeSelect").addEventListener("change", () => {{
 
 const CARDS_FILE_JSON = JSON.stringify({{cards: CARDS, level_tables: LEVEL_TABLES}});
 
-function createWasmWorker() {{
-  return new Promise((resolve, reject) => {{
-    const w = new Worker("wasm_bridge.js");
-    w.onmessage = function(ev) {{
-      if (ev.data.type === "init_done") {{
-        w.onmessage = null;
-        resolve(w);
-      }} else if (ev.data.type === "error") {{
-        reject(new Error(ev.data.message));
-      }}
-    }};
-    w.onerror = reject;
-    w.postMessage({{ type: "init", cardsJSON: CARDS_FILE_JSON }});
-  }});
+let _wasmWorker = null;
+const _wasmReady = new Promise((resolve, reject) => {{
+  const w = new Worker("wasm_bridge.js");
+  w.onmessage = function(ev) {{
+    if (ev.data.type === "init_done") {{
+      w.onmessage = null;
+      _wasmWorker = w;
+      resolve(w);
+    }} else if (ev.data.type === "error") {{
+      reject(new Error(ev.data.message));
+    }}
+  }};
+  w.onerror = reject;
+  w.postMessage({{ type: "init", cardsJSON: CARDS_FILE_JSON }});
+}});
+
+function getWasmWorker() {{
+  return _wasmReady;
 }}
 
 let fabMode = "solve";
@@ -630,11 +634,11 @@ function doSolve() {{
   const selSong = document.getElementById("songSelect").value;
   const cardSpecs = owned.map(c => ({{ id: c.id, potential: getCardPotential(c.id), level: getCardLevel(c.id) }}));
 
-  createWasmWorker().then(w => {{
+  getWasmWorker().then(w => {{
     w.postMessage({{ type: "solve", cards: cardSpecs, fixedLeaderId, costumeOnlyLeaderId, sweepCostumes: !costumeVal && selected.size > 0, topN: parseInt(document.getElementById("topN").value), songLength: selSong ? parseFloat(selSong) : null, stabilityLengths: document.getElementById("chkStability").checked ? [90, 120, 135, 150, 166] : null }});
 
   w.onerror = function() {{
-    w.terminate();
+    w.onmessage = null;
     isComputing = false;
     btn.disabled = false; btnRec.disabled = selected.size < 5; btn.textContent = "最強編成を探す";
     pa.classList.remove("visible");
@@ -650,7 +654,7 @@ function doSolve() {{
       document.getElementById("progressText").textContent =
         `${{ev.data.current.toLocaleString()}} / ${{ev.data.total.toLocaleString()}} 組み合わせを評価中...`;
     }} else if (ev.data.type === "done") {{
-      w.terminate();
+      w.onmessage = null;
       isComputing = false;
       btn.disabled = false; btnRec.disabled = selected.size < 5; btn.textContent = "最強編成を探す";
       document.getElementById("progressFill").style.width = "100%";
@@ -707,7 +711,7 @@ function doRecommend() {{
   const recMemberInclude = document.getElementById("chkMemberInclude").checked;
   const selSong = document.getElementById("songSelect").value;
 
-  createWasmWorker().then(w => {{
+  getWasmWorker().then(w => {{
   w.postMessage({{
     type: "recommend",
     cards: ownedSpecs,
@@ -719,7 +723,7 @@ function doRecommend() {{
   }});
 
   w.onerror = function() {{
-    w.terminate();
+    w.onmessage = null;
     isComputing = false;
     btn.disabled = selected.size < 5; btnSolve.disabled = selected.size > 0 && selected.size < 5; btn.textContent = "強化レコメンド";
     pa.classList.remove("visible");
@@ -735,7 +739,7 @@ function doRecommend() {{
       document.getElementById("progressText").textContent =
         `${{ev.data.current}} / ${{ev.data.total}} 候補を評価中...`;
     }} else if (ev.data.type === "recommend_done") {{
-      w.terminate();
+      w.onmessage = null;
       isComputing = false;
       btn.disabled = selected.size < 5; btnSolve.disabled = selected.size > 0 && selected.size < 5; btn.textContent = "強化レコメンド";
       document.getElementById("progressFill").style.width = "100%";
