@@ -296,6 +296,67 @@ def test_python_js_stats_parity(card_map):
                 f"pot={pot} lv={lv}: got {r['stats']['performance']} expected {expected_p}"
 
 
+def test_api_solve_costume_only():
+    """API経由で costume_only_leader_id が正しくメンバー外になる"""
+    from fastapi.testclient import TestClient
+    from app import app
+    client = TestClient(app)
+    cards = [
+        {"id": "nakiri_ayame_5", "potential": 4},
+        {"id": "houshou_marine_5", "potential": 4},
+        {"id": "momosuzu_nene_5", "potential": 4},
+        {"id": "hakui_koyori_5", "potential": 4},
+        {"id": "shirogane_noel_swim_5", "potential": 4},
+        {"id": "oozora_subaru_5", "potential": 4},
+    ]
+    r = client.post("/api/solve", json={"cards": cards, "costume_only_leader_id": "houshou_marine_5", "top_n": 3})
+    assert r.status_code == 200
+    data = r.json()
+    for x in data["results"]:
+        assert "houshou_marine_5" not in x["member_ids"]
+        assert x["costume_only_leader_id"] == "houshou_marine_5"
+
+
+def test_api_solve_fixed_leader():
+    """API経由で fixed_leader_id が全結果でリーダーになる"""
+    from fastapi.testclient import TestClient
+    from app import app
+    client = TestClient(app)
+    cards = [
+        {"id": "nakiri_ayame_5", "potential": 4},
+        {"id": "houshou_marine_5", "potential": 4},
+        {"id": "momosuzu_nene_5", "potential": 4},
+        {"id": "hakui_koyori_5", "potential": 4},
+        {"id": "shirogane_noel_swim_5", "potential": 4},
+        {"id": "oozora_subaru_5", "potential": 4},
+    ]
+    r = client.post("/api/solve", json={"cards": cards, "fixed_leader_id": "houshou_marine_5", "top_n": 3})
+    assert r.status_code == 200
+    data = r.json()
+    for x in data["results"]:
+        assert x["leader_id"] == "houshou_marine_5"
+
+
+def test_api_solve_both_warns():
+    """API: fixed + costume_only 同時指定で警告が返る"""
+    from fastapi.testclient import TestClient
+    from app import app
+    client = TestClient(app)
+    cards = [
+        {"id": "nakiri_ayame_5", "potential": 4},
+        {"id": "houshou_marine_5", "potential": 4},
+        {"id": "momosuzu_nene_5", "potential": 4},
+        {"id": "hakui_koyori_5", "potential": 4},
+        {"id": "shirogane_noel_swim_5", "potential": 4},
+        {"id": "oozora_subaru_5", "potential": 4},
+    ]
+    r = client.post("/api/solve", json={"cards": cards, "fixed_leader_id": "houshou_marine_5", "costume_only_leader_id": "nakiri_ayame_5", "top_n": 1})
+    assert r.status_code == 200
+    data = r.json()
+    assert "warnings" in data
+    assert any("同時" in w for w in data["warnings"])
+
+
 def test_api_solve_song_length_zero():
     """song_length=0でバリデーションエラー"""
     from fastapi.testclient import TestClient

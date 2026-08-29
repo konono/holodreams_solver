@@ -114,27 +114,43 @@ class TestStaticSolve:
         page.close()
 
     def test_solve_with_fixed_leader(self, browser_context):
+        """fixed_leader_id 指定カードが全結果でリーダーになる"""
         page = open_page(browser_context)
         ids = select_cards(page, 6)
-        page.select_option("#fixedLeader", value=ids[0])
+        leader_id = ids[0]
+        page.select_option("#fixedLeader", value=leader_id)
         page.click("#btnSolve")
         page.wait_for_selector(".result-card", timeout=30000)
-        leader_elements = page.eval_on_selector_all(
+        fixed_char = page.evaluate(f"() => CARDS.find(c => c.id === '{leader_id}')?.character")
+        all_leader_names = page.eval_on_selector_all(
             ".member-card.is-leader .m-name",
             "els => els.map(e => e.textContent)"
         )
-        assert len(leader_elements) > 0
+        assert len(all_leader_names) > 0, "Should have at least 1 result with a leader"
+        assert all(n == fixed_char for n in all_leader_names), \
+            f"All leaders should be {fixed_char}, got {all_leader_names}"
         page.close()
 
-    def test_solve_costume_only_shows_banner(self, browser_context):
+    def test_solve_costume_only_excludes_from_members(self, browser_context):
+        """衣装のみモードで衣装カードがメンバーに含まれないことを確認"""
         page = open_page(browser_context)
         select_cards(page, 6)
-        page.select_option("#fixedLeader", index=1)
+        costume_option = page.eval_on_selector(
+            "#fixedLeader option:nth-child(2)", "el => el.value"
+        )
+        page.select_option("#fixedLeader", value=costume_option)
         page.check("#chkCostumeOnly")
         page.click("#btnSolve")
         page.wait_for_selector(".result-card", timeout=30000)
         banner = page.query_selector("text=衣装リーダー")
         assert banner is not None, "Should show costume leader banner"
+        costume_char = page.evaluate(f"() => CARDS.find(c => c.id === '{costume_option}')?.character")
+        member_names = page.eval_on_selector_all(
+            ".result-card:first-child .member-card .m-name",
+            "els => els.map(e => e.textContent)"
+        )
+        assert costume_char not in member_names, \
+            f"Costume-only leader {costume_char} should not be in members: {member_names}"
         page.close()
 
 
