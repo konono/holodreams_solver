@@ -1210,7 +1210,7 @@ function renderRecommendations(data) {
         const costumeLabel = costumeCard ? `${costumeCard.character}(${costumeCard.card_name})` : r.best_team.costume_only_leader_id;
         html += `<div style="font-size:0.72rem;color:#c0c060;margin-top:6px">👗衣装: ${costumeLabel}</div>`;
       }
-      html += `<div style="font-size:0.72rem;color:#6b7f92;margin-top:${hasCostume ? '2' : '6'}px">メンバー: `;
+      html += `<div style="font-size:0.72rem;color:#6b7f92;margin-top:${hasCostume ? '2' : '6'}px">${hasCostume ? 'メンバー' : 'ベストチーム'}: `;
       for (let mi = 0; mi < r.best_team.member_ids.length; mi++) {
         const mid = r.best_team.member_ids[mi];
         const mc = cardMap[mid];
