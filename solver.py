@@ -275,13 +275,13 @@ def _compute_team_scores(team, leader_idx, song_length=SONG_LENGTH, override_cos
 
     total_ss = costume_ss + support_ss
 
-    # === Special → Active 発動率向上の時間平均 ===
-    rate_up_time_avg = 0.0
+    # === Special → Active 発動率向上 (乗算: base_prob × (1 + rate_up_avg)) ===
+    rate_up_avg = 0.0
     for c in team:
         sp = c.get("special_skill", {})
         rate_up = sp.get("skill_rate_up", 0)
         if rate_up > 0:
-            rate_up_time_avg += rate_up * 10 * sp.get("duration", 0) / song_length
+            rate_up_avg += (rate_up / 100.0) * sp.get("duration", 0) / song_length
 
     # === スコアボーナス: アクティブスキル% (Expected Maximum) ===
     active_members = []
@@ -292,7 +292,7 @@ def _compute_team_scores(team, leader_idx, song_length=SONG_LENGTH, override_cos
         if cond and _check_center_type_condition(cond, type_counts, group_counts):
             score_up = cs_card.get("conditional_score_up", score_up)
         base_prob = cs_card.get("activation_probability_permil", 1000) / 1000.0
-        boosted_prob = min(1.0, base_prob + rate_up_time_avg / 1000.0)
+        boosted_prob = min(1.0, base_prob * (1.0 + rate_up_avg))
         uptime = min(1.0, cs_card["duration"] / cs_card["interval"] * boosted_prob)
         active_members.append((score_up, uptime))
 
