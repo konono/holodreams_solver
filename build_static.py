@@ -617,10 +617,9 @@ def build():
       <option value="100">Top 100</option>
     </select>
     <select id="costumeSelect" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:6px 8px;border-radius:4px;font-size:0.8rem;max-width:260px">
-      <option value="">衣装自動選択</option>
+      <option value="">衣装+編成を自動選択</option>
     </select>
-    <label style="cursor:pointer;font-size:0.8rem;color:#8899aa"><input type="checkbox" id="chkMemberInclude" style="vertical-align:middle;margin-right:2px" disabled checked>メンバーに含める</label>
-    <label style="cursor:pointer;font-size:0.8rem;color:#8899aa"><input type="checkbox" id="chkSweepCostumes" style="vertical-align:middle;margin-right:2px">全衣装探索</label>
+    <label id="lblMemberInclude" style="cursor:pointer;font-size:0.8rem;color:#8899aa;display:none"><input type="checkbox" id="chkMemberInclude" style="vertical-align:middle;margin-right:2px" checked>メンバーに含める</label>
     <button class="btn-select-all" id="btnSelectAll">全選択</button>
     <button class="btn-clear" id="btnClear">全解除</button>
     <button class="btn-clear" id="btnCopyIds" style="font-size:0.75rem">IDコピー</button>
@@ -915,7 +914,7 @@ function updateCounter() {{
   document.getElementById("btnRecommend").disabled = selected.size < 5;
   const costume = document.getElementById("costumeSelect").value;
   document.getElementById("limitWarn").textContent =
-    selected.size === 0 ? (costume ? "(衣装固定 + 全カードで探索)" : "(全カードで探索)") : "";
+    selected.size === 0 ? (costume ? "(衣装固定 + 全カードで探索)" : "(全カードで探索)") : (costume ? "" : "(全衣装探索)");
   const sel = document.getElementById("costumeSelect");
   const cur = sel.value;
   const pool = CARDS;
@@ -1075,8 +1074,7 @@ for (const btn of document.querySelectorAll(".btn-filter")) {{
 }}
 
 document.getElementById("costumeSelect").addEventListener("change", () => {{
-  const chk = document.getElementById("chkMemberInclude");
-  chk.disabled = !document.getElementById("costumeSelect").value;
+  document.getElementById("lblMemberInclude").style.display = document.getElementById("costumeSelect").value ? "" : "none";
   updateCounter();
 }});
 
@@ -1153,7 +1151,7 @@ function doSolve() {{
 
   const w = new Worker(workerBlob);
   const selSong = document.getElementById("songSelect").value;
-  w.postMessage({{ cards: owned, allCards: CARDS, fixedLeaderId, costumeOnlyLeaderId, sweepCostumes: document.getElementById("chkSweepCostumes").checked && !costumeVal, topN: parseInt(document.getElementById("topN").value), potentials, levels, levelTables: LEVEL_TABLES, songLength: selSong ? parseFloat(selSong) : null, stabilityLengths: document.getElementById("chkStability").checked ? [90, 120, 135, 150, 166] : null }});
+  w.postMessage({{ cards: owned, allCards: CARDS, fixedLeaderId, costumeOnlyLeaderId, sweepCostumes: !costumeVal && selected.size > 0, topN: parseInt(document.getElementById("topN").value), potentials, levels, levelTables: LEVEL_TABLES, songLength: selSong ? parseFloat(selSong) : null, stabilityLengths: document.getElementById("chkStability").checked ? [90, 120, 135, 150, 166] : null }});
 
   w.onerror = function() {{
     w.terminate();
