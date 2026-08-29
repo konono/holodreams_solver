@@ -1112,7 +1112,7 @@ async function doRecommend() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         cards: cardSpecs, stat_scale: statScale, baseline,
-        fixed_leader_id: document.getElementById("costumeSelect").value || null,
+        costume_only_leader_id: document.getElementById("costumeSelect").value || null,
         acquire_count: parseInt(document.getElementById("acquireCount").value),
         top_n: parseInt(document.getElementById("recommendTopN").value),
         song_length: document.getElementById("songSelect").value ? parseFloat(document.getElementById("songSelect").value) : null,

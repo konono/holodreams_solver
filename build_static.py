@@ -359,14 +359,13 @@ function formatSolveResults(solveResult, costumeOnlyLeaderId) {{
 self.onmessage = function(e) {{
   const d = e.data;
   if (d.action === "recommend") {{
-    const {{ allCards, ownedSpecs, topN, levelTables, songLength, fixedLeaderId, acquireCount: rawAC }} = d;
+    const {{ allCards, ownedSpecs, topN, levelTables, songLength, costumeOnlyLeaderId, acquireCount: rawAC }} = d;
     const SLEN = songLength || SONG_LENGTH;
     const lt = levelTables || {{}};
-    const fli = fixedLeaderId || null;
     const acquireCount = Math.max(1, Math.min(rawAC || 1, 5));
 
     const ownedResolved = ownedSpecs.map(s => {{ const raw = allCards.find(c => c.id === s.id); return raw ? resolveCard(raw, s.potential, s.level, lt) : null; }}).filter(Boolean);
-    const baseResult = solveInternal(ownedResolved, fli, 1, SLEN, false);
+    const baseResult = solveInternal(ownedResolved, null, 1, SLEN, false, costumeOnlyLeaderId || null, allCards);
     const baseScore = baseResult.results.length > 0 ? Math.round(baseResult.results[0].unitScore) : 0;
 
     const ownedMap = {{}};
@@ -411,7 +410,7 @@ self.onmessage = function(e) {{
     for (let ci = 0; ci < candidates.length; ci++) {{
       if (candidates[ci].cost !== 1) continue;
       const trialSpecs = applyCandidate(ownedSpecs, candidates[ci]);
-      const trialResult = solveInternal(resolveSpecs(trialSpecs), fli, 1, SLEN, false);
+      const trialResult = solveInternal(resolveSpecs(trialSpecs), null, 1, SLEN, false, costumeOnlyLeaderId || null, allCards);
       if (trialResult.results.length > 0) {{
         const best = trialResult.results[0];
         const newScore = Math.round(best.unitScore);
@@ -473,7 +472,7 @@ self.onmessage = function(e) {{
         if (new Set(acqChars).size !== acqChars.length) continue;
         let trialSpecs = [...ownedSpecs.map(s => ({{ ...s }}))];
         for (const cand of comboCards) trialSpecs = applyCandidate(trialSpecs, cand);
-        const trialResult = solveInternal(resolveSpecs(trialSpecs), fli, 1, SLEN, false);
+        const trialResult = solveInternal(resolveSpecs(trialSpecs), null, 1, SLEN, false, costumeOnlyLeaderId || null, allCards);
         if (trialResult.results.length > 0) {{
           const newScore = Math.round(trialResult.results[0].unitScore);
           const delta = newScore - baseScore;
@@ -496,15 +495,35 @@ self.onmessage = function(e) {{
     recResults.forEach((r, i) => r.rank = i + 1);
     self.postMessage({{ type: "recommend_done", base_score: baseScore, acquire_count: acquireCount, recommendations: recResults }});
   }} else {{
-    const {{ cards, costumeOnlyLeaderId, topN, potentials, levels, levelTables, songLength }} = d;
+    const {{ cards, costumeOnlyLeaderId, topN, potentials, levels, levelTables, songLength, stabilityLengths }} = d;
     const SLEN = songLength || SONG_LENGTH;
     const resolved = cards.map(c => {{
       const pot = potentials[c.id] ?? 0;
       const lv = levels[c.id] ?? MAX_LEVEL;
       return resolveCard(c, pot, lv, levelTables || {{}});
     }});
+    const resolvedMap = {{}};
+    for (const c of resolved) resolvedMap[c.id] = c;
+    let overrideCostumeSkill2 = null;
+    if (costumeOnlyLeaderId) {{
+      const cc = cards.find(c => c.id === costumeOnlyLeaderId);
+      if (cc && cc.potential_data && cc.potential_data.length > 0) overrideCostumeSkill2 = cc.potential_data[0].costume_skill;
+    }}
     const result = solveInternal(resolved, null, topN, SLEN, true, costumeOnlyLeaderId || null, cards);
-    self.postMessage({{ type:"done", results: formatSolveResults(result, costumeOnlyLeaderId || null), totalCombinations: result.count }});
+    const formatted = formatSolveResults(result, costumeOnlyLeaderId || null);
+    if (stabilityLengths && stabilityLengths.length > 0) {{
+      for (const r of formatted) {{
+        const team = r.member_ids.map(id => resolvedMap[id]);
+        const li = r.member_ids.indexOf(r.leader_id);
+        const stability = {{}};
+        for (const sl of stabilityLengths) {{
+          const s = evaluateTeam(team, Math.max(0, li), sl, overrideCostumeSkill2);
+          stability[sl] = Math.round(s.unitScore);
+        }}
+        r.stability = stability;
+      }}
+    }}
+    self.postMessage({{ type:"done", results: formatted, totalCombinations: result.count }});
   }}
 }};
 """
@@ -609,6 +628,7 @@ def build():
     <select id="songSelect" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:4px 6px;border-radius:4px;font-size:0.75rem;max-width:200px">
       <option value="">汎用（192秒）</option>
     </select>
+    <label style="cursor:pointer;font-size:0.75rem;color:#8899aa"><input type="checkbox" id="chkStability" style="vertical-align:middle;margin-right:2px">安定性分析</label>
   </div>
 
   <div id="cardArea"></div>
@@ -1100,7 +1120,7 @@ function doSolve() {{
 
   const w = new Worker(workerBlob);
   const selSong = document.getElementById("songSelect").value;
-  w.postMessage({{ cards: owned, costumeOnlyLeaderId, topN: parseInt(document.getElementById("topN").value), potentials, levels, levelTables: LEVEL_TABLES, songLength: selSong ? parseFloat(selSong) : null }});
+  w.postMessage({{ cards: owned, costumeOnlyLeaderId, topN: parseInt(document.getElementById("topN").value), potentials, levels, levelTables: LEVEL_TABLES, songLength: selSong ? parseFloat(selSong) : null, stabilityLengths: document.getElementById("chkStability").checked ? [90, 120, 135, 150, 166] : null }});
 
   w.onerror = function() {{
     w.terminate();
@@ -1170,7 +1190,7 @@ function doRecommend() {{
     action: "recommend",
     allCards: CARDS,
     ownedSpecs,
-    fixedLeaderId: document.getElementById("costumeSelect").value || null,
+    costumeOnlyLeaderId: document.getElementById("costumeSelect").value || null,
     acquireCount: parseInt(document.getElementById("acquireCount").value),
     topN: parseInt(document.getElementById("recommendTopN").value),
     levelTables: LEVEL_TABLES,
@@ -1484,7 +1504,26 @@ function renderResults(data) {{
         <div class="m-pot-lv">${{pot}}凸${{levelEnabled ? ` Lv${{lv}}` : ''}}</div>
       </div>`;
     }}
-    html += `</div></div>`;
+    html += `</div>`;
+    if (r.stability) {{
+      const entries = Object.entries(r.stability).sort((a, b) => a[0] - b[0]);
+      const baseScore = r.unit_score;
+      html += `<div style="margin-top:10px;padding-top:8px;border-top:1px solid #2a3a4a">
+        <div style="font-size:0.72rem;color:#6b7f92;margin-bottom:6px">曲長別スコア安定性:</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">`;
+      for (const [len, score] of entries) {{
+        const diff = score - baseScore;
+        const diffColor = diff > 0 ? "#40d080" : diff < 0 ? "#f06060" : "#8899aa";
+        const diffText = diff > 0 ? `+${{diff.toLocaleString()}}` : diff.toLocaleString();
+        html += `<div style="background:#0f1923;border:1px solid #2a3a4a;border-radius:4px;padding:4px 8px;font-size:0.7rem;text-align:center;min-width:70px">
+          <div style="color:#8899aa">${{len}}秒</div>
+          <div style="color:#e0e6ed;font-weight:600">${{score.toLocaleString()}}</div>
+          <div style="color:${{diffColor}};font-size:0.65rem">${{diffText}}</div>
+        </div>`;
+      }}
+      html += `</div></div>`;
+    }}
+    html += `</div>`;
   }}
   area.innerHTML = html;
 }}

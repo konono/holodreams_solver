@@ -140,6 +140,7 @@ class RecommendRequest(BaseModel):
     stat_scale: float = 1.0
     baseline: float = 0
     fixed_leader_id: str | None = None
+    costume_only_leader_id: str | None = None
     top_n: int = 5
     acquire_count: int = 1
     song_length: float | None = None
@@ -170,15 +171,11 @@ def post_recommend(req: RecommendRequest):
     if len(unique_chars) < 5:
         raise HTTPException(status_code=400, detail="レコメンドには5キャラ以上のカードが必要です")
 
-    owned_ids = {s["id"] for s in card_specs}
-    if req.fixed_leader_id and req.fixed_leader_id not in owned_ids:
-        raise HTTPException(status_code=400, detail="リーダーは選択カードに含まれている必要があります")
-
     dropped = len(req.cards) - len(card_specs)
 
     top_n = max(1, min(req.top_n, 20))
     acquire_count = max(1, min(req.acquire_count, 5))
-    kwargs = dict(top_n=top_n, acquire_count=acquire_count, stat_scale=req.stat_scale, baseline=req.baseline, fixed_leader_id=req.fixed_leader_id)
+    kwargs = dict(top_n=top_n, acquire_count=acquire_count, stat_scale=req.stat_scale, baseline=req.baseline, costume_only_leader_id=req.costume_only_leader_id)
     if req.song_length is not None:
         kwargs["song_length"] = req.song_length
 

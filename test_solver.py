@@ -296,6 +296,38 @@ def test_python_js_stats_parity(card_map):
                 f"pot={pot} lv={lv}: got {r['stats']['performance']} expected {expected_p}"
 
 
+def test_solve_stability_lengths():
+    """stability_lengths 指定時にレスポンスに stability データが含まれる"""
+    cards = [
+        {"id": "nakiri_ayame_5", "potential": 4},
+        {"id": "houshou_marine_5", "potential": 4},
+        {"id": "momosuzu_nene_5", "potential": 4},
+        {"id": "hakui_koyori_5", "potential": 4},
+        {"id": "shirogane_noel_swim_5", "potential": 4},
+        {"id": "oozora_subaru_5", "potential": 4},
+    ]
+    r = solve(cards, top_n=1, stability_lengths=[90, 120, 150])
+    result = r["results"][0]
+    assert "stability" in result
+    assert set(result["stability"].keys()) == {90, 120, 150}
+    for score in result["stability"].values():
+        assert isinstance(score, int) and score > 0
+
+
+def test_solve_no_stability_by_default():
+    """stability_lengths 未指定時は stability キーがない"""
+    cards = [
+        {"id": "nakiri_ayame_5", "potential": 4},
+        {"id": "houshou_marine_5", "potential": 4},
+        {"id": "momosuzu_nene_5", "potential": 4},
+        {"id": "hakui_koyori_5", "potential": 4},
+        {"id": "shirogane_noel_swim_5", "potential": 4},
+        {"id": "oozora_subaru_5", "potential": 4},
+    ]
+    r = solve(cards, top_n=1)
+    assert "stability" not in r["results"][0]
+
+
 def test_api_solve_costume_only():
     """API経由で costume_only_leader_id が衣装スキルを適用する"""
     from fastapi.testclient import TestClient

@@ -484,6 +484,7 @@ def recommend(
     stat_scale: float = 1.0,
     baseline: float = 0,
     fixed_leader_id: str | None = None,
+    costume_only_leader_id: str | None = None,
     song_length: float = SONG_LENGTH,
 ) -> dict:
     """未所持カードの取得・既所持カードの凸UPによるスコア向上の優先度を算出"""
@@ -497,7 +498,7 @@ def recommend(
         lv = spec.get("level") if isinstance(spec, dict) else None
         owned_specs[cid] = {"id": cid, "potential": pot, "level": lv}
 
-    solve_kwargs = dict(top_n=1, stat_scale=stat_scale, baseline=baseline, fixed_leader_id=fixed_leader_id, song_length=song_length)
+    solve_kwargs = dict(top_n=1, stat_scale=stat_scale, baseline=baseline, fixed_leader_id=fixed_leader_id, costume_only_leader_id=costume_only_leader_id, song_length=song_length)
 
     base_result = solve(list(owned_specs.values()), **solve_kwargs)
     base_score = base_result["results"][0]["unit_score"] if base_result["results"] else 0
