@@ -9,6 +9,8 @@ on:
       - 'solver_go/**'
       - 'build_static.py'
       - 'index.html'
+      - 'wasm_bridge.js'
+      - 'wasm_exec.js'
       - '.github/workflows/deploy-pages.yml'
   workflow_dispatch:
 
@@ -48,16 +50,7 @@ jobs:
         run: uv run python build_static.py
 
       - name: Prepare pages
-        run: |
-          mkdir -p _site
-          cp dist/index.html _site/index.html
-          cp solver_go/solver.wasm _site/solver.wasm
-          cp dist/wasm_exec.js _site/wasm_exec.js
-          cp dist/wasm_bridge.js _site/wasm_bridge.js
-
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
+        run: cp -r dist _site
 
   deploy:
     needs: build
