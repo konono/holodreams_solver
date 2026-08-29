@@ -10,6 +10,17 @@ const defaultSongLength = 192.0
 
 var progressCallback func(current, total int)
 
+func comb(n, k int) int {
+	if k > n {
+		return 0
+	}
+	r := 1
+	for i := 0; i < k; i++ {
+		r = r * (n - i) / (i + 1)
+	}
+	return r
+}
+
 func solve(cards []*Card, topN int, statScale, baseline, songLength float64, fixedLeaderID string, costumeOnlyLeaderID string, overrideCostumeSkill *CostumeSkill, stabilityLengths []float64) JSONOutput {
 	if len(cards) < 5 {
 		return JSONOutput{TotalCombinations: 0, StatScale: statScale, Baseline: baseline}
@@ -71,23 +82,14 @@ func solve(cards []*Card, topN int, statScale, baseline, songLength float64, fix
 			}
 		}
 		nOther := len(otherChars)
-		charComboCount := 0
-		for a := 0; a < nOther-3; a++ {
-			for b := a + 1; b < nOther-2; b++ {
-				for c := b + 1; c < nOther-1; c++ {
-					for d := c + 1; d < nOther; d++ {
-						charComboCount++
-					}
-				}
-			}
-		}
+		charComboCount := comb(nOther, 4)
 		charCombosDone := 0
 		for a := 0; a < nOther-3; a++ {
 			for b := a + 1; b < nOther-2; b++ {
 				for c := b + 1; c < nOther-1; c++ {
 					for d := c + 1; d < nOther; d++ {
 						charCombosDone++
-						if progressCallback != nil {
+						if progressCallback != nil && charCombosDone%20 == 0 {
 							progressCallback(charCombosDone, charComboCount)
 						}
 						lists := [4][]*Card{
@@ -124,18 +126,7 @@ func solve(cards []*Card, topN int, statScale, baseline, songLength float64, fix
 			}
 		}
 	} else {
-		charComboCount := 0
-		for a := 0; a < nChars-4; a++ {
-			for b := a + 1; b < nChars-3; b++ {
-				for ci := b + 1; ci < nChars-2; ci++ {
-					for d := ci + 1; d < nChars-1; d++ {
-						for e := d + 1; e < nChars; e++ {
-							charComboCount++
-						}
-					}
-				}
-			}
-		}
+		charComboCount := comb(nChars, 5)
 		charCombosDone := 0
 		for a := 0; a < nChars-4; a++ {
 			for b := a + 1; b < nChars-3; b++ {
@@ -287,12 +278,18 @@ func solveSweepCostumes(cards []*Card, allRawCards []CardRaw, cardMap map[string
 
 	sweepResults := make([]sweepResult, 0, topN*10)
 	totalCombos := 0
+	charComboCount := comb(nChars, 5)
+	charCombosDone := 0
 
 	for a := 0; a < nChars-4; a++ {
 		for b := a + 1; b < nChars-3; b++ {
 			for ci := b + 1; ci < nChars-2; ci++ {
 				for d := ci + 1; d < nChars-1; d++ {
 					for e := d + 1; e < nChars; e++ {
+						charCombosDone++
+						if progressCallback != nil && charCombosDone%20 == 0 {
+							progressCallback(charCombosDone, charComboCount)
+						}
 						lists := [5][]*Card{
 							charGroups[charNames[a]],
 							charGroups[charNames[b]],
@@ -721,12 +718,11 @@ func recommend(ownedSpecs map[string]CardSpec, allRawCards []CardRaw, topN, acqu
 		}
 		shortlist = append(shortlist, multiUncap...)
 
-		// Generate combinations by cost
-		var comboResults []RecommendResult
+		// Generate combinations by cost — collect first, then evaluate with progress
+		var allCombos [][]candidate
 		var generateCombos func(items []candidate, totalCost, start int, current []candidate)
 		generateCombos = func(items []candidate, totalCost, start int, current []candidate) {
 			if totalCost == 0 {
-				// Check for duplicate card_ids and characters
 				cardIDs := map[string]bool{}
 				acquireChars := map[string]bool{}
 				for _, c := range current {
@@ -741,43 +737,9 @@ func recommend(ownedSpecs map[string]CardSpec, allRawCards []CardRaw, topN, acqu
 						acquireChars[c.character] = true
 					}
 				}
-
-				trialSpecs := map[string]CardSpec{}
-				for k, v := range ownedSpecs {
-					trialSpecs[k] = v
-				}
-				for _, cand := range current {
-					trialSpecs = applyCandidate(trialSpecs, cand)
-				}
-				trialResult := solveOne(trialSpecs)
-				if len(trialResult.Results) > 0 {
-					newScore := trialResult.Results[0].UnitScore
-					delta := newScore - baseScore
-					if delta > 0 {
-						cards := make([]RecommendCard, len(current))
-						for ci, c := range current {
-							cards[ci] = RecommendCard{
-								CardID:           c.cardID,
-								CardName:         c.cardName,
-								Character:        c.character,
-								Action:           c.action,
-								CurrentPotential: c.currentPotential,
-								TargetPotential:  c.targetPotential,
-								Cost:             c.cost,
-							}
-						}
-						best := trialResult.Results[0]
-						comboResults = append(comboResults, RecommendResult{
-							Cards:    cards,
-							NewScore: newScore,
-							Delta:    delta,
-							BestTeam: RecommendBestTeam{
-								LeaderID:  best.LeaderID,
-								MemberIDs: best.MemberIDs,
-							},
-						})
-					}
-				}
+				combo := make([]candidate, len(current))
+				copy(combo, current)
+				allCombos = append(allCombos, combo)
 				return
 			}
 			for i := start; i < len(items); i++ {
@@ -787,6 +749,49 @@ func recommend(ownedSpecs map[string]CardSpec, allRawCards []CardRaw, topN, acqu
 			}
 		}
 		generateCombos(shortlist, acquireCount, 0, nil)
+
+		var comboResults []RecommendResult
+		for ci, combo := range allCombos {
+			if outerProgress != nil {
+				outerProgress(cost1Count+ci+1, cost1Count+len(allCombos))
+			}
+			trialSpecs := map[string]CardSpec{}
+			for k, v := range ownedSpecs {
+				trialSpecs[k] = v
+			}
+			for _, cand := range combo {
+				trialSpecs = applyCandidate(trialSpecs, cand)
+			}
+			trialResult := solveOne(trialSpecs)
+			if len(trialResult.Results) > 0 {
+				newScore := trialResult.Results[0].UnitScore
+				delta := newScore - baseScore
+				if delta > 0 {
+					cards := make([]RecommendCard, len(combo))
+					for i, c := range combo {
+						cards[i] = RecommendCard{
+							CardID:           c.cardID,
+							CardName:         c.cardName,
+							Character:        c.character,
+							Action:           c.action,
+							CurrentPotential: c.currentPotential,
+							TargetPotential:  c.targetPotential,
+							Cost:             c.cost,
+						}
+					}
+					best := trialResult.Results[0]
+					comboResults = append(comboResults, RecommendResult{
+						Cards:    cards,
+						NewScore: newScore,
+						Delta:    delta,
+						BestTeam: RecommendBestTeam{
+							LeaderID:  best.LeaderID,
+							MemberIDs: best.MemberIDs,
+						},
+					})
+				}
+			}
+		}
 
 		sort.Slice(comboResults, func(i, j int) bool {
 			return comboResults[i].Delta > comboResults[j].Delta
