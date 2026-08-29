@@ -1,0 +1,801 @@
+package main
+
+import (
+	"fmt"
+	"math"
+	"sort"
+)
+
+const defaultSongLength = 192.0
+
+func resolveOwnedCards(owned []interface{}, cardMap map[string]*CardRaw, cf *CardsFile) []*Card {
+	// owned can be []string or []CardSpec
+	// This is handled at the CLI level; here we work with resolved cards
+	return nil
+}
+
+func solve(cards []*Card, topN int, statScale, baseline, songLength float64, fixedLeaderID string, costumeOnlyLeaderID string, overrideCostumeSkill *CostumeSkill, stabilityLengths []float64) JSONOutput {
+	if len(cards) < 5 {
+		return JSONOutput{TotalCombinations: 0, StatScale: statScale, Baseline: baseline}
+	}
+
+	cardMap := make(map[string]*Card, len(cards))
+	for _, c := range cards {
+		cardMap[c.ID] = c
+	}
+
+	// Group cards by character
+	charGroups := map[string][]*Card{}
+	for _, c := range cards {
+		charGroups[c.Character] = append(charGroups[c.Character], c)
+	}
+
+	type charEntry struct {
+		name    string
+		maxTotal float64
+	}
+	charEntries := make([]charEntry, 0, len(charGroups))
+	for name, group := range charGroups {
+		maxT := 0.0
+		for _, c := range group {
+			if c.Total > maxT {
+				maxT = c.Total
+			}
+		}
+		charEntries = append(charEntries, charEntry{name, maxT})
+	}
+	sort.Slice(charEntries, func(i, j int) bool {
+		return charEntries[i].maxTotal > charEntries[j].maxTotal
+	})
+	charNames := make([]string, len(charEntries))
+	for i, e := range charEntries {
+		charNames[i] = e.name
+	}
+	nChars := len(charNames)
+	if nChars < 5 {
+		return JSONOutput{TotalCombinations: 0, StatScale: statScale, Baseline: baseline}
+	}
+
+	results := make([]SolveResult, 0, topN*10)
+	totalCombos := 0
+
+	if fixedLeaderID != "" {
+		leaderCard, ok := cardMap[fixedLeaderID]
+		if !ok {
+			return JSONOutput{TotalCombinations: 0, StatScale: statScale, Baseline: baseline}
+		}
+		leaderChar := leaderCard.Character
+		otherChars := make([]string, 0, nChars-1)
+		for _, ch := range charNames {
+			if ch != leaderChar {
+				otherChars = append(otherChars, ch)
+			}
+		}
+		nOther := len(otherChars)
+		for a := 0; a < nOther-3; a++ {
+			for b := a + 1; b < nOther-2; b++ {
+				for c := b + 1; c < nOther-1; c++ {
+					for d := c + 1; d < nOther; d++ {
+						lists := [4][]*Card{
+							charGroups[otherChars[a]],
+							charGroups[otherChars[b]],
+							charGroups[otherChars[c]],
+							charGroups[otherChars[d]],
+						}
+						for _, c0 := range lists[0] {
+							for _, c1 := range lists[1] {
+								for _, c2 := range lists[2] {
+									for _, c3 := range lists[3] {
+										team := [5]*Card{leaderCard, c0, c1, c2, c3}
+										totalCombos++
+										score := evaluateTeam(team, 0, statScale, baseline, songLength, overrideCostumeSkill)
+										results = append(results, SolveResult{
+											Score:               score,
+											LeaderIdx:           0,
+											TeamIDs:             [5]string{team[0].ID, team[1].ID, team[2].ID, team[3].ID, team[4].ID},
+											CostumeOnlyLeaderID: costumeOnlyLeaderID,
+										})
+										if len(results) > topN*10 {
+											sort.Slice(results, func(i, j int) bool {
+												return results[i].Score.UnitScore > results[j].Score.UnitScore
+											})
+											results = results[:topN]
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	} else {
+		for a := 0; a < nChars-4; a++ {
+			for b := a + 1; b < nChars-3; b++ {
+				for ci := b + 1; ci < nChars-2; ci++ {
+					for d := ci + 1; d < nChars-1; d++ {
+						for e := d + 1; e < nChars; e++ {
+							lists := [5][]*Card{
+								charGroups[charNames[a]],
+								charGroups[charNames[b]],
+								charGroups[charNames[ci]],
+								charGroups[charNames[d]],
+								charGroups[charNames[e]],
+							}
+							for _, c0 := range lists[0] {
+								for _, c1 := range lists[1] {
+									for _, c2 := range lists[2] {
+										for _, c3 := range lists[3] {
+											for _, c4 := range lists[4] {
+												team := [5]*Card{c0, c1, c2, c3, c4}
+												totalCombos++
+
+												var best EvalResult
+												bestLeader := 0
+												for li := 0; li < 5; li++ {
+													score := evaluateTeam(team, li, statScale, baseline, songLength, overrideCostumeSkill)
+													if score.UnitScore > best.UnitScore {
+														best = score
+														bestLeader = li
+													}
+												}
+												results = append(results, SolveResult{
+													Score:               best,
+													LeaderIdx:           bestLeader,
+													TeamIDs:             [5]string{c0.ID, c1.ID, c2.ID, c3.ID, c4.ID},
+													CostumeOnlyLeaderID: costumeOnlyLeaderID,
+												})
+												if len(results) > topN*10 {
+													sort.Slice(results, func(i, j int) bool {
+														return results[i].Score.UnitScore > results[j].Score.UnitScore
+													})
+													results = results[:topN]
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Score.UnitScore > results[j].Score.UnitScore
+	})
+	if len(results) > topN {
+		results = results[:topN]
+	}
+
+	results = optimizeResults(results, cardMap, statScale, baseline, songLength, overrideCostumeSkill)
+
+	return formatOutput(results, totalCombos, statScale, baseline, costumeOnlyLeaderID, stabilityLengths, cardMap, songLength, overrideCostumeSkill)
+}
+
+func solveSweepCostumes(cards []*Card, allRawCards []CardRaw, cardMap map[string]*CardRaw, topN int, statScale, baseline, songLength float64, stabilityLengths []float64, cf *CardsFile) JSONOutput {
+	if len(cards) < 5 {
+		return JSONOutput{TotalCombinations: 0, StatScale: statScale, Baseline: baseline}
+	}
+
+	resolvedMap := map[string]*Card{}
+	for _, c := range cards {
+		resolvedMap[c.ID] = c
+	}
+
+	charGroups := map[string][]*Card{}
+	for _, c := range cards {
+		charGroups[c.Character] = append(charGroups[c.Character], c)
+	}
+
+	type charEntry struct {
+		name     string
+		maxTotal float64
+	}
+	charEntries := make([]charEntry, 0, len(charGroups))
+	for name, group := range charGroups {
+		maxT := 0.0
+		for _, c := range group {
+			if c.Total > maxT {
+				maxT = c.Total
+			}
+		}
+		charEntries = append(charEntries, charEntry{name, maxT})
+	}
+	sort.Slice(charEntries, func(i, j int) bool {
+		return charEntries[i].maxTotal > charEntries[j].maxTotal
+	})
+	charNames := make([]string, len(charEntries))
+	for i, e := range charEntries {
+		charNames[i] = e.name
+	}
+	nChars := len(charNames)
+	if nChars < 5 {
+		return JSONOutput{TotalCombinations: 0, StatScale: statScale, Baseline: baseline}
+	}
+
+	// Collect costume skills from owned cards
+	ownedIDs := map[string]bool{}
+	for _, c := range cards {
+		ownedIDs[c.ID] = true
+	}
+	type costumeEntry struct {
+		cardID string
+		skill  CostumeSkill
+	}
+	var costumeSkills []costumeEntry
+	for i := range allRawCards {
+		raw := &allRawCards[i]
+		if !ownedIDs[raw.ID] {
+			continue
+		}
+		if len(raw.PotentialData) > 0 {
+			costumeSkills = append(costumeSkills, costumeEntry{raw.ID, raw.PotentialData[0].CostumeSkill})
+		}
+	}
+
+	type sweepResult struct {
+		unitScore           float64
+		totalPower          float64
+		scoreBonus          float64
+		activePct           float64
+		costumeSBPct        float64
+		passiveSBPct        float64
+		specialPct          float64
+		costumeSSVal        float64
+		supportSS           float64
+		leaderIdx           int
+		teamIDs             [5]string
+		costumeOnlyLeaderID string
+	}
+
+	sweepResults := make([]sweepResult, 0, topN*10)
+	totalCombos := 0
+
+	for a := 0; a < nChars-4; a++ {
+		for b := a + 1; b < nChars-3; b++ {
+			for ci := b + 1; ci < nChars-2; ci++ {
+				for d := ci + 1; d < nChars-1; d++ {
+					for e := d + 1; e < nChars; e++ {
+						lists := [5][]*Card{
+							charGroups[charNames[a]],
+							charGroups[charNames[b]],
+							charGroups[charNames[ci]],
+							charGroups[charNames[d]],
+							charGroups[charNames[e]],
+						}
+						for _, c0 := range lists[0] {
+							for _, c1 := range lists[1] {
+								for _, c2 := range lists[2] {
+									for _, c3 := range lists[3] {
+										for _, c4 := range lists[4] {
+											team := [5]*Card{c0, c1, c2, c3, c4}
+											totalCombos++
+
+											var bestBase *BaseScores
+											bestLeaderIdx := 0
+											for li := 0; li < 5; li++ {
+												base := computeBaseScores(team, li, statScale, baseline, songLength)
+												if bestBase == nil || base.BasePower > bestBase.BasePower {
+													b := base
+													bestBase = &b
+													bestLeaderIdx = li
+												}
+											}
+
+											teamIDs := [5]string{c0.ID, c1.ID, c2.ID, c3.ID, c4.ID}
+											for _, ce := range costumeSkills {
+												us, tp, sb, csbp, csv, _ := applyCostume(bestBase, &ce.skill)
+												sweepResults = append(sweepResults, sweepResult{
+													unitScore:           us,
+													totalPower:          tp,
+													scoreBonus:          sb,
+													activePct:           bestBase.ActivePct,
+													costumeSBPct:        csbp,
+													passiveSBPct:        bestBase.PassiveSBPct,
+													specialPct:          bestBase.SpecialPct,
+													costumeSSVal:        csv,
+													supportSS:           bestBase.SupportSS,
+													leaderIdx:           bestLeaderIdx,
+													teamIDs:             teamIDs,
+													costumeOnlyLeaderID: ce.cardID,
+												})
+											}
+											if len(sweepResults) > topN*10 {
+												sort.Slice(sweepResults, func(i, j int) bool {
+													return sweepResults[i].unitScore > sweepResults[j].unitScore
+												})
+												sweepResults = sweepResults[:topN]
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	sort.Slice(sweepResults, func(i, j int) bool {
+		return sweepResults[i].unitScore > sweepResults[j].unitScore
+	})
+	if len(sweepResults) > topN {
+		sweepResults = sweepResults[:topN]
+	}
+
+	// Post-optimize: try all 24 permutations for each result
+	for ri := range sweepResults {
+		r := &sweepResults[ri]
+		costumeID := r.costumeOnlyLeaderID
+		var cs *CostumeSkill
+		for _, ce := range costumeSkills {
+			if ce.cardID == costumeID {
+				cs = &ce.skill
+				break
+			}
+		}
+		leaderCard := resolvedMap[r.teamIDs[r.leaderIdx]]
+		var others [4]*Card
+		var otherIDs [4]string
+		oi := 0
+		for _, id := range r.teamIDs {
+			if id != leaderCard.ID {
+				others[oi] = resolvedMap[id]
+				otherIDs[oi] = id
+				oi++
+			}
+		}
+
+		for _, perm := range perms4 {
+			team := [5]*Card{leaderCard, others[perm[0]], others[perm[1]], others[perm[2]], others[perm[3]]}
+			score := evaluateTeam(team, 0, statScale, baseline, songLength, cs)
+			if score.UnitScore > r.unitScore {
+				r.unitScore = score.UnitScore
+				r.totalPower = score.TotalPower
+				r.scoreBonus = score.ScoreBonus
+				r.activePct = score.ActivePct
+				r.costumeSBPct = score.CostumeSBPct
+				r.passiveSBPct = score.PassiveSBPct
+				r.specialPct = score.SpecialPct
+				r.costumeSSVal = score.CostumeSSVal
+				r.supportSS = score.SupportSSVal
+				r.leaderIdx = 0
+				r.teamIDs = [5]string{leaderCard.ID, otherIDs[perm[0]], otherIDs[perm[1]], otherIDs[perm[2]], otherIDs[perm[3]]}
+			}
+		}
+	}
+
+	sort.Slice(sweepResults, func(i, j int) bool {
+		return sweepResults[i].unitScore > sweepResults[j].unitScore
+	})
+
+	// Format output
+	jsonResults := make([]JSONResult, len(sweepResults))
+	for i, r := range sweepResults {
+		costumeID := r.costumeOnlyLeaderID
+		entry := JSONResult{
+			Rank:                i + 1,
+			UnitScore:           int(math.Round(r.unitScore)),
+			TotalPower:          int(math.Round(r.totalPower)),
+			ScoreBonus:          fixedFloat(roundTo1(r.scoreBonus)),
+			ActivePct:           fixedFloat(roundTo1(r.activePct)),
+			CostumeSBPct:        fixedFloat(roundTo1(r.costumeSBPct)),
+			PassiveSBPct:        fixedFloat(roundTo1(r.passiveSBPct)),
+			SpecialPct:          fixedFloat(roundTo1(r.specialPct)),
+			LeaderID:            r.teamIDs[r.leaderIdx],
+			CostumeOnlyLeaderID: &costumeID,
+			MemberIDs:           r.teamIDs[:],
+		}
+		if len(stabilityLengths) > 0 {
+			var cs *CostumeSkill
+			for _, ce := range costumeSkills {
+				if ce.cardID == costumeID {
+					cs = &ce.skill
+					break
+				}
+			}
+			team := [5]*Card{}
+			for ti, id := range r.teamIDs {
+				team[ti] = resolvedMap[id]
+			}
+			entry.Stability = map[string]int{}
+			for _, sl := range stabilityLengths {
+				s := evaluateTeam(team, r.leaderIdx, statScale, baseline, sl, cs)
+				entry.Stability[fmt.Sprintf("%g", sl)] = int(math.Round(s.UnitScore))
+			}
+		}
+		jsonResults[i] = entry
+	}
+
+	return JSONOutput{
+		TotalCombinations: totalCombos * len(costumeSkills),
+		StatScale:         statScale,
+		Baseline:          baseline,
+		Results:           jsonResults,
+	}
+}
+
+func calibrate(memberIDs []string, leaderID1 string, gameScore1 int, leaderID2 string, gameScore2 int, cardSpecs map[string]CardSpec, songLength float64, cf *CardsFile) CalibrateOutput {
+	allRawCards, _ := loadCards("data/cards.json")
+	rawCardMap := map[string]*CardRaw{}
+	for i := range allRawCards {
+		rawCardMap[allRawCards[i].ID] = &allRawCards[i]
+	}
+
+	specs := cardSpecs
+	if specs == nil {
+		specs = map[string]CardSpec{}
+	}
+
+	team := [5]*Card{}
+	for i, mid := range memberIDs {
+		raw := rawCardMap[mid]
+		spec := specs[mid]
+		c := resolveCard(raw, spec.Potential, spec.Level, cf)
+		team[i] = &c
+	}
+
+	li1 := -1
+	li2 := -1
+	for i, mid := range memberIDs {
+		if mid == leaderID1 {
+			li1 = i
+		}
+		if mid == leaderID2 {
+			li2 = i
+		}
+	}
+
+	emptyCostume := &CostumeSkill{Effects: nil}
+
+	s1 := evaluateTeam(team, li1, 1.0, 0, songLength, nil)
+	s2 := evaluateTeam(team, li2, 1.0, 0, songLength, nil)
+
+	// Get costume-independent data using empty costume
+	s1NoCostume := evaluateTeam(team, li1, 1.0, 0, songLength, emptyCostume)
+	_ = s1NoCostume
+
+	rawPerf := 0.0
+	rawTech := 0.0
+	rawSense := 0.0
+	for _, c := range team {
+		rawPerf += c.Stats.Performance
+		rawTech += c.Stats.Technique
+		rawSense += c.Stats.Sense
+	}
+	rawTotal := rawPerf + rawTech + rawSense
+
+	// Get support bonus from team with stat_scale=1
+	supportRaw := s1.SupportContrib // already at statScale=1
+
+	unit1Target := float64(gameScore1) / ((1 + s1.ScoreBonus/100) * unitScoreK)
+	unit2Target := float64(gameScore2) / ((1 + s2.ScoreBonus/100) * unitScoreK)
+
+	costume1 := s1.CostumeContrib
+	costume2 := s2.CostumeContrib
+	costumeDiff := costume1 - costume2
+
+	result := CalibrateOutput{}
+	if math.Abs(costumeDiff) < 1 {
+		result.StatScale = 1.0
+		result.Baseline = math.Round(unit1Target - (rawTotal + costume1 + supportRaw))
+		result.Warnings = []string{"衣装バフの差が小さいリーダーの組み合わせです。精度が低い可能性があります。異なる衣装バフ率のリーダーで再キャリブレーションを推奨します。"}
+	} else {
+		statScale := (unit1Target - unit2Target) / costumeDiff
+		baseline := unit1Target - (rawTotal+costume1+supportRaw)*statScale
+		result.StatScale = math.Round(statScale*1000000) / 1000000
+		result.Baseline = math.Round(baseline)
+	}
+	return result
+}
+
+func recommend(ownedSpecs map[string]CardSpec, allRawCards []CardRaw, topN, acquireCount int, statScale, baseline, songLength float64, fixedLeaderID, costumeOnlyLeaderID string, cf *CardsFile) RecommendOutput {
+	acquireCount = max(1, min(acquireCount, 5))
+
+	rawCardMap := map[string]*CardRaw{}
+	for i := range allRawCards {
+		rawCardMap[allRawCards[i].ID] = &allRawCards[i]
+	}
+
+	// Resolve owned cards
+	resolveOwned := func(specs map[string]CardSpec) []*Card {
+		cards := make([]*Card, 0, len(specs))
+		for _, spec := range specs {
+			raw := rawCardMap[spec.ID]
+			if raw == nil {
+				continue
+			}
+			c := resolveCard(raw, spec.Potential, spec.Level, cf)
+			cards = append(cards, &c)
+		}
+		return cards
+	}
+
+	solveOne := func(specs map[string]CardSpec) JSONOutput {
+		cards := resolveOwned(specs)
+		var overrideCostumeSkill *CostumeSkill
+		effectiveCostumeOnly := costumeOnlyLeaderID
+		if fixedLeaderID != "" && costumeOnlyLeaderID != "" {
+			effectiveCostumeOnly = ""
+		}
+		if effectiveCostumeOnly != "" {
+			raw := rawCardMap[effectiveCostumeOnly]
+			if raw != nil && len(raw.PotentialData) > 0 {
+				cs := raw.PotentialData[0].CostumeSkill
+				overrideCostumeSkill = &cs
+			}
+		}
+		return solve(cards, 1, statScale, baseline, songLength, fixedLeaderID, effectiveCostumeOnly, overrideCostumeSkill, nil)
+	}
+
+	baseResult := solveOne(ownedSpecs)
+	baseScore := 0
+	if len(baseResult.Results) > 0 {
+		baseScore = baseResult.Results[0].UnitScore
+	}
+
+	// Build candidates
+	type candidate struct {
+		cardID           string
+		cardName         string
+		character        string
+		action           string
+		currentPotential *int
+		targetPotential  int
+		cost             int
+	}
+
+	var candidates []candidate
+	for i := range allRawCards {
+		raw := &allRawCards[i]
+		cid := raw.ID
+		if _, owned := ownedSpecs[cid]; !owned {
+			candidates = append(candidates, candidate{
+				cardID:          cid,
+				cardName:        raw.CardName,
+				character:       raw.Character,
+				action:          "acquire",
+				targetPotential: 0,
+				cost:            1,
+			})
+		} else {
+			curPot := ownedSpecs[cid].Potential
+			maxPot := len(raw.PotentialData) - 1
+			for target := curPot + 1; target <= maxPot; target++ {
+				cp := curPot
+				candidates = append(candidates, candidate{
+					cardID:           cid,
+					cardName:         raw.CardName,
+					character:        raw.Character,
+					action:           "uncap",
+					currentPotential: &cp,
+					targetPotential:  target,
+					cost:             target - curPot,
+				})
+			}
+		}
+	}
+
+	applyCandidate := func(specs map[string]CardSpec, cand candidate) map[string]CardSpec {
+		newSpecs := map[string]CardSpec{}
+		for k, v := range specs {
+			newSpecs[k] = v
+		}
+		if cand.action == "acquire" {
+			newSpecs[cand.cardID] = CardSpec{ID: cand.cardID, Potential: 0}
+		} else {
+			old := newSpecs[cand.cardID]
+			old.Potential = cand.targetPotential
+			newSpecs[cand.cardID] = old
+		}
+		return newSpecs
+	}
+
+	// Phase 1: evaluate cost=1 candidates
+	type singleResult struct {
+		cand  candidate
+		delta int
+		best  JSONResult
+	}
+	var singleResults []singleResult
+	effectiveCardIDs := map[string]bool{}
+
+	for _, cand := range candidates {
+		if cand.cost != 1 {
+			continue
+		}
+		trialSpecs := applyCandidate(ownedSpecs, cand)
+		trialResult := solveOne(trialSpecs)
+		if len(trialResult.Results) > 0 {
+			best := trialResult.Results[0]
+			delta := best.UnitScore - baseScore
+			if delta > 0 {
+				singleResults = append(singleResults, singleResult{cand, delta, best})
+				effectiveCardIDs[cand.cardID] = true
+			}
+		}
+	}
+
+	sort.Slice(singleResults, func(i, j int) bool {
+		return singleResults[i].delta > singleResults[j].delta
+	})
+
+	var output RecommendOutput
+	output.BaseScore = baseScore
+	output.AcquireCount = acquireCount
+
+	if acquireCount == 1 {
+		limit := topN
+		if limit > len(singleResults) {
+			limit = len(singleResults)
+		}
+		for i := 0; i < limit; i++ {
+			sr := singleResults[i]
+			output.Recommendations = append(output.Recommendations, RecommendResult{
+				Rank: i + 1,
+				Cards: []RecommendCard{{
+					CardID:           sr.cand.cardID,
+					CardName:         sr.cand.cardName,
+					Character:        sr.cand.character,
+					Action:           sr.cand.action,
+					CurrentPotential: sr.cand.currentPotential,
+					TargetPotential:  sr.cand.targetPotential,
+					Cost:             sr.cand.cost,
+				}},
+				NewScore: sr.best.UnitScore,
+				Delta:    sr.delta,
+				BestTeam: RecommendBestTeam{
+					LeaderID:  sr.best.LeaderID,
+					MemberIDs: sr.best.MemberIDs,
+				},
+			})
+		}
+	} else {
+		// Multi-acquire: combine cost=1 singles + multi-uncap candidates
+		var multiUncap []candidate
+		for _, cand := range candidates {
+			if cand.cost > 1 && cand.cost <= acquireCount && effectiveCardIDs[cand.cardID] {
+				multiUncap = append(multiUncap, cand)
+			}
+		}
+		maxSingle := 20 - len(multiUncap)
+		if maxSingle < 0 {
+			maxSingle = 0
+		}
+		var shortlist []candidate
+		for i := 0; i < len(singleResults) && i < maxSingle; i++ {
+			shortlist = append(shortlist, singleResults[i].cand)
+		}
+		shortlist = append(shortlist, multiUncap...)
+
+		// Generate combinations by cost
+		var comboResults []RecommendResult
+		var generateCombos func(items []candidate, totalCost, start int, current []candidate)
+		generateCombos = func(items []candidate, totalCost, start int, current []candidate) {
+			if totalCost == 0 {
+				// Check for duplicate card_ids and characters
+				cardIDs := map[string]bool{}
+				acquireChars := map[string]bool{}
+				for _, c := range current {
+					if cardIDs[c.cardID] {
+						return
+					}
+					cardIDs[c.cardID] = true
+					if c.action == "acquire" {
+						if acquireChars[c.character] {
+							return
+						}
+						acquireChars[c.character] = true
+					}
+				}
+
+				trialSpecs := map[string]CardSpec{}
+				for k, v := range ownedSpecs {
+					trialSpecs[k] = v
+				}
+				for _, cand := range current {
+					trialSpecs = applyCandidate(trialSpecs, cand)
+				}
+				trialResult := solveOne(trialSpecs)
+				if len(trialResult.Results) > 0 {
+					newScore := trialResult.Results[0].UnitScore
+					delta := newScore - baseScore
+					if delta > 0 {
+						cards := make([]RecommendCard, len(current))
+						for ci, c := range current {
+							cards[ci] = RecommendCard{
+								CardID:           c.cardID,
+								CardName:         c.cardName,
+								Character:        c.character,
+								Action:           c.action,
+								CurrentPotential: c.currentPotential,
+								TargetPotential:  c.targetPotential,
+								Cost:             c.cost,
+							}
+						}
+						best := trialResult.Results[0]
+						comboResults = append(comboResults, RecommendResult{
+							Cards:    cards,
+							NewScore: newScore,
+							Delta:    delta,
+							BestTeam: RecommendBestTeam{
+								LeaderID:  best.LeaderID,
+								MemberIDs: best.MemberIDs,
+							},
+						})
+					}
+				}
+				return
+			}
+			for i := start; i < len(items); i++ {
+				if items[i].cost <= totalCost {
+					generateCombos(items, totalCost-items[i].cost, i+1, append(current, items[i]))
+				}
+			}
+		}
+		generateCombos(shortlist, acquireCount, 0, nil)
+
+		sort.Slice(comboResults, func(i, j int) bool {
+			return comboResults[i].Delta > comboResults[j].Delta
+		})
+		if len(comboResults) > topN {
+			comboResults = comboResults[:topN]
+		}
+		for i := range comboResults {
+			comboResults[i].Rank = i + 1
+		}
+		output.Recommendations = comboResults
+	}
+
+	if output.Recommendations == nil {
+		output.Recommendations = []RecommendResult{}
+	}
+	return output
+}
+
+func formatOutput(results []SolveResult, totalCombos int, statScale, baseline float64, costumeOnlyLeaderID string, stabilityLengths []float64, cardMap map[string]*Card, songLength float64, overrideCostumeSkill *CostumeSkill) JSONOutput {
+	jsonResults := make([]JSONResult, len(results))
+	for i, r := range results {
+		var costumePtr *string
+		if costumeOnlyLeaderID != "" {
+			s := costumeOnlyLeaderID
+			costumePtr = &s
+		}
+		entry := JSONResult{
+			Rank:                i + 1,
+			UnitScore:           int(math.Round(r.Score.UnitScore)),
+			TotalPower:          int(math.Round(r.Score.TotalPower)),
+			ScoreBonus:          fixedFloat(roundTo1(r.Score.ScoreBonus)),
+			ActivePct:           fixedFloat(roundTo1(r.Score.ActivePct)),
+			CostumeSBPct:        fixedFloat(roundTo1(r.Score.CostumeSBPct)),
+			PassiveSBPct:        fixedFloat(roundTo1(r.Score.PassiveSBPct)),
+			SpecialPct:          fixedFloat(roundTo1(r.Score.SpecialPct)),
+			LeaderID:            r.TeamIDs[r.LeaderIdx],
+			CostumeOnlyLeaderID: costumePtr,
+			MemberIDs:           r.TeamIDs[:],
+		}
+		if len(stabilityLengths) > 0 {
+			team := [5]*Card{}
+			for ti, id := range r.TeamIDs {
+				team[ti] = cardMap[id]
+			}
+			entry.Stability = map[string]int{}
+			for _, sl := range stabilityLengths {
+				s := evaluateTeam(team, r.LeaderIdx, statScale, baseline, sl, overrideCostumeSkill)
+				entry.Stability[fmt.Sprintf("%g", sl)] = int(math.Round(s.UnitScore))
+			}
+		}
+		jsonResults[i] = entry
+	}
+
+	return JSONOutput{
+		TotalCombinations: totalCombos,
+		StatScale:         statScale,
+		Baseline:          baseline,
+		Results:           jsonResults,
+	}
+}

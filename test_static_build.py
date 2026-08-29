@@ -1,34 +1,54 @@
-"""スタンドアロン版 (dist/holosolve.html) の Playwright テスト
+"""WASM版 (dist/index.html) の Playwright テスト
 
-build_static.py で生成した HTML が正しく動作するか確認する。
-サーバー不要（file:// で開く）。
+build_static.py で生成した HTML が WASM ソルバーで正しく動作するか確認する。
+WASM の読み込みに HTTP サーバーが必要。
 
 実行前提:
     uv run playwright install chromium
+    cd solver_go && GOOS=js GOARCH=wasm go build -o ../dist/solver.wasm .
 
 実行:
     uv run python build_static.py
     uv run pytest test_static_build.py -v
 """
 
+import http.server
 import subprocess
+import threading
 from pathlib import Path
 
 import pytest
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).parent
-STATIC_HTML = ROOT / "dist" / "holosolve.html"
+DIST_DIR = ROOT / "dist"
+STATIC_HTML = DIST_DIR / "index.html"
+WASM_FILE = DIST_DIR / "solver.wasm"
+SERVER_PORT = 18765
 
 
 @pytest.fixture(scope="module", autouse=True)
-def build_static():
+def build_and_serve():
     result = subprocess.run(
         ["uv", "run", "python", "build_static.py"],
         cwd=ROOT, capture_output=True, text=True, timeout=60,
     )
     assert result.returncode == 0, f"build failed: {result.stderr}"
     assert STATIC_HTML.exists()
+    assert WASM_FILE.exists(), "solver.wasm not found in dist/ — run: cd solver_go && GOOS=js GOARCH=wasm go build -o ../dist/solver.wasm ."
+
+    class QuietHandler(http.server.SimpleHTTPRequestHandler):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, directory=str(DIST_DIR), **kwargs)
+
+        def log_message(self, format, *args):
+            pass
+
+    server = http.server.HTTPServer(("127.0.0.1", SERVER_PORT), QuietHandler)
+    t = threading.Thread(target=server.serve_forever, daemon=True)
+    t.start()
+    yield
+    server.shutdown()
 
 
 @pytest.fixture(scope="module")
@@ -46,7 +66,7 @@ def browser_context():
 
 def open_page(browser_context):
     page = browser_context.new_page()
-    page.goto(f"file://{STATIC_HTML.resolve()}")
+    page.goto(f"http://127.0.0.1:{SERVER_PORT}/index.html")
     page.wait_for_selector(".card", timeout=10000)
     page.evaluate("localStorage.clear()")
     page.reload()

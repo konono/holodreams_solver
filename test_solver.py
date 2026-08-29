@@ -486,20 +486,6 @@ def test_api_calibrate_card_potential_spec():
     assert "baseline" in data
 
 
-def test_js_constants_match_python():
-    from build_static import _generate_solver_js
-    from solver import (
-        ACTIVE_BASE, ACTIVE_DIVISOR, COSTUME_SS_RATE,
-        SONG_LENGTH, SUPPORT_SS_RATE, UNIT_SCORE_K,
-    )
-    js = _generate_solver_js()
-    assert f"const UNIT_SCORE_K = {UNIT_SCORE_K};" in js
-    assert f"const ACTIVE_BASE = {ACTIVE_BASE};" in js
-    assert f"const ACTIVE_DIVISOR = {ACTIVE_DIVISOR};" in js
-    assert f"const COSTUME_SS_RATE = {COSTUME_SS_RATE};" in js
-    assert f"const SUPPORT_SS_RATE = {SUPPORT_SS_RATE};" in js
-    assert f"const SONG_LENGTH = {SONG_LENGTH};" in js
-
 
 # --- recommend() ユニットテスト ---
 

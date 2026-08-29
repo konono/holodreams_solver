@@ -1,4 +1,5 @@
 [tools]
+go = "1.24"
 jq = "latest"
 node = "22"
 python = "3.13"
@@ -26,6 +27,13 @@ run = "uv run pytest test_e2e.py -v"
 [tasks.build]
 description = "スタンドアロン版HTML生成"
 run = "uv run python build_static.py"
+
+[tasks."build:solver"]
+description = "Goソルバービルド（CLI + WASM）"
+run = """
+cd solver_go && go build -o solver .
+cd solver_go && GOOS=js GOARCH=wasm go build -o ../dist/solver.wasm .
+"""
 
 [tasks.dev]
 description = "開発サーバー起動"

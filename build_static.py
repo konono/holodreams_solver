@@ -1,556 +1,20 @@
-"""cards.json + solver ロジックを埋め込んだスタンドアロン HTML を生成する。
-
-JS のソルバーロジックは solver.py の定数を動的に注入して生成される。
-定数の二重管理は発生しない。
+"""cards.json を埋め込み WASM ソルバーを使う HTML を生成する。
 
 Usage:
     uv run python build_static.py
-    # → dist/holosolve.html
+    # → dist/index.html (wasm_bridge.js + solver.wasm と一緒に配信)
 """
 
 import json
+import shutil
 from pathlib import Path
 
 from solver import (
-    ACTIVE_BASE,
-    ACTIVE_DIVISOR,
-    COSTUME_SS_RATE,
-    SONG_LENGTH,
-    SUPPORT_SS_RATE,
-    UNIT_SCORE_K,
     _load_card_data,
     load_cards,
 )
 
 ROOT = Path(__file__).parent
-
-
-def _generate_solver_js() -> str:
-    """solver.py の定数を注入した JS ソルバー（Web Worker用）を生成する"""
-    return f"""
-const UNIT_SCORE_K = {UNIT_SCORE_K};
-const ACTIVE_BASE = {ACTIVE_BASE};
-const ACTIVE_DIVISOR = {ACTIVE_DIVISOR};
-const COSTUME_SS_RATE = {COSTUME_SS_RATE};
-const SUPPORT_SS_RATE = {SUPPORT_SS_RATE};
-const SONG_LENGTH = {SONG_LENGTH};
-const MAX_LEVEL = 80;
-
-function resolveCard(card, potential, level, levelTables) {{
-  const pd = card.potential_data;
-  if (!pd) return card;
-  const pot = Math.max(0, Math.min(potential, pd.length - 1));
-  const snap = pd[pot];
-  if (!snap) return card;
-
-  const resolved = {{
-    id: card.id,
-    holodori_id: card.holodori_id || "",
-    character: card.character,
-    card_name: card.card_name || "",
-    rarity: card.rarity || 5,
-    type: card.type,
-    group: card.group,
-    potential: pot,
-    center_skill: snap.center_skill,
-    support_skill: snap.support_skill,
-    costume_skill: snap.costume_skill,
-    special_skill: snap.special_skill,
-  }};
-  if (card.variant) resolved.variant = card.variant;
-
-  const actualLv = Math.max(1, Math.min(level || MAX_LEVEL, MAX_LEVEL));
-  resolved.level = actualLv;
-
-  if (actualLv === 80) {{
-    resolved.stats = {{ ...(snap.ref_stats_lv80 || snap.stats) }};
-  }} else {{
-    const table = levelTables[card.card_level_group_id];
-    if (table) {{
-      const baseValue = table[String(actualLv)];
-      if (baseValue) {{
-        const permil = card.permil || {{}};
-        const bonus = snap.param_bonus_permil || 0;
-        const mul = 1000 + bonus;
-        function cd(a, b) {{ return Math.floor((a + b - 1) / b); }}
-        resolved.stats = {{
-          performance: cd(baseValue * (permil.performance || 333) * mul, 1000000),
-          technique: cd(baseValue * (permil.technique || 333) * mul, 1000000),
-          sense: cd(baseValue * (permil.sense || 334) * mul, 1000000),
-        }};
-      }} else {{
-        resolved.stats = {{ ...(snap.ref_stats_lv80 || snap.stats) }};
-      }}
-    }} else {{
-      resolved.stats = {{ ...(snap.ref_stats_lv80 || snap.stats) }};
-    }}
-  }}
-  return resolved;
-}}
-
-function countTypes(team) {{
-  const c = {{happy:0, pure:0, cute:0}};
-  for (const card of team) c[card.type]++;
-  return c;
-}}
-function countGroups(team) {{
-  const c = {{}};
-  for (const card of team) c[card.group] = (c[card.group]||0) + 1;
-  return c;
-}}
-function checkCond(cond, tc, gc, leader) {{
-  if (!cond) return true;
-  if (typeof cond === "string") return false;
-  if (cond.type === "type_count") return (tc[cond.type_name]||0) >= cond.min_count;
-  if (cond.type === "group_count") return (gc[cond.group]||0) >= cond.min_count;
-  if (cond.type === "leader_character" && leader) {{
-    const hid = leader.holodori_id || "";
-    const parts = hid.split("-");
-    const charId = parts.length >= 2 ? "chr-" + parts[1] : "";
-    return (cond.character_ids || []).includes(charId);
-  }}
-  if (cond.type === "leader_group" && leader) return leader.group === cond.group;
-  return false;
-}}
-function checkCenterTypeCond(cond, tc) {{
-  if (!cond) return false;
-  if (cond === "life_600" || cond === "combo_40") return false;
-  if (typeof cond === "string" && cond.endsWith("_2")) return (tc[cond.slice(0,-2)]||0) >= 2;
-  return false;
-}}
-
-function evaluateTeam(team, leaderIdx, songLen, overrideCostumeSkill) {{
-  const SLEN = songLen || SONG_LENGTH;
-  const leader = team[leaderIdx];
-  const tc = countTypes(team), gc = countGroups(team);
-
-  let cpr=0, ctr=0, csr=0, costumeSS=0;
-  const cs = overrideCostumeSkill || leader.costume_skill;
-  if (checkCond(cs.condition, tc, gc, leader)) {{
-    for (const e of cs.effects) {{
-      const v = e.value / 100;
-      if (e.stat === "score_support") {{ costumeSS += v; continue; }}
-      if (e.stat === "all" || e.stat === "performance") cpr += v;
-      if (e.stat === "all" || e.stat === "technique") ctr += v;
-      if (e.stat === "all" || e.stat === "sense") csr += v;
-    }}
-  }}
-
-  const supportBonus = new Array(team.length).fill(0);
-  let supportSS = 0;
-
-  for (let idx = 0; idx < team.length; idx++) {{
-    const card = team[idx], sk = card.support_skill;
-    const et = sk.effect_type;
-    if (!checkCond(sk.condition, tc, gc, leader)) continue;
-
-    if (et === "self_all_param" || et === "self_all_param_conditional") {{
-      const s = card.stats;
-      supportBonus[idx] += (s.performance + s.technique + s.sense) * sk.value / 100;
-    }} else if (et === "type_stat" || et === "type_stat_conditional") {{
-      let applied = 0;
-      for (let i = 0; i < team.length && applied < sk.target.count; i++) {{
-        if (team[i].type === sk.target.type_match) {{
-          supportBonus[i] += (team[i].stats[sk.stat]||0) * sk.value / 100;
-          applied++;
-        }}
-      }}
-    }} else if (et === "type_all_param") {{
-      let applied = 0;
-      for (let i = 0; i < team.length && applied < sk.target.count; i++) {{
-        if (team[i].type === sk.target.type_match) {{
-          const s = team[i].stats;
-          supportBonus[i] += (s.performance + s.technique + s.sense) * sk.value / 100;
-          applied++;
-        }}
-      }}
-    }} else if (et === "type_score_support") {{
-      const req = sk.target.count || 2;
-      if ((tc[sk.target.type_match]||0) >= req) supportSS += sk.value / 100;
-    }} else if (et === "group_stat" || et === "group_stat_conditional") {{
-      let applied = 0;
-      for (let i = 0; i < team.length && applied < sk.target.count; i++) {{
-        if (team[i].group === sk.target.group) {{
-          supportBonus[i] += (team[i].stats[sk.stat]||0) * sk.value / 100;
-          applied++;
-        }}
-      }}
-    }} else if (et === "group_score_support_conditional" || et === "group_score_support") {{
-      const req = sk.target.count || 2;
-      if ((gc[sk.target.group]||0) >= req) supportSS += sk.value / 100;
-    }} else if (et === "self_stat") {{
-      supportBonus[idx] += (card.stats[sk.stat]||0) * sk.value / 100;
-    }} else if (et === "group_all_param" || et === "group_all_param_conditional") {{
-      let applied = 0;
-      for (let i = 0; i < team.length && applied < sk.target.count; i++) {{
-        if (team[i].group === sk.target.group) {{
-          const ss = team[i].stats;
-          supportBonus[i] += (ss.performance + ss.technique + ss.sense) * sk.value / 100;
-          applied++;
-        }}
-      }}
-    }}
-  }}
-
-  let rateUpTimeAvg = 0;
-  for (const c of team) {{
-    const sp = c.special_skill;
-    if (sp && sp.skill_rate_up > 0)
-      rateUpTimeAvg += sp.skill_rate_up * 10 * sp.duration / SLEN;
-  }}
-
-  const activeMembers = [];
-  for (const card of team) {{
-    const cs2 = card.center_skill;
-    let su = cs2.score_up;
-    if (cs2.condition && checkCenterTypeCond(cs2.condition, tc))
-      su = cs2.conditional_score_up || su;
-    const baseProb = (cs2.activation_probability_permil || 1000) / 1000;
-    const boostedProb = Math.min(1, baseProb + rateUpTimeAvg / 1000);
-    const uptime = Math.min(1, cs2.duration / cs2.interval * boostedProb);
-    activeMembers.push({{ value: su, uptime }});
-  }}
-  activeMembers.sort((a,b) => b.value - a.value);
-  let activeSum = 0, probNoneHigher = 1;
-  for (const m of activeMembers) {{
-    activeSum += m.value * m.uptime * probNoneHigher;
-    probNoneHigher *= (1 - m.uptime);
-  }}
-  const activePct = ACTIVE_BASE + activeSum / ACTIVE_DIVISOR;
-  const costumeSbPct = costumeSS * 100 * COSTUME_SS_RATE;
-  const passiveSbPct = supportSS * 100 * SUPPORT_SS_RATE;
-  const specialPct = team.reduce((s,c) =>
-    s + (c.special_skill ? c.special_skill.score_support * c.special_skill.duration / SLEN : 0), 0);
-  const scoreBonus = activePct + costumeSbPct + passiveSbPct + specialPct;
-
-  const totalPerf = team.reduce((s,c) => s + c.stats.performance, 0);
-  const totalTech = team.reduce((s,c) => s + c.stats.technique, 0);
-  const totalSense = team.reduce((s,c) => s + c.stats.sense, 0);
-  const memberParams = totalPerf + totalTech + totalSense;
-  const costumeContrib = totalPerf*cpr + totalTech*ctr + totalSense*csr;
-  const supportContrib = supportBonus.reduce((a,b) => a+b, 0);
-  const totalPower = memberParams + costumeContrib + supportContrib;
-  const unitScore = totalPower * (1 + scoreBonus/100) * UNIT_SCORE_K;
-
-  return {{ unitScore, totalPower, scoreBonus: Math.round(scoreBonus*10)/10,
-    activePct: Math.round(activePct*10)/10, costumeSbPct: Math.round(costumeSbPct*10)/10,
-    passiveSbPct: Math.round(passiveSbPct*10)/10, specialPct: Math.round(specialPct*10)/10,
-    leaderIdx }};
-}}
-
-function permutations(arr) {{
-  if (arr.length <= 1) return [arr];
-  const result = [];
-  for (let i = 0; i < arr.length; i++) {{
-    const rest = arr.slice(0,i).concat(arr.slice(i+1));
-    for (const p of permutations(rest)) result.push([arr[i], ...p]);
-  }}
-  return result;
-}}
-
-function solveInternal(resolved, fixedLeaderId, topN, songLen, reportProgress, costumeOnlyLeaderId, allCards) {{
-  const SLEN = songLen || SONG_LENGTH;
-  let overrideCostumeSkill = null;
-  if (costumeOnlyLeaderId && allCards) {{
-    const costumeCard = allCards.find(c => c.id === costumeOnlyLeaderId);
-    if (costumeCard && costumeCard.potential_data && costumeCard.potential_data.length > 0) {{
-      overrideCostumeSkill = costumeCard.potential_data[0].costume_skill;
-    }}
-  }}
-  const charGroups = {{}};
-  for (const c of resolved) {{
-    if (!charGroups[c.character]) charGroups[c.character] = [];
-    charGroups[c.character].push(c);
-  }}
-  const charNames = Object.keys(charGroups).sort((a,b) =>
-    Math.max(...charGroups[b].map(c=>c.stats.performance+c.stats.technique+c.stats.sense)) -
-    Math.max(...charGroups[a].map(c=>c.stats.performance+c.stats.technique+c.stats.sense)));
-  const nChars = charNames.length;
-  if (nChars < 5) return {{ results: [], count: 0 }};
-
-  const results = [];
-  let count = 0;
-
-  const charSizes = charNames.map(ch => charGroups[ch].length);
-  let totalEst = 0;
-  if (fixedLeaderId) {{
-    const leaderCh = (resolved.find(c => c.id === fixedLeaderId) || {{}}).character;
-    const otherIdx = charNames.map((ch, i) => i).filter(i => charNames[i] !== leaderCh);
-    const m = otherIdx.length;
-    for (let a=0;a<m-3;a++) for (let b=a+1;b<m-2;b++) for (let ci=b+1;ci<m-1;ci++) for (let d=ci+1;d<m;d++)
-      totalEst += charSizes[otherIdx[a]] * charSizes[otherIdx[b]] * charSizes[otherIdx[ci]] * charSizes[otherIdx[d]];
-  }} else {{
-    for (let a=0;a<nChars-4;a++) for (let b=a+1;b<nChars-3;b++) for (let ci=b+1;ci<nChars-2;ci++) for (let d=ci+1;d<nChars-1;d++) for (let f=d+1;f<nChars;f++)
-      totalEst += charSizes[a] * charSizes[b] * charSizes[ci] * charSizes[d] * charSizes[f];
-  }}
-  const reportAt = reportProgress ? Math.max(1, Math.floor(totalEst / 40)) : 0;
-
-  function pushResult(r) {{
-    if (results.length < topN) {{ results.push(r); results.sort((a,b)=>b.unitScore-a.unitScore); }}
-    else if (r.unitScore > results[topN-1].unitScore) {{ results[topN-1]=r; results.sort((a,b)=>b.unitScore-a.unitScore); }}
-  }}
-
-  if (fixedLeaderId) {{
-    const leaderCard = resolved.find(c => c.id === fixedLeaderId);
-    if (!leaderCard) return {{ results: [], count: 0 }};
-    const leaderChar = leaderCard.character;
-    const otherChars = charNames.filter(ch => ch !== leaderChar);
-    const m = otherChars.length;
-    for (let a=0;a<m-3;a++) for (let b=a+1;b<m-2;b++) for (let ci=b+1;ci<m-1;ci++) for (let d=ci+1;d<m;d++) {{
-      const gs = [charGroups[otherChars[a]], charGroups[otherChars[b]], charGroups[otherChars[ci]], charGroups[otherChars[d]]];
-      for (const c0 of gs[0]) for (const c1 of gs[1]) for (const c2 of gs[2]) for (const c3 of gs[3]) {{
-        const team = [leaderCard, c0, c1, c2, c3];
-        count++;
-        const r = evaluateTeam(team, 0, SLEN, overrideCostumeSkill);
-        r.teamIds = team.map(x=>x.id);
-        pushResult(r);
-        if (reportAt && count % reportAt === 0) self.postMessage({{type:"progress",current:count,total:totalEst}});
-      }}
-    }}
-  }} else {{
-    for (let a=0;a<nChars-4;a++) for (let b=a+1;b<nChars-3;b++) for (let ci=b+1;ci<nChars-2;ci++) for (let d=ci+1;d<nChars-1;d++) for (let f=d+1;f<nChars;f++) {{
-      const gs = [charGroups[charNames[a]], charGroups[charNames[b]], charGroups[charNames[ci]], charGroups[charNames[d]], charGroups[charNames[f]]];
-      for (const c0 of gs[0]) for (const c1 of gs[1]) for (const c2 of gs[2]) for (const c3 of gs[3]) for (const c4 of gs[4]) {{
-        const team = [c0, c1, c2, c3, c4];
-        count++;
-        let best = null;
-        for (let li=0;li<5;li++) {{
-          const r = evaluateTeam(team, li, SLEN, overrideCostumeSkill);
-          if (!best || r.unitScore > best.unitScore) best = r;
-        }}
-        best.teamIds = team.map(x=>x.id);
-        pushResult(best);
-        if (reportAt && count % reportAt === 0) self.postMessage({{type:"progress",current:count,total:totalEst}});
-      }}
-    }}
-  }}
-
-  const resolvedMap = {{}};
-  for (const c of resolved) resolvedMap[c.id] = c;
-
-  for (let ri = 0; ri < results.length; ri++) {{
-    const r = results[ri];
-    const leaderCard = resolvedMap[r.teamIds[r.leaderIdx]];
-    const otherCards = r.teamIds.filter((_,i) => i !== r.leaderIdx).map(id => resolvedMap[id]);
-    const indices = otherCards.map((_,i) => i);
-    for (const perm of permutations(indices)) {{
-      const team = [leaderCard, ...perm.map(i => otherCards[i])];
-      const score = evaluateTeam(team, 0, SLEN, overrideCostumeSkill);
-      if (score.unitScore > r.unitScore) {{
-        score.teamIds = team.map(c => c.id);
-        score.leaderIdx = 0;
-        results[ri] = score;
-      }}
-    }}
-  }}
-  results.sort((a,b) => b.unitScore - a.unitScore);
-  return {{ results, count }};
-}}
-
-function formatSolveResults(solveResult, costumeOnlyLeaderId) {{
-  return solveResult.results.map((r,i) => ({{
-    rank:i+1, unit_score:Math.round(r.unitScore), total_power:Math.round(r.totalPower),
-    score_bonus:r.scoreBonus, active_pct:r.activePct, costume_sb_pct:r.costumeSbPct,
-    passive_sb_pct:r.passiveSbPct, special_pct:r.specialPct,
-    leader_id:r.teamIds[r.leaderIdx], costume_only_leader_id: costumeOnlyLeaderId || null, member_ids:r.teamIds
-  }}));
-}}
-
-self.onmessage = function(e) {{
-  const d = e.data;
-  if (d.action === "recommend") {{
-    const {{ allCards, ownedSpecs, topN, levelTables, songLength, fixedLeaderId, costumeOnlyLeaderId, acquireCount: rawAC }} = d;
-    const SLEN = songLength || SONG_LENGTH;
-    const lt = levelTables || {{}};
-    const fli = fixedLeaderId || null;
-    const acquireCount = Math.max(1, Math.min(rawAC || 1, 5));
-
-    const ownedResolved = ownedSpecs.map(s => {{ const raw = allCards.find(c => c.id === s.id); return raw ? resolveCard(raw, s.potential, s.level, lt) : null; }}).filter(Boolean);
-    const baseResult = solveInternal(ownedResolved, fli, 1, SLEN, false, costumeOnlyLeaderId || null, allCards);
-    const baseScore = baseResult.results.length > 0 ? Math.round(baseResult.results[0].unitScore) : 0;
-
-    const ownedMap = {{}};
-    for (const s of ownedSpecs) ownedMap[s.id] = s;
-
-    const candidates = [];
-    for (const card of allCards) {{
-      if (!ownedMap[card.id]) {{
-        candidates.push({{ card_id: card.id, card_name: card.card_name || "", character: card.character,
-          action: "acquire", current_potential: null, target_potential: 0, cost: 1 }});
-      }} else {{
-        const cur = ownedMap[card.id].potential;
-        const maxPot = (card.potential_data || []).length - 1;
-        for (let target = cur + 1; target <= maxPot; target++) {{
-          candidates.push({{ card_id: card.id, card_name: card.card_name || "", character: card.character,
-            action: "uncap", current_potential: cur, target_potential: target, cost: target - cur }});
-        }}
-      }}
-    }}
-
-    function applyCandidate(specs, cand) {{
-      const s = specs.map(x => ({{ ...x }}));
-      if (cand.action === "acquire") {{
-        s.push({{ id: cand.card_id, potential: 0, level: MAX_LEVEL }});
-      }} else {{
-        const idx = s.findIndex(x => x.id === cand.card_id);
-        if (idx >= 0) s[idx] = {{ ...s[idx], potential: cand.target_potential }};
-      }}
-      return s;
-    }}
-
-    function resolveSpecs(specs) {{
-      return specs.map(s => {{
-        const raw = allCards.find(c => c.id === s.id);
-        return raw ? resolveCard(raw, s.potential, s.level, lt) : null;
-      }}).filter(Boolean);
-    }}
-
-    // Phase 1: cost=1 の候補を1枚ずつ評価
-    const singleResults = [];
-    const effectiveCardIds = new Set();
-    for (let ci = 0; ci < candidates.length; ci++) {{
-      if (candidates[ci].cost !== 1) continue;
-      const trialSpecs = applyCandidate(ownedSpecs, candidates[ci]);
-      const trialResult = solveInternal(resolveSpecs(trialSpecs), fli, 1, SLEN, false, costumeOnlyLeaderId || null, allCards);
-      if (trialResult.results.length > 0) {{
-        const best = trialResult.results[0];
-        const newScore = Math.round(best.unitScore);
-        const delta = newScore - baseScore;
-        if (delta > 0) {{
-          singleResults.push({{ idx: ci, delta, newScore, best }});
-          effectiveCardIds.add(candidates[ci].card_id);
-        }}
-      }}
-      if ((ci + 1) % 5 === 0 || ci === candidates.length - 1) {{
-        self.postMessage({{ type: "progress", current: ci + 1, total: candidates.length + (acquireCount > 1 ? 100 : 0) }});
-      }}
-    }}
-    singleResults.sort((a,b) => b.delta - a.delta);
-
-    let recResults = [];
-
-    if (acquireCount === 1) {{
-      for (const sr of singleResults.slice(0, topN)) {{
-        const cand = candidates[sr.idx];
-        const best = sr.best;
-        recResults.push({{
-          cards: [cand], new_score: sr.newScore, delta: sr.delta,
-          best_team: {{ leader_id: best.teamIds[best.leaderIdx], member_ids: best.teamIds }},
-        }});
-      }}
-    }} else {{
-      const multiUncap = [];
-      for (let ci = 0; ci < candidates.length; ci++) {{
-        const c = candidates[ci];
-        if (c.cost > 1 && c.cost <= acquireCount && effectiveCardIds.has(c.card_id)) {{
-          multiUncap.push(ci);
-        }}
-      }}
-      const singleCands = singleResults.filter(sr => sr.delta > 0).map(sr => sr.idx);
-      const maxSingle = Math.max(0, 20 - multiUncap.length);
-      const shortlist = [...singleCands.slice(0, maxSingle), ...multiUncap];
-
-      function genCombosByCost(items, totalCost, start) {{
-        const results = [];
-        if (totalCost === 0) {{ results.push([]); return results; }}
-        for (let i = start; i < items.length; i++) {{
-          const c = candidates[items[i]].cost;
-          if (c <= totalCost) {{
-            const rest = genCombosByCost(items, totalCost - c, i + 1);
-            for (const r of rest) results.push([items[i], ...r]);
-          }}
-        }}
-        return results;
-      }}
-      const combos = genCombosByCost(shortlist, acquireCount, 0);
-
-      const phase2Base = candidates.length;
-      for (let ci = 0; ci < combos.length; ci++) {{
-        const comboCards = combos[ci].map(i => candidates[i]);
-        const cardIds = comboCards.map(c => c.card_id);
-        if (new Set(cardIds).size !== cardIds.length) continue;
-        const acqChars = comboCards.filter(c => c.action === "acquire").map(c => c.character);
-        if (new Set(acqChars).size !== acqChars.length) continue;
-        let trialSpecs = [...ownedSpecs.map(s => ({{ ...s }}))];
-        for (const cand of comboCards) trialSpecs = applyCandidate(trialSpecs, cand);
-        const trialResult = solveInternal(resolveSpecs(trialSpecs), fli, 1, SLEN, false, costumeOnlyLeaderId || null, allCards);
-        if (trialResult.results.length > 0) {{
-          const newScore = Math.round(trialResult.results[0].unitScore);
-          const delta = newScore - baseScore;
-          if (delta > 0) {{
-            const best = trialResult.results[0];
-            recResults.push({{
-              cards: comboCards, new_score: newScore, delta,
-              best_team: {{ leader_id: best.teamIds[best.leaderIdx], member_ids: best.teamIds }},
-            }});
-          }}
-        }}
-        if ((ci + 1) % 10 === 0 || ci === combos.length - 1) {{
-          self.postMessage({{ type: "progress", current: phase2Base + ci + 1, total: phase2Base + combos.length }});
-        }}
-      }}
-      recResults.sort((a,b) => b.delta - a.delta);
-      recResults = recResults.slice(0, topN);
-    }}
-
-    recResults.forEach((r, i) => r.rank = i + 1);
-    self.postMessage({{ type: "recommend_done", base_score: baseScore, acquire_count: acquireCount, recommendations: recResults }});
-  }} else {{
-    const {{ cards, allCards: allCardsIn, fixedLeaderId, costumeOnlyLeaderId, sweepCostumes, topN, potentials, levels, levelTables, songLength, stabilityLengths }} = d;
-    const allCards = allCardsIn || cards;
-    const SLEN = songLength || SONG_LENGTH;
-    const lt = levelTables || {{}};
-    const resolved = cards.map(c => {{
-      const pot = potentials[c.id] ?? 0;
-      const lv = levels[c.id] ?? MAX_LEVEL;
-      return resolveCard(c, pot, lv, lt);
-    }});
-
-    let formatted;
-    let totalCount = 0;
-
-    if (sweepCostumes && !fixedLeaderId && !costumeOnlyLeaderId) {{
-      let merged = [];
-      const sweepTargets = cards;
-      for (const card of sweepTargets) {{
-        const r = solveInternal(resolved, null, topN, SLEN, false, card.id, allCards);
-        totalCount += r.count;
-        merged.push(...formatSolveResults(r, card.id));
-      }}
-      merged.sort((a, b) => b.unit_score - a.unit_score);
-      merged = merged.slice(0, topN);
-      merged.forEach((r, i) => r.rank = i + 1);
-      formatted = merged;
-    }} else {{
-      const result = solveInternal(resolved, fixedLeaderId || null, topN, SLEN, true, costumeOnlyLeaderId || null, allCards);
-      totalCount = result.count;
-      formatted = formatSolveResults(result, costumeOnlyLeaderId || null);
-    }}
-
-    if (stabilityLengths && stabilityLengths.length > 0) {{
-      const resolvedMap = {{}};
-      for (const c of resolved) resolvedMap[c.id] = c;
-      for (const r of formatted) {{
-        let ocs = null;
-        const clid = r.costume_only_leader_id;
-        if (clid) {{
-          const cc = allCards.find(c => c.id === clid);
-          if (cc && cc.potential_data && cc.potential_data.length > 0) ocs = cc.potential_data[0].costume_skill;
-        }}
-        const team = r.member_ids.map(id => resolvedMap[id]);
-        const li = r.member_ids.indexOf(r.leader_id);
-        const stability = {{}};
-        for (const sl of stabilityLengths) {{
-          const s = evaluateTeam(team, Math.max(0, li), sl, ocs);
-          stability[sl] = Math.round(s.unitScore);
-        }}
-        r.stability = stability;
-      }}
-    }}
-    self.postMessage({{ type:"done", results: formatted, totalCombinations: totalCount }});
-  }}
-}};
-"""
 
 
 def build():
@@ -565,8 +29,6 @@ def build():
         with open(songs_path, encoding="utf-8") as f:
             songs = json.load(f).get("songs", [])
     songs_json = json.dumps(songs, ensure_ascii=False)
-    solver_js = _generate_solver_js()
-
     with open(ROOT / "index.html", encoding="utf-8") as f:
         template = f.read()
 
@@ -593,7 +55,7 @@ def build():
 <div class="container">
   <header>
     <h1>HoloSolve</h1>
-    <p>手持ちの星5カードを選択して最強の5人編成を探索（スタンドアロン版）</p>
+    <p>手持ちの星5カードを選択して最強の5人編成を探索（WASM版）</p>
   </header>
 
   <div class="controls">
@@ -1078,7 +540,23 @@ document.getElementById("costumeSelect").addEventListener("change", () => {{
   updateCounter();
 }});
 
-const workerBlob = URL.createObjectURL(new Blob([{json.dumps(solver_js)}], {{type:"application/javascript"}}));
+const CARDS_FILE_JSON = JSON.stringify({{cards: CARDS, level_tables: LEVEL_TABLES}});
+
+function createWasmWorker() {{
+  return new Promise((resolve, reject) => {{
+    const w = new Worker("wasm_bridge.js");
+    w.onmessage = function(ev) {{
+      if (ev.data.type === "init_done") {{
+        w.onmessage = null;
+        resolve(w);
+      }} else if (ev.data.type === "error") {{
+        reject(new Error(ev.data.message));
+      }}
+    }};
+    w.onerror = reject;
+    w.postMessage({{ type: "init", cardsJSON: CARDS_FILE_JSON }});
+  }});
+}}
 
 let fabMode = "solve";
 let isComputing = false;
@@ -1149,9 +627,11 @@ function doSolve() {{
     levels[c.id] = getCardLevel(c.id);
   }}
 
-  const w = new Worker(workerBlob);
   const selSong = document.getElementById("songSelect").value;
-  w.postMessage({{ cards: owned, allCards: CARDS, fixedLeaderId, costumeOnlyLeaderId, sweepCostumes: !costumeVal && selected.size > 0, topN: parseInt(document.getElementById("topN").value), potentials, levels, levelTables: LEVEL_TABLES, songLength: selSong ? parseFloat(selSong) : null, stabilityLengths: document.getElementById("chkStability").checked ? [90, 120, 135, 150, 166] : null }});
+  const cardSpecs = owned.map(c => ({{ id: c.id, potential: getCardPotential(c.id), level: getCardLevel(c.id) }}));
+
+  createWasmWorker().then(w => {{
+    w.postMessage({{ type: "solve", cards: cardSpecs, fixedLeaderId, costumeOnlyLeaderId, sweepCostumes: !costumeVal && selected.size > 0, topN: parseInt(document.getElementById("topN").value), songLength: selSong ? parseFloat(selSong) : null, stabilityLengths: document.getElementById("chkStability").checked ? [90, 120, 135, 150, 166] : null }});
 
   w.onerror = function() {{
     w.terminate();
@@ -1163,6 +643,7 @@ function doSolve() {{
     setFabMode("back");
   }};
   w.onmessage = function(ev) {{
+    if (ev.data.type === "error") {{ w.onerror(); return; }}
     if (ev.data.type === "progress") {{
       const pct = Math.min(100, ev.data.current / ev.data.total * 100);
       document.getElementById("progressFill").style.width = pct + "%";
@@ -1182,6 +663,14 @@ function doSolve() {{
       setFabMode("back");
     }}
   }};
+  }}).catch(() => {{
+    isComputing = false;
+    btn.disabled = false; btnRec.disabled = selected.size < 5; btn.textContent = "最強編成を探す";
+    pa.classList.remove("visible");
+    expandResults();
+    document.getElementById("resultsArea").innerHTML = '<div class="empty-msg">WASMの初期化に失敗しました。</div>';
+    setFabMode("back");
+  }});
 }}
 
 document.getElementById("btnSolve").addEventListener("click", doSolve);
@@ -1218,16 +707,14 @@ function doRecommend() {{
   const recMemberInclude = document.getElementById("chkMemberInclude").checked;
   const selSong = document.getElementById("songSelect").value;
 
-  const w = new Worker(workerBlob);
+  createWasmWorker().then(w => {{
   w.postMessage({{
-    action: "recommend",
-    allCards: CARDS,
-    ownedSpecs,
+    type: "recommend",
+    cards: ownedSpecs,
     fixedLeaderId: recCostumeVal && recMemberInclude ? recCostumeVal : null,
     costumeOnlyLeaderId: recCostumeVal && !recMemberInclude ? recCostumeVal : null,
     acquireCount: parseInt(document.getElementById("acquireCount").value),
     topN: parseInt(document.getElementById("recommendTopN").value),
-    levelTables: LEVEL_TABLES,
     songLength: selSong ? parseFloat(selSong) : null,
   }});
 
@@ -1241,6 +728,7 @@ function doRecommend() {{
     document.getElementById("resultsArea").innerHTML = '<div class="empty-msg">計算中にエラーが発生しました。</div>';
   }};
   w.onmessage = function(ev) {{
+    if (ev.data.type === "error") {{ w.onerror(); return; }}
     if (ev.data.type === "progress") {{
       const pct = Math.min(100, ev.data.current / ev.data.total * 100);
       document.getElementById("progressFill").style.width = pct + "%";
@@ -1258,6 +746,14 @@ function doRecommend() {{
       document.getElementById("resultsWrapper").scrollIntoView({{ behavior: "smooth" }});
     }}
   }};
+  }}).catch(() => {{
+    isComputing = false;
+    btn.disabled = selected.size < 5; btnSolve.disabled = selected.size > 0 && selected.size < 5; btn.textContent = "強化レコメンド";
+    pa.classList.remove("visible");
+    setFabMode("solve");
+    expandResults();
+    document.getElementById("resultsArea").innerHTML = '<div class="empty-msg">WASMの初期化に失敗しました。</div>';
+  }});
 }}
 
 function renderRecommendations(data) {{
@@ -1571,12 +1067,13 @@ renderHistory();
 
     dist = ROOT / "dist"
     dist.mkdir(exist_ok=True)
-    out = dist / "holosolve.html"
+    out = dist / "index.html"
     out.write_text(static_html, encoding="utf-8")
+    for name in ("wasm_bridge.js", "wasm_exec.js"):
+        src = ROOT / name
+        if src.exists():
+            shutil.copy2(src, dist / name)
     print(f"Built: {out} ({out.stat().st_size / 1024:.0f} KB)")
-    print(f"Constants from solver.py: UNIT_SCORE_K={UNIT_SCORE_K}, ACTIVE_BASE={ACTIVE_BASE}, "
-          f"ACTIVE_DIVISOR={ACTIVE_DIVISOR}, COSTUME_SS_RATE={COSTUME_SS_RATE}, "
-          f"SUPPORT_SS_RATE={SUPPORT_SS_RATE}, SONG_LENGTH={SONG_LENGTH}")
 
 
 if __name__ == "__main__":
