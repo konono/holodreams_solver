@@ -498,7 +498,8 @@ def recommend(
         lv = spec.get("level") if isinstance(spec, dict) else None
         owned_specs[cid] = {"id": cid, "potential": pot, "level": lv}
 
-    solve_kwargs = dict(top_n=1, stat_scale=stat_scale, baseline=baseline, fixed_leader_id=fixed_leader_id, costume_only_leader_id=costume_only_leader_id, song_length=song_length)
+    sweep = not fixed_leader_id and not costume_only_leader_id
+    solve_kwargs = dict(top_n=1, stat_scale=stat_scale, baseline=baseline, fixed_leader_id=fixed_leader_id, costume_only_leader_id=costume_only_leader_id, song_length=song_length, sweep_costumes=sweep)
 
     base_result = solve(list(owned_specs.values()), **solve_kwargs)
     base_score = base_result["results"][0]["unit_score"] if base_result["results"] else 0

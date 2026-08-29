@@ -481,12 +481,13 @@ RECOMMEND_CARDS_7 = [
     "sakura_miko_5", "shirakami_fubuki_5", "natsuiro_matsuri_5",
     "akai_haato_5",
 ]
+RECOMMEND_KWARGS = {"costume_only_leader_id": "tokino_sora_5"}
 
 
 def test_recommend_acquire1_no_multi_uncap():
     """acquire_count=1 では cost=1 の候補のみ"""
     cards = [{"id": cid, "potential": 0} for cid in RECOMMEND_CARDS_7]
-    result = recommend(cards, top_n=10, acquire_count=1)
+    result = recommend(cards, top_n=10, acquire_count=1, **RECOMMEND_KWARGS)
     for r in result["recommendations"]:
         for c in r["cards"]:
             assert c.get("cost", 1) == 1, f"acquire_count=1 should only have cost=1, got {c}"
@@ -495,7 +496,7 @@ def test_recommend_acquire1_no_multi_uncap():
 def test_recommend_acquire2_has_multi_uncap():
     """acquire_count=2 で同一カード複数凸（cost=2）が候補に含まれる"""
     cards = [{"id": cid, "potential": 0} for cid in RECOMMEND_CARDS_7]
-    result = recommend(cards, top_n=10, acquire_count=2)
+    result = recommend(cards, top_n=10, acquire_count=2, **RECOMMEND_KWARGS)
     has_multi = any(
         c["cost"] > 1
         for r in result["recommendations"]
@@ -507,7 +508,7 @@ def test_recommend_acquire2_has_multi_uncap():
 def test_recommend_acquire2_cost_sum():
     """各レコメンドの合計コストが acquire_count と一致する"""
     cards = [{"id": cid, "potential": 0} for cid in RECOMMEND_CARDS_7]
-    result = recommend(cards, top_n=10, acquire_count=2)
+    result = recommend(cards, top_n=10, acquire_count=2, **RECOMMEND_KWARGS)
     for r in result["recommendations"]:
         total_cost = sum(c["cost"] for c in r["cards"])
         assert total_cost == 2, f"Expected total cost=2, got {total_cost}: {r['cards']}"
@@ -516,7 +517,7 @@ def test_recommend_acquire2_cost_sum():
 def test_recommend_acquire3_cost_sum():
     """acquire_count=3 でも合計コストが一致する"""
     cards = [{"id": cid, "potential": 0} for cid in RECOMMEND_CARDS_7]
-    result = recommend(cards, top_n=10, acquire_count=3)
+    result = recommend(cards, top_n=10, acquire_count=3, **RECOMMEND_KWARGS)
     for r in result["recommendations"]:
         total_cost = sum(c["cost"] for c in r["cards"])
         assert total_cost == 3, f"Expected total cost=3, got {total_cost}: {r['cards']}"
@@ -525,7 +526,7 @@ def test_recommend_acquire3_cost_sum():
 def test_recommend_no_duplicate_card_ids():
     """同一 card_id がコンボ内に重複しない"""
     cards = [{"id": cid, "potential": 0} for cid in RECOMMEND_CARDS_7]
-    result = recommend(cards, top_n=10, acquire_count=2)
+    result = recommend(cards, top_n=10, acquire_count=2, **RECOMMEND_KWARGS)
     for r in result["recommendations"]:
         card_ids = [c["card_id"] for c in r["cards"]]
         assert len(card_ids) == len(set(card_ids)), f"Duplicate card_ids: {card_ids}"
@@ -542,7 +543,7 @@ def test_recommend_multi_uncap_shortlist_preserved():
             cards.append({"id": c["id"], "potential": 0})
         if len(cards) >= 9:
             break
-    result = recommend(cards, top_n=20, acquire_count=2)
+    result = recommend(cards, top_n=20, acquire_count=2, **RECOMMEND_KWARGS)
     has_multi = any(
         c["cost"] > 1
         for r in result["recommendations"]
@@ -554,6 +555,6 @@ def test_recommend_multi_uncap_shortlist_preserved():
 def test_recommend_delta_positive():
     """全レコメンドの delta が正"""
     cards = [{"id": cid, "potential": 0} for cid in RECOMMEND_CARDS_7]
-    result = recommend(cards, top_n=10, acquire_count=2)
+    result = recommend(cards, top_n=10, acquire_count=2, **RECOMMEND_KWARGS)
     for r in result["recommendations"]:
         assert r["delta"] > 0, f"Expected positive delta, got {r['delta']}"
