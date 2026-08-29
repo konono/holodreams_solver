@@ -655,6 +655,10 @@ def solve(
         costume_card = card_map[costume_only_leader_id]
         costume_pot_data = costume_card.get("potential_data", [{}])
         override_costume_skill = costume_pot_data[0].get("costume_skill") if costume_pot_data else None
+        owned = [c for c in owned if c["id"] != costume_only_leader_id]
+
+    if fixed_leader_id and costume_only_leader_id:
+        costume_only_leader_id = None
 
     if len(owned) < 5:
         return {"total_combinations": 0, "results": []}

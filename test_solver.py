@@ -129,6 +129,36 @@ def test_solve_rejects_unowned_leader():
     assert r["total_combinations"] == 0
 
 
+def test_solve_costume_only_excludes_card_from_team():
+    cards = [
+        {"id": "nakiri_ayame_5", "potential": 4, "level": 80},
+        {"id": "houshou_marine_5", "potential": 4, "level": 80},
+        {"id": "momosuzu_nene_5", "potential": 4, "level": 80},
+        {"id": "hakui_koyori_5", "potential": 4, "level": 80},
+        {"id": "shirogane_noel_swim_5", "potential": 4, "level": 80},
+        {"id": "oozora_subaru_5", "potential": 4, "level": 80},
+    ]
+    r = solve(cards, costume_only_leader_id="houshou_marine_5")
+    assert r["total_combinations"] > 0
+    for x in r["results"]:
+        assert "houshou_marine_5" not in x["member_ids"], "costume_only card should not be in team"
+        assert x["costume_only_leader_id"] == "houshou_marine_5"
+
+
+def test_solve_costume_only_with_fixed_leader_ignores_costume_only():
+    """fixed_leader_id と costume_only_leader_id 両方指定時は fixed が優先"""
+    cards = [
+        {"id": "nakiri_ayame_5", "potential": 4, "level": 80},
+        {"id": "houshou_marine_5", "potential": 4, "level": 80},
+        {"id": "momosuzu_nene_5", "potential": 4, "level": 80},
+        {"id": "hakui_koyori_5", "potential": 4, "level": 80},
+        {"id": "shirogane_noel_swim_5", "potential": 4, "level": 80},
+        {"id": "oozora_subaru_5", "potential": 4, "level": 80},
+    ]
+    r = solve(cards, fixed_leader_id="nakiri_ayame_5", costume_only_leader_id="houshou_marine_5")
+    assert all(x["leader_id"] == "nakiri_ayame_5" for x in r["results"])
+
+
 def test_same_character_excluded(card_map):
     cards = [
         {"id": "shirogane_noel_5", "potential": 4, "level": 80},

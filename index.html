@@ -661,7 +661,8 @@ function updateLeaderDropdown() {
   const sel = document.getElementById("fixedLeader");
   const chk = document.getElementById("chkCostumeOnly");
   const current = sel.value;
-  const pool = CARDS;
+  const costumeOnly = document.getElementById("chkCostumeOnly").checked;
+  const pool = costumeOnly ? CARDS : (selected.size > 0 ? CARDS.filter(c => selected.has(c.id)) : CARDS);
   sel.innerHTML = '<option value="">リーダー自動選択</option>';
   const charOrder = [];
   const byChar = {};
@@ -841,6 +842,9 @@ document.getElementById("fixedLeader").addEventListener("change", () => {
   chk.disabled = !document.getElementById("fixedLeader").value;
   if (chk.disabled) chk.checked = false;
   updateCounter();
+});
+document.getElementById("chkCostumeOnly").addEventListener("change", () => {
+  updateLeaderDropdown();
 });
 
 let statScale = parseFloat(localStorage.getItem("holodri_stat_scale") || "1");
@@ -1095,6 +1099,9 @@ async function doRecommend() {
   document.getElementById("resultsArea").innerHTML = "";
 
   try {
+    if (document.getElementById("chkCostumeOnly").checked) {
+      throw new Error("「衣装のみ」モードではレコメンドは使用できません。チェックを外してください。");
+    }
     const cardSpecs = [...selected].map(id => ({ id, potential: getCardPotential(id), level: getCardLevel(id) }));
     const res = await fetch("/api/recommend", {
       method: "POST",
