@@ -31,6 +31,12 @@
       "score_coefficient_permil": 5
     },
     {
+      "id": "m0359",
+      "name": "Backseat",
+      "playing_seconds": 149,
+      "score_coefficient_permil": 6
+    },
+    {
       "id": "m0319",
       "name": "Bling-Bang-Bang-Born",
       "playing_seconds": 120,
@@ -361,6 +367,12 @@
       "score_coefficient_permil": 10
     },
     {
+      "id": "m0338",
+      "name": "Say!ファンファーレ!",
+      "playing_seconds": 107,
+      "score_coefficient_permil": 5
+    },
+    {
       "id": "m0153",
       "name": "Secret Garden",
       "playing_seconds": 137,
@@ -430,6 +442,12 @@
       "id": "m0044",
       "name": "WAO!!(2025 ver.)",
       "playing_seconds": 159,
+      "score_coefficient_permil": 7
+    },
+    {
+      "id": "m0342",
+      "name": "We are GAMERS !!!!",
+      "playing_seconds": 166,
       "score_coefficient_permil": 7
     },
     {
@@ -539,6 +557,12 @@
       "name": "ぎゅーどんかーにばる！",
       "playing_seconds": 116,
       "score_coefficient_permil": 4
+    },
+    {
+      "id": "m0341",
+      "name": "ころねの最凶天災☆わんだふぉー♡わーるど",
+      "playing_seconds": 104,
+      "score_coefficient_permil": 5
     },
     {
       "id": "m0150",
@@ -671,6 +695,12 @@
       "name": "オーバード",
       "playing_seconds": 112,
       "score_coefficient_permil": 4
+    },
+    {
+      "id": "m0340",
+      "name": "カミサマ・ネコサマ",
+      "playing_seconds": 139,
+      "score_coefficient_permil": 5
     },
     {
       "id": "m0191",
@@ -923,6 +953,12 @@
       "name": "夏宿り",
       "playing_seconds": 114,
       "score_coefficient_permil": 5
+    },
+    {
+      "id": "m0339",
+      "name": "夜光通信",
+      "playing_seconds": 144,
+      "score_coefficient_permil": 9
     },
     {
       "id": "m0300",
