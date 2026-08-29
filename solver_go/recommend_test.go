@@ -168,14 +168,28 @@ func TestRecommendMultiAcquire(t *testing.T) {
 	result := recommend(owned, cf.Cards, 5, 2, 1.0, 0.0, 192.0, "", "", false, cf)
 	elapsed := time.Since(start)
 
-	t.Logf("BaseScore: %d, AcquireCount: %d", result.BaseScore, result.AcquireCount)
-	t.Logf("Recommendations: %d, Elapsed: %v", len(result.Recommendations), elapsed)
-	for _, r := range result.Recommendations {
-		names := make([]string, len(r.Cards))
-		for i, c := range r.Cards {
-			names[i] = c.CardName
+	t.Logf("BaseScore: %d, AcquireCount: %d, Elapsed: %v", result.BaseScore, result.AcquireCount, elapsed)
+
+	type goldenCombo struct {
+		delta int
+		score int
+	}
+	expected := []goldenCombo{
+		{32568, 837681},
+		{27985, 833098},
+		{27525, 832638},
+		{25522, 830635},
+		{24291, 829404},
+	}
+	if len(result.Recommendations) != len(expected) {
+		t.Fatalf("got %d recommendations, want %d", len(result.Recommendations), len(expected))
+	}
+	for i, exp := range expected {
+		r := result.Recommendations[i]
+		if r.Delta != exp.delta || r.NewScore != exp.score {
+			t.Errorf("rank %d: got delta=%d score=%d, want delta=%d score=%d",
+				i+1, r.Delta, r.NewScore, exp.delta, exp.score)
 		}
-		t.Logf("  #%d: %v delta=%d score=%d", r.Rank, names, r.Delta, r.NewScore)
 	}
 }
 
