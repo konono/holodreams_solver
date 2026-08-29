@@ -663,12 +663,19 @@ function updateLeaderDropdown() {
   const current = sel.value;
   const pool = CARDS;
   sel.innerHTML = '<option value="">リーダー自動選択</option>';
-  const sorted = [...pool].sort((a, b) => a.character.localeCompare(b.character, "ja"));
-  for (const c of sorted) {
-    const opt = document.createElement("option");
-    opt.value = c.id;
-    opt.textContent = c.character + " / " + c.card_name;
-    sel.appendChild(opt);
+  const charOrder = [];
+  const byChar = {};
+  for (const c of pool) {
+    if (!byChar[c.character]) { charOrder.push(c.character); byChar[c.character] = []; }
+    byChar[c.character].push(c);
+  }
+  for (const char of charOrder) {
+    for (const c of byChar[char]) {
+      const opt = document.createElement("option");
+      opt.value = c.id;
+      opt.textContent = c.character + " / " + c.card_name;
+      sel.appendChild(opt);
+    }
   }
   if (pool.some(c => c.id === current)) sel.value = current;
   chk.disabled = !sel.value;
