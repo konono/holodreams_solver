@@ -146,7 +146,7 @@ def test_solve_costume_only_excludes_card_from_team():
 
 
 def test_solve_costume_only_with_fixed_leader_ignores_costume_only():
-    """fixed_leader_id と costume_only_leader_id 両方指定時は fixed が優先"""
+    """fixed_leader_id と costume_only_leader_id 両方指定時は fixed が優先し、costume_only の副作用がない"""
     cards = [
         {"id": "nakiri_ayame_5", "potential": 4, "level": 80},
         {"id": "houshou_marine_5", "potential": 4, "level": 80},
@@ -155,8 +155,11 @@ def test_solve_costume_only_with_fixed_leader_ignores_costume_only():
         {"id": "shirogane_noel_swim_5", "potential": 4, "level": 80},
         {"id": "oozora_subaru_5", "potential": 4, "level": 80},
     ]
-    r = solve(cards, fixed_leader_id="nakiri_ayame_5", costume_only_leader_id="houshou_marine_5")
-    assert all(x["leader_id"] == "nakiri_ayame_5" for x in r["results"])
+    r_fixed = solve(cards, fixed_leader_id="nakiri_ayame_5")
+    r_both = solve(cards, fixed_leader_id="nakiri_ayame_5", costume_only_leader_id="houshou_marine_5")
+    assert all(x["leader_id"] == "nakiri_ayame_5" for x in r_both["results"])
+    assert r_fixed["results"][0]["unit_score"] == r_both["results"][0]["unit_score"], \
+        "Both-specified should produce same score as fixed-only"
 
 
 def test_same_character_excluded(card_map):
