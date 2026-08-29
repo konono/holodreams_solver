@@ -139,7 +139,6 @@ class RecommendRequest(BaseModel):
     cards: list[CardSpec]
     stat_scale: float = 1.0
     baseline: float = 0
-    fixed_leader_id: str | None = None
     costume_only_leader_id: str | None = None
     top_n: int = 5
     acquire_count: int = 1
