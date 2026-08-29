@@ -328,8 +328,35 @@ def test_solve_no_stability_by_default():
     assert "stability" not in r["results"][0]
 
 
+def test_sweep_fast_matches_naive():
+    """高速sweepと個別solve×マージの結果が一致する"""
+    cards = [
+        {"id": "nakiri_ayame_5", "potential": 0},
+        {"id": "houshou_marine_5", "potential": 0},
+        {"id": "momosuzu_nene_5", "potential": 0},
+        {"id": "hakui_koyori_5", "potential": 0},
+        {"id": "shirogane_noel_swim_5", "potential": 0},
+        {"id": "oozora_subaru_5", "potential": 0},
+    ]
+    fast = solve(cards, top_n=10, sweep_costumes=True)
+    naive_results = []
+    for spec in cards:
+        r = solve(cards, top_n=10, costume_only_leader_id=spec["id"])
+        naive_results.extend(r["results"])
+    naive_results.sort(key=lambda x: x["unit_score"], reverse=True)
+    naive_results = naive_results[:10]
+
+    assert len(fast["results"]) == len(naive_results), f"Result count mismatch: {len(fast['results'])} vs {len(naive_results)}"
+    fast_scores = [r["unit_score"] for r in fast["results"]]
+    naive_scores = [r["unit_score"] for r in naive_results]
+    assert fast_scores == naive_scores, f"Score mismatch: fast={fast_scores} naive={naive_scores}"
+    fast_teams = [tuple(sorted(r["member_ids"])) for r in fast["results"]]
+    naive_teams = [tuple(sorted(r["member_ids"])) for r in naive_results]
+    assert fast_teams == naive_teams, f"Team mismatch"
+
+
 def test_solve_sweep_costumes():
-    """sweep_costumes=True で全衣装を試し、各結果に costume_only_leader_id が付く"""
+    """sweep_costumes=True で手持ち衣装を試し、各結果に costume_only_leader_id が付く"""
     cards = [
         {"id": "nakiri_ayame_5", "potential": 0},
         {"id": "houshou_marine_5", "potential": 0},

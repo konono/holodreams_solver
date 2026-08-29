@@ -333,6 +333,61 @@ def _compute_team_scores(team, leader_idx, song_length=SONG_LENGTH, override_cos
     }
 
 
+def _compute_base_scores(team, leader_idx, stat_scale, baseline, song_length=SONG_LENGTH):
+    """衣装非依存のスコア中間値を計算する（sweep高速化用）"""
+    scores = _compute_team_scores(team, leader_idx, song_length=song_length, override_costume_skill={"condition": None, "effects": []})
+    total_perf = sum(c["stats"]["performance"] for c in team) * stat_scale
+    total_tech = sum(c["stats"]["technique"] for c in team) * stat_scale
+    total_sense = sum(c["stats"]["sense"] for c in team) * stat_scale
+    member_params = total_perf + total_tech + total_sense
+    support_contrib = scores["support_bonus_total"] * stat_scale
+    base_power = member_params + support_contrib + baseline
+    base_bonus = scores["active_pct"] + scores["passive_sb_pct"] + scores["special_pct"]
+    type_counts = count_types(team)
+    group_counts = count_groups(team)
+    return {
+        "base_power": base_power,
+        "base_bonus": base_bonus,
+        "total_perf": total_perf,
+        "total_tech": total_tech,
+        "total_sense": total_sense,
+        "member_params": member_params,
+        "support_contrib": support_contrib,
+        "active_pct": scores["active_pct"],
+        "passive_sb_pct": scores["passive_sb_pct"],
+        "special_pct": scores["special_pct"],
+        "support_ss": scores["support_ss"],
+        "type_counts": type_counts,
+        "group_counts": group_counts,
+        "leader": team[leader_idx],
+    }
+
+
+def _apply_costume(base, costume_skill):
+    """衣装スキルを適用してunit_scoreを高速計算する"""
+    cpr = ctr = csr = costume_ss = 0.0
+    if check_condition(costume_skill.get("condition"), base["type_counts"], base["group_counts"], leader=base["leader"]):
+        for effect in costume_skill["effects"]:
+            val = effect["value"] / 100.0
+            stat = effect["stat"]
+            if stat == "score_support":
+                costume_ss += val
+            elif stat == "all":
+                cpr += val; ctr += val; csr += val
+            elif stat == "performance":
+                cpr += val
+            elif stat == "technique":
+                ctr += val
+            elif stat == "sense":
+                csr += val
+    costume_contrib = base["total_perf"] * cpr + base["total_tech"] * ctr + base["total_sense"] * csr
+    costume_sb_pct = costume_ss * 100 * COSTUME_SS_RATE
+    total_power = base["base_power"] + costume_contrib
+    score_bonus = base["base_bonus"] + costume_sb_pct
+    unit_score = total_power * (1 + score_bonus / 100) * UNIT_SCORE_K
+    return unit_score, total_power, score_bonus, costume_sb_pct, costume_ss, costume_contrib
+
+
 def evaluate_team(team, leader_idx, stat_scale=1.0, baseline=0, song_length=SONG_LENGTH, override_costume_skill=None):
     scores = _compute_team_scores(team, leader_idx, song_length=song_length, override_costume_skill=override_costume_skill)
 
@@ -621,6 +676,134 @@ def recommend(
     }
 
 
+def _solve_sweep_costumes(owned_cards_input, all_cards, card_map, top_n, stat_scale, baseline, song_length, stability_lengths):
+    """手持ち全衣装を高速スイープ: 衣装非依存部分を1回計算し、衣装部分だけ差し替える"""
+    owned = []
+    if owned_cards_input and isinstance(owned_cards_input[0], str):
+        for cid in owned_cards_input:
+            if cid in card_map:
+                owned.append(resolve_card(card_map[cid], potential=0))
+    else:
+        for spec in owned_cards_input:
+            cid = spec["id"] if isinstance(spec, dict) else spec
+            pot = spec.get("potential", 0) if isinstance(spec, dict) else 0
+            lv = spec.get("level") if isinstance(spec, dict) else None
+            if cid in card_map:
+                owned.append(resolve_card(card_map[cid], potential=pot, level=lv))
+
+    if len(owned) < 5:
+        return {"total_combinations": 0, "results": []}
+
+    char_groups = {}
+    for card in owned:
+        char_groups.setdefault(card["character"], []).append(card)
+    char_names = sorted(char_groups.keys(), key=lambda ch: -max(c["total"] for c in char_groups[ch]))
+    n_chars = len(char_names)
+    if n_chars < 5:
+        return {"total_combinations": 0, "results": []}
+
+    costume_skills = []
+    owned_ids = {c["id"] for c in owned}
+    for card in all_cards:
+        if card["id"] in owned_ids:
+            pd = card.get("potential_data", [{}])
+            cs = pd[0].get("costume_skill") if pd else None
+            if cs:
+                costume_skills.append((card["id"], cs))
+
+    results = []
+    total_combos = 0
+
+    for char_combo in combinations(range(n_chars), 5):
+        cards_lists = [char_groups[char_names[i]] for i in char_combo]
+        for c0 in cards_lists[0]:
+            for c1 in cards_lists[1]:
+                for c2 in cards_lists[2]:
+                    for c3 in cards_lists[3]:
+                        for c4 in cards_lists[4]:
+                            team = [c0, c1, c2, c3, c4]
+                            total_combos += 1
+
+                            best_base = None
+                            best_leader_idx = 0
+                            for leader_idx in range(5):
+                                base = _compute_base_scores(team, leader_idx, stat_scale, baseline, song_length)
+                                if best_base is None or base["base_power"] > best_base["base_power"]:
+                                    best_base = base
+                                    best_leader_idx = leader_idx
+
+                            team_ids = [c["id"] for c in team]
+                            for costume_id, cs in costume_skills:
+                                unit_score, total_power, score_bonus, costume_sb_pct, costume_ss, costume_contrib = _apply_costume(best_base, cs)
+                                results.append({
+                                    "unit_score": unit_score,
+                                    "total_power": total_power,
+                                    "score_bonus": score_bonus,
+                                    "active_pct": best_base["active_pct"],
+                                    "costume_sb_pct": costume_sb_pct,
+                                    "passive_sb_pct": best_base["passive_sb_pct"],
+                                    "special_pct": best_base["special_pct"],
+                                    "costume_ss": costume_ss,
+                                    "support_ss": best_base["support_ss"],
+                                    "leader_idx": best_leader_idx,
+                                    "team_ids": team_ids,
+                                    "costume_only_leader_id": costume_id,
+                                })
+
+                            if len(results) > top_n * 10:
+                                results.sort(key=lambda x: x["unit_score"], reverse=True)
+                                results = results[:top_n]
+
+    results.sort(key=lambda x: x["unit_score"], reverse=True)
+    results = results[:top_n]
+
+    resolved_map = {c["id"]: c for c in owned}
+    for ri in range(len(results)):
+        r = results[ri]
+        costume_id = r["costume_only_leader_id"]
+        cs = next(c for cid, c in costume_skills if cid == costume_id)
+        leader_card = resolved_map[r["team_ids"][r["leader_idx"]]]
+        others = [resolved_map[cid] for cid in r["team_ids"] if cid != leader_card["id"]]
+        for perm in permutations(range(len(others))):
+            team = [leader_card] + [others[i] for i in perm]
+            score = evaluate_team(team, 0, stat_scale, baseline, song_length, override_costume_skill=cs)
+            if score["unit_score"] > r["unit_score"]:
+                score["leader_idx"] = 0
+                score["team_ids"] = [c["id"] for c in team]
+                score["costume_only_leader_id"] = costume_id
+                results[ri] = score
+                r = score
+
+    results.sort(key=lambda x: x["unit_score"], reverse=True)
+
+    formatted = []
+    for i, r in enumerate(results):
+        entry = {
+            "rank": i + 1,
+            "unit_score": round(r["unit_score"]),
+            "total_power": round(r["total_power"]),
+            "score_bonus": round(r["score_bonus"], 1),
+            "active_pct": round(r["active_pct"], 1),
+            "costume_sb_pct": round(r.get("costume_sb_pct", 0), 1),
+            "passive_sb_pct": round(r["passive_sb_pct"], 1),
+            "special_pct": round(r["special_pct"], 1),
+            "leader_id": r["team_ids"][r["leader_idx"]],
+            "costume_only_leader_id": r.get("costume_only_leader_id"),
+            "member_ids": r["team_ids"],
+        }
+        if stability_lengths:
+            team = [resolved_map[cid] for cid in r["team_ids"]]
+            cs_override = next(c for cid, c in costume_skills if cid == r["costume_only_leader_id"])
+            scores_by_length = {}
+            for sl in stability_lengths:
+                s = evaluate_team(team, r["leader_idx"], stat_scale, baseline, sl, override_costume_skill=cs_override)
+                scores_by_length[sl] = round(s["unit_score"])
+            entry["stability"] = scores_by_length
+        formatted.append(entry)
+
+    return {"total_combinations": total_combos * len(costume_skills), "stat_scale": stat_scale, "baseline": baseline, "results": formatted}
+
+
 def solve(
     owned_cards_input: list,
     top_n: int = 10,
@@ -636,21 +819,7 @@ def solve(
     card_map = {c["id"]: c for c in all_cards}
 
     if sweep_costumes and not fixed_leader_id and not costume_only_leader_id:
-        merged_results = []
-        total_combos = 0
-        for card in all_cards:
-            r = solve(
-                owned_cards_input, top_n=top_n, stat_scale=stat_scale, baseline=baseline,
-                costume_only_leader_id=card["id"], song_length=song_length,
-                stability_lengths=stability_lengths, sweep_costumes=False,
-            )
-            total_combos += r["total_combinations"]
-            merged_results.extend(r["results"])
-        merged_results.sort(key=lambda x: x["unit_score"], reverse=True)
-        merged_results = merged_results[:top_n]
-        for i, r in enumerate(merged_results):
-            r["rank"] = i + 1
-        return {"total_combinations": total_combos, "stat_scale": stat_scale, "baseline": baseline, "results": merged_results}
+        return _solve_sweep_costumes(owned_cards_input, all_cards, card_map, top_n, stat_scale, baseline, song_length, stability_lengths)
 
     owned = []
     if owned_cards_input and isinstance(owned_cards_input[0], str):
