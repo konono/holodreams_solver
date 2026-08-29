@@ -27,7 +27,7 @@ uv run python app.py
 
 ### 2. 最強編成を探す
 
-5枚以上選択して「最強編成を探す」ボタンを押すと、全組み合わせを探索してTop 10を表示する。サーバー版は**最大40枚**まで。全カードで探索する場合は静的版（`dist/holosolve.html`）を使う。
+5枚以上選択して「最強編成を探す」ボタンを押すと、全組み合わせを探索してTop 10を表示する。サーバー版は**最大40枚**まで。全カードで探索する場合は静的版（`dist/index.html`）を使う。
 
 結果には以下が表示される:
 
@@ -86,14 +86,18 @@ uv run pytest
 
 ## 静的 HTML ビルド
 
-サーバー不要のスタンドアロン版を生成できる。カードデータとソルバーロジックが1つのHTMLファイルに埋め込まれる。
+GitHub Pages 用の WASM 版を生成できる。カードデータを埋め込んだ HTML + Go WASM ソルバーで動作する。
 
 ```bash
+# Go ソルバーのビルド（初回のみ）
+cd solver_go && go build -o solver . && GOOS=js GOARCH=wasm go build -o solver.wasm . && cd ..
+
+# HTML + WASM ファイル生成
 uv run python build_static.py
-# → dist/holosolve.html (約66KB)
+# → dist/index.html, dist/solver.wasm, dist/wasm_bridge.js, dist/wasm_exec.js
 ```
 
-生成された `dist/holosolve.html` はブラウザで直接開くだけで動作する。Web Worker でバックグラウンド計算するため UI はフリーズしない。キャリブレーション機能は含まれない（サーバー版のみ）。
+WASM 版は HTTP サーバー経由で配信する必要がある（`file://` では動作しない）。GitHub Pages にデプロイするか、ローカルで `python -m http.server -d dist` で確認できる。キャリブレーション機能は含まれない（サーバー版のみ）。
 
 ## 技術資料
 

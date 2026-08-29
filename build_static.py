@@ -1073,6 +1073,9 @@ renderHistory();
         src = ROOT / name
         if src.exists():
             shutil.copy2(src, dist / name)
+    wasm_src = ROOT / "solver_go" / "solver.wasm"
+    if wasm_src.exists():
+        shutil.copy2(wasm_src, dist / "solver.wasm")
     print(f"Built: {out} ({out.stat().st_size / 1024:.0f} KB)")
 
 

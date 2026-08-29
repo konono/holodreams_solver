@@ -1,7 +1,7 @@
 """Go ソルバーを subprocess 経由で呼び出すブリッジ
 
 solver.py と同じインターフェースを提供し、内部で Go バイナリに委譲する。
-Go バイナリが見つからない場合は Python 版にフォールバック。
+ビルド方法: cd solver_go && go build -o solver .
 """
 
 import json
@@ -10,6 +10,12 @@ from pathlib import Path
 
 _SOLVER_BIN = Path(__file__).parent / "solver_go" / "solver"
 
+if not _SOLVER_BIN.exists():
+    raise FileNotFoundError(
+        f"Go solver binary not found: {_SOLVER_BIN}\n"
+        "Run: cd solver_go && go build -o solver ."
+    )
+
 
 def _call_go(payload: dict) -> dict:
     result = subprocess.run(
@@ -17,6 +23,7 @@ def _call_go(payload: dict) -> dict:
         input=json.dumps(payload).encode(),
         capture_output=True,
         cwd=str(Path(__file__).parent),
+        timeout=300,
     )
     if result.returncode != 0:
         raise RuntimeError(f"Go solver failed: {result.stderr.decode()}")

@@ -22,6 +22,9 @@ func checkCondition(cond *ConditionObj, typeCounts map[string]int, groupCounts m
 		return typeCounts[cond.TypeName] >= cond.MinCount
 	case "group_count":
 		return groupCounts[cond.Group] >= cond.MinCount
+	case "leader_character", "leader_group":
+		// Not yet used in current card data; will need leader param when added
+		return false
 	}
 	return false
 }

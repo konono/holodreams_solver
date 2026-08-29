@@ -8,12 +8,6 @@ import (
 
 const defaultSongLength = 192.0
 
-func resolveOwnedCards(owned []interface{}, cardMap map[string]*CardRaw, cf *CardsFile) []*Card {
-	// owned can be []string or []CardSpec
-	// This is handled at the CLI level; here we work with resolved cards
-	return nil
-}
-
 func solve(cards []*Card, topN int, statScale, baseline, songLength float64, fixedLeaderID string, costumeOnlyLeaderID string, overrideCostumeSkill *CostumeSkill, stabilityLengths []float64) JSONOutput {
 	if len(cards) < 5 {
 		return JSONOutput{TotalCombinations: 0, StatScale: statScale, Baseline: baseline}

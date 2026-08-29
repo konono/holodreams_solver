@@ -570,3 +570,78 @@ def test_recommend_delta_positive():
     result = recommend(cards, top_n=10, acquire_count=2)
     for r in result["recommendations"]:
         assert r["delta"] > 0, f"Expected positive delta, got {r['delta']}"
+
+
+# --- Python vs Go parity テスト ---
+
+import solver as _py_solver
+
+try:
+    import solver_go_bridge as _go_solver
+    _GO_AVAILABLE = True
+except (FileNotFoundError, ImportError):
+    _GO_AVAILABLE = False
+
+_skip_no_go = pytest.mark.skipif(not _GO_AVAILABLE, reason="Go solver binary not built")
+
+PARITY_CARDS = [
+    "tokino_sora_5", "aki_rosenthal_5", "natsuiro_matsuri_5",
+    "shirakami_fubuki_5", "yozora_mel_5", "akai_haato_5", "nakiri_ayame_5",
+]
+
+
+@_skip_no_go
+def test_parity_solve_basic():
+    """Python版とGo版のsolve結果が一致する"""
+    py = _py_solver.solve(PARITY_CARDS, top_n=5)
+    go = _go_solver.solve(PARITY_CARDS, top_n=5)
+    assert py["total_combinations"] == go["total_combinations"]
+    for pr, gr in zip(py["results"], go["results"]):
+        assert pr["unit_score"] == gr["unit_score"], f"py={pr['unit_score']} go={gr['unit_score']}"
+        assert pr["leader_id"] == gr["leader_id"]
+
+
+@_skip_no_go
+def test_parity_solve_with_potential():
+    """凸指定時のPython/Go一致"""
+    cards = [{"id": "tokino_sora_5", "potential": 4}, {"id": "aki_rosenthal_5", "potential": 2}] + [
+        {"id": cid, "potential": 0} for cid in PARITY_CARDS[2:]
+    ]
+    py = _py_solver.solve(cards, top_n=3)
+    go = _go_solver.solve(cards, top_n=3)
+    for pr, gr in zip(py["results"], go["results"]):
+        assert pr["unit_score"] == gr["unit_score"]
+
+
+@_skip_no_go
+def test_parity_solve_sweep():
+    """sweep_costumes時のPython/Go一致"""
+    py = _py_solver.solve(PARITY_CARDS, top_n=3, sweep_costumes=True)
+    go = _go_solver.solve(PARITY_CARDS, top_n=3, sweep_costumes=True)
+    for pr, gr in zip(py["results"], go["results"]):
+        assert pr["unit_score"] == gr["unit_score"]
+        assert pr["costume_only_leader_id"] == gr["costume_only_leader_id"]
+
+
+@_skip_no_go
+def test_parity_calibrate():
+    """calibrate結果のPython/Go一致"""
+    args = (
+        ["tokino_sora_5", "aki_rosenthal_5", "natsuiro_matsuri_5", "shirakami_fubuki_5", "nakiri_ayame_5"],
+        "tokino_sora_5", 800000, "aki_rosenthal_5", 790000,
+    )
+    py = _py_solver.calibrate(*args)
+    go = _go_solver.calibrate(*args)
+    assert py["stat_scale"] == go["stat_scale"]
+    assert py["baseline"] == go["baseline"]
+
+
+@_skip_no_go
+def test_parity_recommend():
+    """recommend結果のPython/Go一致"""
+    py = _py_solver.recommend(PARITY_CARDS, top_n=3, acquire_count=1)
+    go = _go_solver.recommend(PARITY_CARDS, top_n=3, acquire_count=1)
+    assert py["base_score"] == go["base_score"]
+    for pr, gr in zip(py["recommendations"], go["recommendations"]):
+        assert pr["delta"] == gr["delta"]
+        assert pr["cards"][0]["card_id"] == gr["cards"][0]["card_id"]
