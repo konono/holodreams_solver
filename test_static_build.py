@@ -120,8 +120,8 @@ class TestStaticSolve:
         page.uncheck("#chkMemberInclude")
         page.click("#btnSolve")
         page.wait_for_selector(".result-card", timeout=30000)
-        banner = page.query_selector("text=👗 衣装:")
-        assert banner is not None, "Should show costume banner"
+        banner = page.query_selector("text=👗")
+        assert banner is not None, "Should show costume label in result card"
         leaders = page.eval_on_selector_all(".member-card.is-leader", "els => els.length")
         assert leaders == 0, "Should not have leader badge when costume-only"
         page.close()

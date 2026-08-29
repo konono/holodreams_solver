@@ -511,7 +511,8 @@ self.onmessage = function(e) {{
 
     if (sweepCostumes && !fixedLeaderId && !costumeOnlyLeaderId) {{
       let merged = [];
-      for (const card of allCards) {{
+      const sweepTargets = cards;
+      for (const card of sweepTargets) {{
         const r = solveInternal(resolved, null, topN, SLEN, false, card.id, allCards);
         totalCount += r.count;
         merged.push(...formatSolveResults(r, card.id));
@@ -1499,17 +1500,17 @@ function renderResults(data) {{
   const results = data.results;
   if (!results || !results.length) {{ area.innerHTML = '<div class="empty-msg">結果が見つかりませんでした。</div>'; return; }}
   let html = "";
-  const costumeLeaderId = results[0] && results[0].costume_only_leader_id;
-  if (costumeLeaderId) {{
-    const clCard = cardMap[costumeLeaderId];
-    const clName = clCard ? `${{clCard.character}} / ${{clCard.card_name}}` : costumeLeaderId;
-    html += `<div style="background:#2a2d1f;color:#c0c060;padding:8px 12px;border-radius:6px;margin-bottom:8px;font-size:0.85rem">👗 衣装: ${{clName}}</div>`;
-  }}
   html += `<div class="results-title">最強編成 Top ${{results.length}}（${{data.totalCombinations.toLocaleString()}} 通り）</div>`;
   for (const r of results) {{
     const rankColors = {{ 1: "#ffd700", 2: "#c0c0c0", 3: "#cd7f32" }};
     const rc = rankColors[r.rank] || "";
+    let costumeLabel = "";
+    if (r.costume_only_leader_id) {{
+      const clCard = cardMap[r.costume_only_leader_id];
+      costumeLabel = clCard ? `👗 ${{clCard.character}} / ${{clCard.card_name}}` : `👗 ${{r.costume_only_leader_id}}`;
+    }}
     html += `<div class="result-card">
+      ${{costumeLabel ? `<div style="color:#c0c060;font-size:0.75rem;margin-bottom:6px">${{costumeLabel}}</div>` : ''}}
       <div class="result-header">
         <span class="result-rank" ${{rc ? `style="color:${{rc}}"` : ''}}>#${{r.rank}}</span>
         <div class="result-scores">

@@ -636,9 +636,14 @@ def solve(
     card_map = {c["id"]: c for c in all_cards}
 
     if sweep_costumes and not fixed_leader_id and not costume_only_leader_id:
+        owned_ids_for_sweep = set()
+        for spec in owned_cards_input:
+            cid = spec["id"] if isinstance(spec, dict) else spec
+            owned_ids_for_sweep.add(cid)
+        sweep_targets = [c for c in all_cards if c["id"] in owned_ids_for_sweep]
         merged_results = []
         total_combos = 0
-        for card in all_cards:
+        for card in sweep_targets:
             r = solve(
                 owned_cards_input, top_n=top_n, stat_scale=stat_scale, baseline=baseline,
                 costume_only_leader_id=card["id"], song_length=song_length,
