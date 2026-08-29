@@ -192,16 +192,6 @@ header p { color: #8899aa; font-size: 0.85rem; margin-top: 4px; }
   font-size: 0.6rem; background: #ffd700; color: #0f1923;
   padding: 0 6px; border-radius: 3px; font-weight: 700;
 }
-.member-card.is-center::before {
-  content: "\2605 \30BB\30F3\30BF\30FC";
-  position: absolute; top: -9px; left: 8px;
-  font-size: 0.6rem; background: #90caf9; color: #0f1923;
-  padding: 0 6px; border-radius: 3px; font-weight: 700;
-}
-.member-card.is-center {
-  border-color: #90caf9;
-  background: #0f1a2a;
-}
 .member-card .m-name { font-weight: 700; font-size: 0.85rem; }
 .member-card .m-card-name { font-size: 0.7rem; color: #6b7f92; }
 .member-card .m-stats {
@@ -1434,13 +1424,11 @@ function renderResults(data) {
     for (const mid of r.member_ids) {
       const card = cardMap[mid];
       if (!card) continue;
-      const isLeader = mid === r.leader_id;
-      const hasCostumeLeader = !!r.costume_only_leader_id;
-      const badgeClass = isLeader ? (hasCostumeLeader ? " is-center" : " is-leader") : "";
+      const isLeader = mid === r.leader_id && !r.costume_only_leader_id;
       const pot = getCardPotential(mid);
       const lv = getCardLevel(mid);
       const s = getCardStats(card, pot, lv);
-      html += `<div class="member-card${badgeClass}">
+      html += `<div class="member-card${isLeader ? " is-leader" : ""}">
         <span class="type-badge type-${card.type}" style="float:right;margin-top:2px">${TYPE_LABELS[card.type]}</span>
         <div class="m-name">${card.character}</div>
         <div class="m-card-name">${card.card_name}</div>

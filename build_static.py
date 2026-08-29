@@ -1471,9 +1471,8 @@ function renderResults(data) {{
       const pot = getCardPotential(mid);
       const lv = getCardLevel(mid);
       const s = getCardStats(card, pot, lv);
-      const hasCostumeLeader = !!r.costume_only_leader_id;
-      const badgeClass = isLeader ? (hasCostumeLeader ? " is-center" : " is-leader") : "";
-      html += `<div class="member-card${{badgeClass}}">
+      const showLeader = isLeader && !r.costume_only_leader_id;
+      html += `<div class="member-card${{showLeader ? " is-leader" : ""}}">
         <span class="type-badge type-${{card.type}}" style="float:right;margin-top:2px">${{TYPE_LABELS[card.type]}}</span>
         <div class="m-name">${{card.character}}</div>
         <div class="m-card-name">${{card.card_name}}</div>

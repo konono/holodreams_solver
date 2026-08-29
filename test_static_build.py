@@ -95,8 +95,8 @@ class TestStaticSolve:
         assert results > 0, "Should produce at least 1 result"
         page.close()
 
-    def test_solve_with_costume_shows_banner_and_center(self, browser_context):
-        """衣装選択で solve → 衣装バナー + センターバッジ表示"""
+    def test_solve_with_costume_shows_banner_no_leader_badge(self, browser_context):
+        """衣装選択で solve → 衣装バナー表示、リーダーバッジなし"""
         page = open_page(browser_context)
         select_cards(page, 6)
         costume_option = page.eval_on_selector(
@@ -107,11 +107,11 @@ class TestStaticSolve:
         page.wait_for_selector(".result-card", timeout=30000)
         banner = page.query_selector("text=👗 衣装:")
         assert banner is not None, "Should show costume banner"
-        centers = page.eval_on_selector_all(
-            ".member-card.is-center",
+        leaders = page.eval_on_selector_all(
+            ".member-card.is-leader",
             "els => els.length"
         )
-        assert centers > 0, "Should have center badge instead of leader badge"
+        assert leaders == 0, "Should not have leader badge when costume is selected"
         page.close()
 
 
