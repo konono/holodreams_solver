@@ -801,7 +801,7 @@ def _solve_sweep_costumes(owned_cards_input, all_cards, card_map, top_n, stat_sc
             entry["stability"] = scores_by_length
         formatted.append(entry)
 
-    return {"total_combinations": total_combos, "stat_scale": stat_scale, "baseline": baseline, "results": formatted}
+    return {"total_combinations": total_combos * len(costume_skills), "stat_scale": stat_scale, "baseline": baseline, "results": formatted}
 
 
 def solve(

@@ -350,6 +350,9 @@ def test_sweep_fast_matches_naive():
     fast_scores = [r["unit_score"] for r in fast["results"]]
     naive_scores = [r["unit_score"] for r in naive_results]
     assert fast_scores == naive_scores, f"Score mismatch: fast={fast_scores} naive={naive_scores}"
+    fast_teams = [tuple(sorted(r["member_ids"])) for r in fast["results"]]
+    naive_teams = [tuple(sorted(r["member_ids"])) for r in naive_results]
+    assert fast_teams == naive_teams, f"Team mismatch"
 
 
 def test_solve_sweep_costumes():
