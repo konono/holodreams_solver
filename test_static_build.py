@@ -95,8 +95,8 @@ class TestStaticSolve:
         assert results > 0, "Should produce at least 1 result"
         page.close()
 
-    def test_solve_with_costume_shows_banner_no_leader_badge(self, browser_context):
-        """衣装選択で solve → 衣装バナー表示、リーダーバッジなし"""
+    def test_solve_with_costume_member_include_shows_leader_badge(self, browser_context):
+        """衣装選択+メンバーに含める → リーダーバッジあり、衣装バナーなし"""
         page = open_page(browser_context)
         select_cards(page, 6)
         costume_option = page.eval_on_selector(
@@ -105,13 +105,25 @@ class TestStaticSolve:
         page.select_option("#costumeSelect", value=costume_option)
         page.click("#btnSolve")
         page.wait_for_selector(".result-card", timeout=30000)
+        leaders = page.eval_on_selector_all(".member-card.is-leader", "els => els.length")
+        assert leaders > 0, "Should have leader badge when member-include is on"
+        page.close()
+
+    def test_solve_with_costume_only_shows_banner(self, browser_context):
+        """衣装選択+メンバー含めない → 衣装バナーあり、リーダーバッジなし"""
+        page = open_page(browser_context)
+        select_cards(page, 6)
+        costume_option = page.eval_on_selector(
+            "#costumeSelect option:nth-child(2)", "el => el.value"
+        )
+        page.select_option("#costumeSelect", value=costume_option)
+        page.uncheck("#chkMemberInclude")
+        page.click("#btnSolve")
+        page.wait_for_selector(".result-card", timeout=30000)
         banner = page.query_selector("text=👗 衣装:")
         assert banner is not None, "Should show costume banner"
-        leaders = page.eval_on_selector_all(
-            ".member-card.is-leader",
-            "els => els.length"
-        )
-        assert leaders == 0, "Should not have leader badge when costume is selected"
+        leaders = page.eval_on_selector_all(".member-card.is-leader", "els => els.length")
+        assert leaders == 0, "Should not have leader badge when costume-only"
         page.close()
 
 

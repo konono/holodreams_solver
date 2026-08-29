@@ -285,6 +285,7 @@ header p { color: #8899aa; font-size: 0.85rem; margin-top: 4px; }
     <select id="costumeSelect" style="background:#1e2d3d;border:1px solid #3a4f66;color:#c8d6e0;padding:6px 8px;border-radius:4px;font-size:0.8rem;max-width:260px">
       <option value="">衣装自動選択</option>
     </select>
+    <label style="cursor:pointer;font-size:0.8rem;color:#8899aa"><input type="checkbox" id="chkMemberInclude" style="vertical-align:middle;margin-right:2px" disabled checked>メンバーに含める</label>
     <button class="btn-select-all" id="btnSelectAll">全選択</button>
     <button class="btn-clear" id="btnClear">全解除</button>
     <button class="btn-clear" id="btnCopyIds" style="font-size:0.75rem">IDコピー</button>
@@ -844,7 +845,11 @@ for (const btn of document.querySelectorAll(".btn-filter")) {
   });
 }
 
-document.getElementById("costumeSelect").addEventListener("change", () => updateCounter());
+document.getElementById("costumeSelect").addEventListener("change", () => {
+  const chk = document.getElementById("chkMemberInclude");
+  chk.disabled = !document.getElementById("costumeSelect").value;
+  updateCounter();
+});
 
 let statScale = parseFloat(localStorage.getItem("holodri_stat_scale") || "1");
 let baseline = parseFloat(localStorage.getItem("holodri_baseline") || "0");
@@ -992,7 +997,10 @@ async function doSolve() {
   document.getElementById("resultsArea").innerHTML = "";
 
   try {
-    const costumeLeaderId = document.getElementById("costumeSelect").value || null;
+    const costumeVal = document.getElementById("costumeSelect").value || null;
+    const memberInclude = document.getElementById("chkMemberInclude").checked;
+    const fixedLeader = costumeVal && memberInclude ? costumeVal : null;
+    const costumeOnlyLeader = costumeVal && !memberInclude ? costumeVal : null;
     let cardSpecs;
     if (selected.size === 0) {
       cardSpecs = CARDS.map(c => ({ id: c.id, potential: getCardPotential(c.id), level: getCardLevel(c.id) }));
@@ -1005,7 +1013,9 @@ async function doSolve() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         cards: cardSpecs, stat_scale: statScale, baseline,
-        costume_only_leader_id: costumeLeaderId,
+        fixed_leader_id: fixedLeader,
+        costume_only_leader_id: costumeOnlyLeader,
+        sweep_costumes: !costumeVal && selected.size > 0,
         top_n: parseInt(document.getElementById("topN").value),
         song_length: document.getElementById("songSelect").value ? parseFloat(document.getElementById("songSelect").value) : null,
         stability_lengths: document.getElementById("chkStability").checked ? [90, 120, 135, 150, 166] : null,
@@ -1107,12 +1117,14 @@ async function doRecommend() {
 
   try {
     const cardSpecs = [...selected].map(id => ({ id, potential: getCardPotential(id), level: getCardLevel(id) }));
+    const recCostumeVal = document.getElementById("costumeSelect").value || null;
+    const recMemberInclude = document.getElementById("chkMemberInclude").checked;
     const res = await fetch("/api/recommend", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         cards: cardSpecs, stat_scale: statScale, baseline,
-        costume_only_leader_id: document.getElementById("costumeSelect").value || null,
+        costume_only_leader_id: recCostumeVal && !recMemberInclude ? recCostumeVal : null,
         acquire_count: parseInt(document.getElementById("acquireCount").value),
         top_n: parseInt(document.getElementById("recommendTopN").value),
         song_length: document.getElementById("songSelect").value ? parseFloat(document.getElementById("songSelect").value) : null,

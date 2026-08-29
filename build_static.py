@@ -495,7 +495,7 @@ self.onmessage = function(e) {{
     recResults.forEach((r, i) => r.rank = i + 1);
     self.postMessage({{ type: "recommend_done", base_score: baseScore, acquire_count: acquireCount, recommendations: recResults }});
   }} else {{
-    const {{ cards, costumeOnlyLeaderId, topN, potentials, levels, levelTables, songLength, stabilityLengths }} = d;
+    const {{ cards, fixedLeaderId, costumeOnlyLeaderId, topN, potentials, levels, levelTables, songLength, stabilityLengths }} = d;
     const SLEN = songLength || SONG_LENGTH;
     const resolved = cards.map(c => {{
       const pot = potentials[c.id] ?? 0;
@@ -509,7 +509,7 @@ self.onmessage = function(e) {{
       const cc = cards.find(c => c.id === costumeOnlyLeaderId);
       if (cc && cc.potential_data && cc.potential_data.length > 0) overrideCostumeSkill2 = cc.potential_data[0].costume_skill;
     }}
-    const result = solveInternal(resolved, null, topN, SLEN, true, costumeOnlyLeaderId || null, cards);
+    const result = solveInternal(resolved, fixedLeaderId || null, topN, SLEN, true, costumeOnlyLeaderId || null, cards);
     const formatted = formatSolveResults(result, costumeOnlyLeaderId || null);
     if (stabilityLengths && stabilityLengths.length > 0) {{
       for (const r of formatted) {{
@@ -595,6 +595,7 @@ def build():
     <select id="costumeSelect" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:6px 8px;border-radius:4px;font-size:0.8rem;max-width:260px">
       <option value="">衣装自動選択</option>
     </select>
+    <label style="cursor:pointer;font-size:0.8rem;color:#8899aa"><input type="checkbox" id="chkMemberInclude" style="vertical-align:middle;margin-right:2px" disabled checked>メンバーに含める</label>
     <button class="btn-select-all" id="btnSelectAll">全選択</button>
     <button class="btn-clear" id="btnClear">全解除</button>
     <button class="btn-clear" id="btnCopyIds" style="font-size:0.75rem">IDコピー</button>
@@ -1048,7 +1049,11 @@ for (const btn of document.querySelectorAll(".btn-filter")) {{
   }});
 }}
 
-document.getElementById("costumeSelect").addEventListener("change", () => updateCounter());
+document.getElementById("costumeSelect").addEventListener("change", () => {{
+  const chk = document.getElementById("chkMemberInclude");
+  chk.disabled = !document.getElementById("costumeSelect").value;
+  updateCounter();
+}});
 
 const workerBlob = URL.createObjectURL(new Blob([{json.dumps(solver_js)}], {{type:"application/javascript"}}));
 
@@ -1109,7 +1114,10 @@ function doSolve() {{
   document.getElementById("resultsArea").innerHTML = "";
 
   const owned = selected.size === 0 ? CARDS : CARDS.filter(c => selected.has(c.id));
-  const costumeOnlyLeaderId = document.getElementById("costumeSelect").value || null;
+  const costumeVal = document.getElementById("costumeSelect").value || null;
+  const memberInclude = document.getElementById("chkMemberInclude").checked;
+  const fixedLeaderId = costumeVal && memberInclude ? costumeVal : null;
+  const costumeOnlyLeaderId = costumeVal && !memberInclude ? costumeVal : null;
 
   const potentials = {{}};
   const levels = {{}};
@@ -1120,7 +1128,7 @@ function doSolve() {{
 
   const w = new Worker(workerBlob);
   const selSong = document.getElementById("songSelect").value;
-  w.postMessage({{ cards: owned, costumeOnlyLeaderId, topN: parseInt(document.getElementById("topN").value), potentials, levels, levelTables: LEVEL_TABLES, songLength: selSong ? parseFloat(selSong) : null, stabilityLengths: document.getElementById("chkStability").checked ? [90, 120, 135, 150, 166] : null }});
+  w.postMessage({{ cards: owned, fixedLeaderId, costumeOnlyLeaderId, topN: parseInt(document.getElementById("topN").value), potentials, levels, levelTables: LEVEL_TABLES, songLength: selSong ? parseFloat(selSong) : null, stabilityLengths: document.getElementById("chkStability").checked ? [90, 120, 135, 150, 166] : null }});
 
   w.onerror = function() {{
     w.terminate();
@@ -1183,6 +1191,8 @@ function doRecommend() {{
   document.getElementById("resultsArea").innerHTML = "";
 
   const ownedSpecs = [...selected].map(id => ({{ id, potential: getCardPotential(id), level: getCardLevel(id) }}));
+  const recCostumeVal = document.getElementById("costumeSelect").value || null;
+  const recMemberInclude = document.getElementById("chkMemberInclude").checked;
   const selSong = document.getElementById("songSelect").value;
 
   const w = new Worker(workerBlob);
@@ -1190,7 +1200,7 @@ function doRecommend() {{
     action: "recommend",
     allCards: CARDS,
     ownedSpecs,
-    costumeOnlyLeaderId: document.getElementById("costumeSelect").value || null,
+    costumeOnlyLeaderId: recCostumeVal && !recMemberInclude ? recCostumeVal : null,
     acquireCount: parseInt(document.getElementById("acquireCount").value),
     topN: parseInt(document.getElementById("recommendTopN").value),
     levelTables: LEVEL_TABLES,

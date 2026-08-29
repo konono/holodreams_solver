@@ -630,9 +630,27 @@ def solve(
     costume_only_leader_id: str | None = None,
     song_length: float = SONG_LENGTH,
     stability_lengths: list[float] | None = None,
+    sweep_costumes: bool = False,
 ) -> dict:
     all_cards = load_cards()
     card_map = {c["id"]: c for c in all_cards}
+
+    if sweep_costumes and not fixed_leader_id and not costume_only_leader_id:
+        merged_results = []
+        total_combos = 0
+        for card in all_cards:
+            r = solve(
+                owned_cards_input, top_n=top_n, stat_scale=stat_scale, baseline=baseline,
+                costume_only_leader_id=card["id"], song_length=song_length,
+                stability_lengths=stability_lengths, sweep_costumes=False,
+            )
+            total_combos += r["total_combinations"]
+            merged_results.extend(r["results"])
+        merged_results.sort(key=lambda x: x["unit_score"], reverse=True)
+        merged_results = merged_results[:top_n]
+        for i, r in enumerate(merged_results):
+            r["rank"] = i + 1
+        return {"total_combinations": total_combos, "stat_scale": stat_scale, "baseline": baseline, "results": merged_results}
 
     owned = []
     if owned_cards_input and isinstance(owned_cards_input[0], str):
