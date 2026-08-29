@@ -152,10 +152,47 @@ echo '{
 
 出力: `{"stat_scale": 0.85, "baseline": 5000}`
 
+## API Client CLI
+
+FastAPI サーバーに対する Go 製のコマンドラインクライアント。UIの「IDコピー」で出力される JSON を設定ファイルとしてそのまま使える。
+
+```bash
+# ビルド
+mise run build:cli
+
+# UI の「IDコピー」で取得した JSON を設定ファイルに保存
+pbpaste | ./cli/holosolve init
+
+# 最強編成探索
+./cli/holosolve solve
+
+# カード推薦
+./cli/holosolve recommend
+
+# リーダー固定で探索
+./cli/holosolve solve --leader houshou_marine_5
+
+# キャリブレーション（結果を設定ファイルに保存）
+./cli/holosolve calibrate \
+  --members id1,id2,id3,id4,id5 \
+  --leader1 id1 --score1 678413 \
+  --leader2 id2 --score2 642056 \
+  --save
+
+# カード一覧
+./cli/holosolve cards
+
+# JSON 出力
+./cli/holosolve solve --json
+```
+
+設定ファイル（`holosolve.json`）にはカード選択、凸数、レベル、キャリブレーション値が含まれる。`--config path` で別ファイルも指定可能。
+
 ## ファイル構成
 
 ```
 holodre_sim/
+├── cli/                      # API Client CLI (Go)
 ├── data/
 │   ├── cards.json            # カードデータベース（70枚、0-4凸対応）
 │   ├── songs.json            # 曲データ（194曲）

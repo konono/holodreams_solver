@@ -37,5 +37,12 @@ cd solver_go && GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o solver.wasm .
 """
 
 [tasks.dev]
-description = "開発サーバー起動"
-run = "uv run python app.py"
+description = "Goソルバーリビルド + 開発サーバー起動"
+run = """
+cd solver_go && go build -o solver .
+uv run python app.py
+"""
+
+[tasks."build:cli"]
+description = "API Client CLIビルド"
+run = "cd cli && go build -o holosolve ."

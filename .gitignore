@@ -28,6 +28,7 @@ dist/
 # Go binary
 solver_go/solver
 solver_go/solver.wasm
+cli/holosolve
 
 # Workflow is managed via GitHub UI (workflow scope required)
 .github/workflows/

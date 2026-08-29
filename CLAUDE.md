@@ -113,6 +113,10 @@ echo '{"action":"solve","cards":["card_id1","card_id2",...],"top_n":5}' | ./solv
 
 3つのアクション（`solve`, `recommend`, `calibrate`）に対応。詳細は README.md を参照。
 
+## API Client CLI
+
+FastAPI サーバーに対する Go 製コマンドラインクライアント（`cli/`）。UIの「IDコピー」JSON を設定ファイル（`holosolve.json`）として保存し、`solve`, `recommend`, `calibrate`, `cards` サブコマンドで API を叩く。ビルドは `mise run build:cli`。詳細は README.md を参照。
+
 ## カードデータ更新
 
 `/update-cards` スキルを使用。HolodoriDB（GitHub: `HolodoriDB/holodori-db-jpn-diff`）から `scripts/sync_holodori.py` で全カードを自動生成する。
