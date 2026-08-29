@@ -64,9 +64,10 @@ type CostumeSkill struct {
 }
 
 type SpecialSkill struct {
-	Duration     float64 `json:"duration"`
-	ScoreSupport float64 `json:"score_support"`
-	SkillRateUp  float64 `json:"skill_rate_up"`
+	Duration           float64 `json:"duration"`
+	ScoreSupport       float64 `json:"score_support"`
+	SkillRateUp        float64 `json:"skill_rate_up"`
+	SkillRateCondition *string `json:"skill_rate_condition"`
 }
 
 type PotentialData struct {
@@ -203,6 +204,10 @@ type CLIInput struct {
 	StatScale *float64       `json:"stat_scale"`
 	Baseline  *float64       `json:"baseline"`
 	SongLength *float64      `json:"song_length"`
+
+	// timeline (optional)
+	SongTimeline *SongTimeline  `json:"song_timeline"`
+	PlayAssumption *PlayAssumption `json:"play_assumption"`
 
 	// solve
 	FixedLeaderID       *string   `json:"fixed_leader_id"`
