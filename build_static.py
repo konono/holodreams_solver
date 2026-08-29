@@ -1184,7 +1184,11 @@ function doRecommend() {{
   const btn = document.getElementById("btnRecommend");
   const btnSolve = document.getElementById("btnSolve");
   const pa = document.getElementById("progressArea");
+  const fab = document.getElementById("fabSolve");
+  const fabRec = document.getElementById("fabRecommend");
   btn.disabled = true; btnSolve.disabled = true; btn.textContent = "分析中...";
+  fab.classList.add("disabled"); fab.textContent = "分析中...";
+  fabRec.classList.add("disabled");
   pa.classList.add("visible");
   document.getElementById("progressFill").style.width = "0%";
   const ac = parseInt(document.getElementById("acquireCount").value);
@@ -1212,6 +1216,7 @@ function doRecommend() {{
     isComputing = false;
     btn.disabled = selected.size < 5; btnSolve.disabled = selected.size > 0 && selected.size < 5; btn.textContent = "強化レコメンド";
     pa.classList.remove("visible");
+    setFabMode("solve");
     expandResults();
     document.getElementById("resultsArea").innerHTML = '<div class="empty-msg">計算中にエラーが発生しました。</div>';
   }};
@@ -1229,6 +1234,7 @@ function doRecommend() {{
       document.getElementById("progressText").textContent = "完了！";
       expandResults();
       renderRecommendations(ev.data);
+      setFabMode("back");
       document.getElementById("resultsWrapper").scrollIntoView({{ behavior: "smooth" }});
     }}
   }};

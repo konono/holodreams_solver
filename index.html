@@ -1110,10 +1110,15 @@ async function doRecommend() {
   isComputing = true;
   const btn = document.getElementById("btnRecommend");
   const btnSolve = document.getElementById("btnSolve");
+  const fab = document.getElementById("fabSolve");
+  const fabRec = document.getElementById("fabRecommend");
   const loading = document.getElementById("loadingArea");
   btn.disabled = true;
   btnSolve.disabled = true;
   btn.textContent = "分析中...";
+  fab.classList.add("disabled");
+  fab.textContent = "分析中...";
+  fabRec.classList.add("disabled");
   const ac = parseInt(document.getElementById("acquireCount").value);
   const timeNote = ac >= 4 ? '（候補が多い場合1〜2分かかることがあります）' : '（候補ごとに再計算するため時間がかかります）';
   loading.innerHTML = `<span class="spinner"></span>強化レコメンドを分析中...${timeNote}`;
@@ -1155,6 +1160,7 @@ async function doRecommend() {
     btn.textContent = "強化レコメンド";
     loading.innerHTML = '<span class="spinner"></span>最強編成を探索中...';
     loading.classList.remove("visible");
+    setFabMode("back");
   }
 }
 
