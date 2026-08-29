@@ -553,8 +553,7 @@ def recommend(
         lv = spec.get("level") if isinstance(spec, dict) else None
         owned_specs[cid] = {"id": cid, "potential": pot, "level": lv}
 
-    sweep = not fixed_leader_id and not costume_only_leader_id
-    solve_kwargs = dict(top_n=1, stat_scale=stat_scale, baseline=baseline, fixed_leader_id=fixed_leader_id, costume_only_leader_id=costume_only_leader_id, song_length=song_length, sweep_costumes=sweep)
+    solve_kwargs = dict(top_n=1, stat_scale=stat_scale, baseline=baseline, fixed_leader_id=fixed_leader_id, costume_only_leader_id=costume_only_leader_id, song_length=song_length)
 
     base_result = solve(list(owned_specs.values()), **solve_kwargs)
     base_score = base_result["results"][0]["unit_score"] if base_result["results"] else 0
@@ -733,27 +732,27 @@ def _solve_sweep_costumes(owned_cards_input, all_cards, card_map, top_n, stat_sc
                                     best_base = base
                                     best_leader_idx = leader_idx
 
+                            team_ids = [c["id"] for c in team]
                             for costume_id, cs in costume_skills:
                                 unit_score, total_power, score_bonus, costume_sb_pct, costume_ss, costume_contrib = _apply_costume(best_base, cs)
-                                if not results or len(results) < top_n or unit_score > results[-1]["unit_score"]:
-                                    entry = {
-                                        "unit_score": unit_score,
-                                        "total_power": total_power,
-                                        "score_bonus": score_bonus,
-                                        "active_pct": best_base["active_pct"],
-                                        "costume_sb_pct": costume_sb_pct,
-                                        "passive_sb_pct": best_base["passive_sb_pct"],
-                                        "special_pct": best_base["special_pct"],
-                                        "costume_ss": costume_ss,
-                                        "support_ss": best_base["support_ss"],
-                                        "leader_idx": best_leader_idx,
-                                        "team_ids": [c["id"] for c in team],
-                                        "costume_only_leader_id": costume_id,
-                                    }
-                                    results.append(entry)
-                                    if len(results) > top_n * 10:
-                                        results.sort(key=lambda x: x["unit_score"], reverse=True)
-                                        results = results[:top_n]
+                                results.append({
+                                    "unit_score": unit_score,
+                                    "total_power": total_power,
+                                    "score_bonus": score_bonus,
+                                    "active_pct": best_base["active_pct"],
+                                    "costume_sb_pct": costume_sb_pct,
+                                    "passive_sb_pct": best_base["passive_sb_pct"],
+                                    "special_pct": best_base["special_pct"],
+                                    "costume_ss": costume_ss,
+                                    "support_ss": best_base["support_ss"],
+                                    "leader_idx": best_leader_idx,
+                                    "team_ids": team_ids,
+                                    "costume_only_leader_id": costume_id,
+                                })
+
+                            if len(results) > top_n * 10:
+                                results.sort(key=lambda x: x["unit_score"], reverse=True)
+                                results = results[:top_n]
 
     results.sort(key=lambda x: x["unit_score"], reverse=True)
     results = results[:top_n]
