@@ -1,0 +1,33 @@
+name: Test
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: solver_go/go.mod
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Build Go solver
+        working-directory: solver_go
+        run: |
+          go build -o solver .
+          GOOS=js GOARCH=wasm go build -o solver.wasm .
+
+      - name: Run tests
+        run: |
+          uv run python build_static.py
+          uv run pytest test_solver.py test_e2e.py -v
