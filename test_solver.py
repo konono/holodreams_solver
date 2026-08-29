@@ -328,6 +328,37 @@ def test_solve_no_stability_by_default():
     assert "stability" not in r["results"][0]
 
 
+def test_solve_sweep_costumes():
+    """sweep_costumes=True で全衣装を試し、各結果に costume_only_leader_id が付く"""
+    cards = [
+        {"id": "nakiri_ayame_5", "potential": 0},
+        {"id": "houshou_marine_5", "potential": 0},
+        {"id": "momosuzu_nene_5", "potential": 0},
+        {"id": "hakui_koyori_5", "potential": 0},
+        {"id": "shirogane_noel_swim_5", "potential": 0},
+        {"id": "oozora_subaru_5", "potential": 0},
+    ]
+    r = solve(cards, top_n=3, sweep_costumes=True)
+    assert r["total_combinations"] > 0
+    for x in r["results"]:
+        assert x["costume_only_leader_id"] is not None, "Each result should have a costume_only_leader_id"
+
+
+def test_solve_sweep_costumes_disabled_when_costume_set():
+    """costume_only_leader_id 指定時は sweep_costumes=True でもスイープしない"""
+    cards = [
+        {"id": "nakiri_ayame_5", "potential": 0},
+        {"id": "houshou_marine_5", "potential": 0},
+        {"id": "momosuzu_nene_5", "potential": 0},
+        {"id": "hakui_koyori_5", "potential": 0},
+        {"id": "shirogane_noel_swim_5", "potential": 0},
+        {"id": "oozora_subaru_5", "potential": 0},
+    ]
+    r = solve(cards, top_n=1, sweep_costumes=True, costume_only_leader_id="houshou_marine_5")
+    for x in r["results"]:
+        assert x["costume_only_leader_id"] == "houshou_marine_5"
+
+
 def test_api_solve_costume_only():
     """API経由で costume_only_leader_id が衣装スキルを適用する"""
     from fastapi.testclient import TestClient

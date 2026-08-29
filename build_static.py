@@ -496,35 +496,57 @@ self.onmessage = function(e) {{
     recResults.forEach((r, i) => r.rank = i + 1);
     self.postMessage({{ type: "recommend_done", base_score: baseScore, acquire_count: acquireCount, recommendations: recResults }});
   }} else {{
-    const {{ cards, fixedLeaderId, costumeOnlyLeaderId, topN, potentials, levels, levelTables, songLength, stabilityLengths }} = d;
+    const {{ cards, fixedLeaderId, costumeOnlyLeaderId, sweepCostumes, topN, potentials, levels, levelTables, songLength, stabilityLengths }} = d;
     const SLEN = songLength || SONG_LENGTH;
+    const lt = levelTables || {{}};
     const resolved = cards.map(c => {{
       const pot = potentials[c.id] ?? 0;
       const lv = levels[c.id] ?? MAX_LEVEL;
-      return resolveCard(c, pot, lv, levelTables || {{}});
+      return resolveCard(c, pot, lv, lt);
     }});
-    const resolvedMap = {{}};
-    for (const c of resolved) resolvedMap[c.id] = c;
-    let overrideCostumeSkill2 = null;
-    if (costumeOnlyLeaderId) {{
-      const cc = cards.find(c => c.id === costumeOnlyLeaderId);
-      if (cc && cc.potential_data && cc.potential_data.length > 0) overrideCostumeSkill2 = cc.potential_data[0].costume_skill;
+
+    let formatted;
+    let totalCount = 0;
+
+    if (sweepCostumes && !fixedLeaderId && !costumeOnlyLeaderId) {{
+      let merged = [];
+      const allCards = typeof CARDS !== "undefined" ? CARDS : cards;
+      for (const card of allCards) {{
+        const r = solveInternal(resolved, null, topN, SLEN, false, card.id, allCards);
+        totalCount += r.count;
+        merged.push(...formatSolveResults(r, card.id));
+      }}
+      merged.sort((a, b) => b.unit_score - a.unit_score);
+      merged = merged.slice(0, topN);
+      merged.forEach((r, i) => r.rank = i + 1);
+      formatted = merged;
+    }} else {{
+      const result = solveInternal(resolved, fixedLeaderId || null, topN, SLEN, true, costumeOnlyLeaderId || null, cards);
+      totalCount = result.count;
+      formatted = formatSolveResults(result, costumeOnlyLeaderId || null);
     }}
-    const result = solveInternal(resolved, fixedLeaderId || null, topN, SLEN, true, costumeOnlyLeaderId || null, cards);
-    const formatted = formatSolveResults(result, costumeOnlyLeaderId || null);
+
     if (stabilityLengths && stabilityLengths.length > 0) {{
+      const resolvedMap = {{}};
+      for (const c of resolved) resolvedMap[c.id] = c;
       for (const r of formatted) {{
+        let ocs = null;
+        const clid = r.costume_only_leader_id;
+        if (clid) {{
+          const cc = cards.find(c => c.id === clid);
+          if (cc && cc.potential_data && cc.potential_data.length > 0) ocs = cc.potential_data[0].costume_skill;
+        }}
         const team = r.member_ids.map(id => resolvedMap[id]);
         const li = r.member_ids.indexOf(r.leader_id);
         const stability = {{}};
         for (const sl of stabilityLengths) {{
-          const s = evaluateTeam(team, Math.max(0, li), sl, overrideCostumeSkill2);
+          const s = evaluateTeam(team, Math.max(0, li), sl, ocs);
           stability[sl] = Math.round(s.unitScore);
         }}
         r.stability = stability;
       }}
     }}
-    self.postMessage({{ type:"done", results: formatted, totalCombinations: result.count }});
+    self.postMessage({{ type:"done", results: formatted, totalCombinations: totalCount }});
   }}
 }};
 """
@@ -1129,7 +1151,7 @@ function doSolve() {{
 
   const w = new Worker(workerBlob);
   const selSong = document.getElementById("songSelect").value;
-  w.postMessage({{ cards: owned, fixedLeaderId, costumeOnlyLeaderId, topN: parseInt(document.getElementById("topN").value), potentials, levels, levelTables: LEVEL_TABLES, songLength: selSong ? parseFloat(selSong) : null, stabilityLengths: document.getElementById("chkStability").checked ? [90, 120, 135, 150, 166] : null }});
+  w.postMessage({{ cards: owned, fixedLeaderId, costumeOnlyLeaderId, sweepCostumes: !costumeVal && selected.size > 0, topN: parseInt(document.getElementById("topN").value), potentials, levels, levelTables: LEVEL_TABLES, songLength: selSong ? parseFloat(selSong) : null, stabilityLengths: document.getElementById("chkStability").checked ? [90, 120, 135, 150, 166] : null }});
 
   w.onerror = function() {{
     w.terminate();
