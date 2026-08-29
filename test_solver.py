@@ -129,7 +129,8 @@ def test_solve_rejects_unowned_leader():
     assert r["total_combinations"] == 0
 
 
-def test_solve_costume_only_excludes_card_from_team():
+def test_solve_costume_only_applies_costume_skill():
+    """costume_only_leader_id で衣装スキルが適用され、メンバーにも含まれ得る"""
     cards = [
         {"id": "nakiri_ayame_5", "potential": 4, "level": 80},
         {"id": "houshou_marine_5", "potential": 4, "level": 80},
@@ -141,7 +142,6 @@ def test_solve_costume_only_excludes_card_from_team():
     r = solve(cards, costume_only_leader_id="houshou_marine_5")
     assert r["total_combinations"] > 0
     for x in r["results"]:
-        assert "houshou_marine_5" not in x["member_ids"], "costume_only card should not be in team"
         assert x["costume_only_leader_id"] == "houshou_marine_5"
 
 
@@ -296,8 +296,71 @@ def test_python_js_stats_parity(card_map):
                 f"pot={pot} lv={lv}: got {r['stats']['performance']} expected {expected_p}"
 
 
+def test_solve_stability_lengths():
+    """stability_lengths 指定時にレスポンスに stability データが含まれる"""
+    cards = [
+        {"id": "nakiri_ayame_5", "potential": 4},
+        {"id": "houshou_marine_5", "potential": 4},
+        {"id": "momosuzu_nene_5", "potential": 4},
+        {"id": "hakui_koyori_5", "potential": 4},
+        {"id": "shirogane_noel_swim_5", "potential": 4},
+        {"id": "oozora_subaru_5", "potential": 4},
+    ]
+    r = solve(cards, top_n=1, stability_lengths=[90, 120, 150])
+    result = r["results"][0]
+    assert "stability" in result
+    assert set(result["stability"].keys()) == {90, 120, 150}
+    for score in result["stability"].values():
+        assert isinstance(score, int) and score > 0
+
+
+def test_solve_no_stability_by_default():
+    """stability_lengths 未指定時は stability キーがない"""
+    cards = [
+        {"id": "nakiri_ayame_5", "potential": 4},
+        {"id": "houshou_marine_5", "potential": 4},
+        {"id": "momosuzu_nene_5", "potential": 4},
+        {"id": "hakui_koyori_5", "potential": 4},
+        {"id": "shirogane_noel_swim_5", "potential": 4},
+        {"id": "oozora_subaru_5", "potential": 4},
+    ]
+    r = solve(cards, top_n=1)
+    assert "stability" not in r["results"][0]
+
+
+def test_solve_sweep_costumes():
+    """sweep_costumes=True で全衣装を試し、各結果に costume_only_leader_id が付く"""
+    cards = [
+        {"id": "nakiri_ayame_5", "potential": 0},
+        {"id": "houshou_marine_5", "potential": 0},
+        {"id": "momosuzu_nene_5", "potential": 0},
+        {"id": "hakui_koyori_5", "potential": 0},
+        {"id": "shirogane_noel_swim_5", "potential": 0},
+        {"id": "oozora_subaru_5", "potential": 0},
+    ]
+    r = solve(cards, top_n=3, sweep_costumes=True)
+    assert r["total_combinations"] > 0
+    for x in r["results"]:
+        assert x["costume_only_leader_id"] is not None, "Each result should have a costume_only_leader_id"
+
+
+def test_solve_sweep_costumes_disabled_when_costume_set():
+    """costume_only_leader_id 指定時は sweep_costumes=True でもスイープしない"""
+    cards = [
+        {"id": "nakiri_ayame_5", "potential": 0},
+        {"id": "houshou_marine_5", "potential": 0},
+        {"id": "momosuzu_nene_5", "potential": 0},
+        {"id": "hakui_koyori_5", "potential": 0},
+        {"id": "shirogane_noel_swim_5", "potential": 0},
+        {"id": "oozora_subaru_5", "potential": 0},
+    ]
+    r = solve(cards, top_n=1, sweep_costumes=True, costume_only_leader_id="houshou_marine_5")
+    for x in r["results"]:
+        assert x["costume_only_leader_id"] == "houshou_marine_5"
+
+
 def test_api_solve_costume_only():
-    """API経由で costume_only_leader_id が正しくメンバー外になる"""
+    """API経由で costume_only_leader_id が衣装スキルを適用する"""
     from fastapi.testclient import TestClient
     from app import app
     client = TestClient(app)
@@ -313,7 +376,6 @@ def test_api_solve_costume_only():
     assert r.status_code == 200
     data = r.json()
     for x in data["results"]:
-        assert "houshou_marine_5" not in x["member_ids"]
         assert x["costume_only_leader_id"] == "houshou_marine_5"
 
 

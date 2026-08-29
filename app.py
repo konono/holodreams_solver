@@ -45,6 +45,8 @@ class SolveRequest(BaseModel):
     costume_only_leader_id: str | None = None
     top_n: int = 10
     song_length: float | None = None
+    stability_lengths: list[float] | None = None
+    sweep_costumes: bool = False
 
     @field_validator("song_length")
     @classmethod
@@ -124,6 +126,10 @@ def post_solve(req: SolveRequest):
     kwargs = dict(top_n=req.top_n, stat_scale=req.stat_scale, baseline=req.baseline, fixed_leader_id=req.fixed_leader_id, costume_only_leader_id=req.costume_only_leader_id)
     if req.song_length is not None:
         kwargs["song_length"] = req.song_length
+    if req.stability_lengths:
+        kwargs["stability_lengths"] = req.stability_lengths
+    if req.sweep_costumes:
+        kwargs["sweep_costumes"] = True
     result = solve(actual, **kwargs)
     if dropped > 0:
         warnings.append(f"{dropped}枚の不明なカードIDを除外しました")
@@ -137,6 +143,7 @@ class RecommendRequest(BaseModel):
     stat_scale: float = 1.0
     baseline: float = 0
     fixed_leader_id: str | None = None
+    costume_only_leader_id: str | None = None
     top_n: int = 5
     acquire_count: int = 1
     song_length: float | None = None
@@ -175,7 +182,7 @@ def post_recommend(req: RecommendRequest):
 
     top_n = max(1, min(req.top_n, 20))
     acquire_count = max(1, min(req.acquire_count, 5))
-    kwargs = dict(top_n=top_n, acquire_count=acquire_count, stat_scale=req.stat_scale, baseline=req.baseline, fixed_leader_id=req.fixed_leader_id)
+    kwargs = dict(top_n=top_n, acquire_count=acquire_count, stat_scale=req.stat_scale, baseline=req.baseline, fixed_leader_id=req.fixed_leader_id, costume_only_leader_id=req.costume_only_leader_id)
     if req.song_length is not None:
         kwargs["song_length"] = req.song_length
 

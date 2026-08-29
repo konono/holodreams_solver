@@ -484,6 +484,7 @@ def recommend(
     stat_scale: float = 1.0,
     baseline: float = 0,
     fixed_leader_id: str | None = None,
+    costume_only_leader_id: str | None = None,
     song_length: float = SONG_LENGTH,
 ) -> dict:
     """未所持カードの取得・既所持カードの凸UPによるスコア向上の優先度を算出"""
@@ -497,7 +498,7 @@ def recommend(
         lv = spec.get("level") if isinstance(spec, dict) else None
         owned_specs[cid] = {"id": cid, "potential": pot, "level": lv}
 
-    solve_kwargs = dict(top_n=1, stat_scale=stat_scale, baseline=baseline, fixed_leader_id=fixed_leader_id, song_length=song_length)
+    solve_kwargs = dict(top_n=1, stat_scale=stat_scale, baseline=baseline, fixed_leader_id=fixed_leader_id, costume_only_leader_id=costume_only_leader_id, song_length=song_length)
 
     base_result = solve(list(owned_specs.values()), **solve_kwargs)
     base_score = base_result["results"][0]["unit_score"] if base_result["results"] else 0
@@ -628,9 +629,28 @@ def solve(
     fixed_leader_id: str | None = None,
     costume_only_leader_id: str | None = None,
     song_length: float = SONG_LENGTH,
+    stability_lengths: list[float] | None = None,
+    sweep_costumes: bool = False,
 ) -> dict:
     all_cards = load_cards()
     card_map = {c["id"]: c for c in all_cards}
+
+    if sweep_costumes and not fixed_leader_id and not costume_only_leader_id:
+        merged_results = []
+        total_combos = 0
+        for card in all_cards:
+            r = solve(
+                owned_cards_input, top_n=top_n, stat_scale=stat_scale, baseline=baseline,
+                costume_only_leader_id=card["id"], song_length=song_length,
+                stability_lengths=stability_lengths, sweep_costumes=False,
+            )
+            total_combos += r["total_combinations"]
+            merged_results.extend(r["results"])
+        merged_results.sort(key=lambda x: x["unit_score"], reverse=True)
+        merged_results = merged_results[:top_n]
+        for i, r in enumerate(merged_results):
+            r["rank"] = i + 1
+        return {"total_combinations": total_combos, "stat_scale": stat_scale, "baseline": baseline, "results": merged_results}
 
     owned = []
     if owned_cards_input and isinstance(owned_cards_input[0], str):
@@ -659,7 +679,6 @@ def solve(
         costume_card = card_map[costume_only_leader_id]
         costume_pot_data = costume_card.get("potential_data", [{}])
         override_costume_skill = costume_pot_data[0].get("costume_skill") if costume_pot_data else None
-        owned = [c for c in owned if c["id"] != costume_only_leader_id]
 
     if len(owned) < 5:
         return {"total_combinations": 0, "results": []}
@@ -729,24 +748,34 @@ def solve(
     resolved_map = {c["id"]: c for c in owned}
     results = _optimize_results(results, resolved_map, stat_scale, baseline, song_length, override_costume_skill=override_costume_skill)
 
+    formatted = []
+    for i, r in enumerate(results):
+        entry = {
+            "rank": i + 1,
+            "unit_score": round(r["unit_score"]),
+            "total_power": round(r["total_power"]),
+            "score_bonus": round(r["score_bonus"], 1),
+            "active_pct": round(r["active_pct"], 1),
+            "costume_sb_pct": round(r.get("costume_sb_pct", 0), 1),
+            "passive_sb_pct": round(r["passive_sb_pct"], 1),
+            "special_pct": round(r["special_pct"], 1),
+            "leader_id": r["team_ids"][r["leader_idx"]],
+            "costume_only_leader_id": costume_only_leader_id,
+            "member_ids": r["team_ids"],
+        }
+        if stability_lengths:
+            team = [resolved_map[cid] for cid in r["team_ids"]]
+            leader_idx = r["leader_idx"]
+            scores_by_length = {}
+            for sl in stability_lengths:
+                s = evaluate_team(team, leader_idx, stat_scale, baseline, sl, override_costume_skill=override_costume_skill)
+                scores_by_length[sl] = round(s["unit_score"])
+            entry["stability"] = scores_by_length
+        formatted.append(entry)
+
     return {
         "total_combinations": total_combos,
         "stat_scale": stat_scale,
         "baseline": baseline,
-        "results": [
-            {
-                "rank": i + 1,
-                "unit_score": round(r["unit_score"]),
-                "total_power": round(r["total_power"]),
-                "score_bonus": round(r["score_bonus"], 1),
-                "active_pct": round(r["active_pct"], 1),
-                "costume_sb_pct": round(r.get("costume_sb_pct", 0), 1),
-                "passive_sb_pct": round(r["passive_sb_pct"], 1),
-                "special_pct": round(r["special_pct"], 1),
-                "leader_id": r["team_ids"][r["leader_idx"]],
-                "costume_only_leader_id": costume_only_leader_id,
-                "member_ids": r["team_ids"],
-            }
-            for i, r in enumerate(results)
-        ],
+        "results": formatted,
     }

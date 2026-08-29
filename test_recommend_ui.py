@@ -253,12 +253,12 @@ def test_recommend_fixed_leader_changes_result(server, browser_context):
     page.select_option("#acquireCount", "1")
     page.select_option("#recommendTopN", "5")
 
-    page.select_option("#fixedLeader", "")
+    page.select_option("#costumeSelect", "")
     page.click("#btnRecommend")
     page.wait_for_selector(".results-area .result-card", timeout=60000)
     auto_text = page.locator(".results-area").inner_text()
 
-    page.select_option("#fixedLeader", "robocosan_5")
+    page.select_option("#costumeSelect", "robocosan_5")
     page.click("#btnRecommend")
     page.wait_for_selector(".results-area .result-card", timeout=60000)
     fixed_text = page.locator(".results-area").inner_text()

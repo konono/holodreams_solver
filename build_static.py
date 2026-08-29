@@ -256,7 +256,6 @@ function solveInternal(resolved, fixedLeaderId, topN, songLen, reportProgress, c
     if (costumeCard && costumeCard.potential_data && costumeCard.potential_data.length > 0) {{
       overrideCostumeSkill = costumeCard.potential_data[0].costume_skill;
     }}
-    resolved = resolved.filter(c => c.id !== costumeOnlyLeaderId);
   }}
   const charGroups = {{}};
   for (const c of resolved) {{
@@ -360,14 +359,14 @@ function formatSolveResults(solveResult, costumeOnlyLeaderId) {{
 self.onmessage = function(e) {{
   const d = e.data;
   if (d.action === "recommend") {{
-    const {{ allCards, ownedSpecs, topN, levelTables, songLength, fixedLeaderId, acquireCount: rawAC }} = d;
+    const {{ allCards, ownedSpecs, topN, levelTables, songLength, fixedLeaderId, costumeOnlyLeaderId, acquireCount: rawAC }} = d;
     const SLEN = songLength || SONG_LENGTH;
     const lt = levelTables || {{}};
     const fli = fixedLeaderId || null;
     const acquireCount = Math.max(1, Math.min(rawAC || 1, 5));
 
     const ownedResolved = ownedSpecs.map(s => {{ const raw = allCards.find(c => c.id === s.id); return raw ? resolveCard(raw, s.potential, s.level, lt) : null; }}).filter(Boolean);
-    const baseResult = solveInternal(ownedResolved, fli, 1, SLEN, false);
+    const baseResult = solveInternal(ownedResolved, fli, 1, SLEN, false, costumeOnlyLeaderId || null, allCards);
     const baseScore = baseResult.results.length > 0 ? Math.round(baseResult.results[0].unitScore) : 0;
 
     const ownedMap = {{}};
@@ -412,7 +411,7 @@ self.onmessage = function(e) {{
     for (let ci = 0; ci < candidates.length; ci++) {{
       if (candidates[ci].cost !== 1) continue;
       const trialSpecs = applyCandidate(ownedSpecs, candidates[ci]);
-      const trialResult = solveInternal(resolveSpecs(trialSpecs), fli, 1, SLEN, false);
+      const trialResult = solveInternal(resolveSpecs(trialSpecs), fli, 1, SLEN, false, costumeOnlyLeaderId || null, allCards);
       if (trialResult.results.length > 0) {{
         const best = trialResult.results[0];
         const newScore = Math.round(best.unitScore);
@@ -474,7 +473,7 @@ self.onmessage = function(e) {{
         if (new Set(acqChars).size !== acqChars.length) continue;
         let trialSpecs = [...ownedSpecs.map(s => ({{ ...s }}))];
         for (const cand of comboCards) trialSpecs = applyCandidate(trialSpecs, cand);
-        const trialResult = solveInternal(resolveSpecs(trialSpecs), fli, 1, SLEN, false);
+        const trialResult = solveInternal(resolveSpecs(trialSpecs), fli, 1, SLEN, false, costumeOnlyLeaderId || null, allCards);
         if (trialResult.results.length > 0) {{
           const newScore = Math.round(trialResult.results[0].unitScore);
           const delta = newScore - baseScore;
@@ -497,15 +496,57 @@ self.onmessage = function(e) {{
     recResults.forEach((r, i) => r.rank = i + 1);
     self.postMessage({{ type: "recommend_done", base_score: baseScore, acquire_count: acquireCount, recommendations: recResults }});
   }} else {{
-    const {{ cards, fixedLeaderId, costumeOnlyLeaderId, topN, potentials, levels, levelTables, songLength }} = d;
+    const {{ cards, allCards: allCardsIn, fixedLeaderId, costumeOnlyLeaderId, sweepCostumes, topN, potentials, levels, levelTables, songLength, stabilityLengths }} = d;
+    const allCards = allCardsIn || cards;
     const SLEN = songLength || SONG_LENGTH;
+    const lt = levelTables || {{}};
     const resolved = cards.map(c => {{
       const pot = potentials[c.id] ?? 0;
       const lv = levels[c.id] ?? MAX_LEVEL;
-      return resolveCard(c, pot, lv, levelTables || {{}});
+      return resolveCard(c, pot, lv, lt);
     }});
-    const result = solveInternal(resolved, fixedLeaderId, topN, SLEN, true, costumeOnlyLeaderId || null, cards);
-    self.postMessage({{ type:"done", results: formatSolveResults(result, costumeOnlyLeaderId || null), totalCombinations: result.count }});
+
+    let formatted;
+    let totalCount = 0;
+
+    if (sweepCostumes && !fixedLeaderId && !costumeOnlyLeaderId) {{
+      let merged = [];
+      for (const card of allCards) {{
+        const r = solveInternal(resolved, null, topN, SLEN, false, card.id, allCards);
+        totalCount += r.count;
+        merged.push(...formatSolveResults(r, card.id));
+      }}
+      merged.sort((a, b) => b.unit_score - a.unit_score);
+      merged = merged.slice(0, topN);
+      merged.forEach((r, i) => r.rank = i + 1);
+      formatted = merged;
+    }} else {{
+      const result = solveInternal(resolved, fixedLeaderId || null, topN, SLEN, true, costumeOnlyLeaderId || null, allCards);
+      totalCount = result.count;
+      formatted = formatSolveResults(result, costumeOnlyLeaderId || null);
+    }}
+
+    if (stabilityLengths && stabilityLengths.length > 0) {{
+      const resolvedMap = {{}};
+      for (const c of resolved) resolvedMap[c.id] = c;
+      for (const r of formatted) {{
+        let ocs = null;
+        const clid = r.costume_only_leader_id;
+        if (clid) {{
+          const cc = allCards.find(c => c.id === clid);
+          if (cc && cc.potential_data && cc.potential_data.length > 0) ocs = cc.potential_data[0].costume_skill;
+        }}
+        const team = r.member_ids.map(id => resolvedMap[id]);
+        const li = r.member_ids.indexOf(r.leader_id);
+        const stability = {{}};
+        for (const sl of stabilityLengths) {{
+          const s = evaluateTeam(team, Math.max(0, li), sl, ocs);
+          stability[sl] = Math.round(s.unitScore);
+        }}
+        r.stability = stability;
+      }}
+    }}
+    self.postMessage({{ type:"done", results: formatted, totalCombinations: totalCount }});
   }}
 }};
 """
@@ -574,10 +615,10 @@ def build():
       <option value="50">Top 50</option>
       <option value="100">Top 100</option>
     </select>
-    <select id="fixedLeader" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:6px 8px;border-radius:4px;font-size:0.8rem;max-width:260px">
-      <option value="">リーダー自動選択</option>
+    <select id="costumeSelect" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:6px 8px;border-radius:4px;font-size:0.8rem;max-width:260px">
+      <option value="">衣装自動選択</option>
     </select>
-    <label style="cursor:pointer;font-size:0.8rem;color:#8899aa"><input type="checkbox" id="chkCostumeOnly" style="vertical-align:middle;margin-right:2px" disabled>衣装のみ</label>
+    <label style="cursor:pointer;font-size:0.8rem;color:#8899aa"><input type="checkbox" id="chkMemberInclude" style="vertical-align:middle;margin-right:2px" disabled checked>メンバーに含める</label>
     <button class="btn-select-all" id="btnSelectAll">全選択</button>
     <button class="btn-clear" id="btnClear">全解除</button>
     <button class="btn-clear" id="btnCopyIds" style="font-size:0.75rem">IDコピー</button>
@@ -611,6 +652,7 @@ def build():
     <select id="songSelect" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:4px 6px;border-radius:4px;font-size:0.75rem;max-width:200px">
       <option value="">汎用（192秒）</option>
     </select>
+    <label style="cursor:pointer;font-size:0.75rem;color:#8899aa"><input type="checkbox" id="chkStability" style="vertical-align:middle;margin-right:2px">安定性分析</label>
   </div>
 
   <div id="cardArea"></div>
@@ -869,15 +911,13 @@ function updateCounter() {{
   document.getElementById("totalCount").textContent = CARDS.length;
   document.getElementById("btnSolve").disabled = selected.size > 0 && selected.size < 5;
   document.getElementById("btnRecommend").disabled = selected.size < 5;
-  const leader = document.getElementById("fixedLeader").value;
+  const costume = document.getElementById("costumeSelect").value;
   document.getElementById("limitWarn").textContent =
-    selected.size === 0 ? (leader ? "(リーダー固定 + 全カードで探索)" : "(全カードで探索)") : "";
-  const sel = document.getElementById("fixedLeader");
-  const chk = document.getElementById("chkCostumeOnly");
+    selected.size === 0 ? (costume ? "(衣装固定 + 全カードで探索)" : "(全カードで探索)") : "";
+  const sel = document.getElementById("costumeSelect");
   const cur = sel.value;
-  const costumeOnly = chk.checked;
-  const pool = costumeOnly ? CARDS : (selected.size > 0 ? CARDS.filter(c => selected.has(c.id)) : CARDS);
-  sel.innerHTML = '<option value="">リーダー自動選択</option>';
+  const pool = CARDS;
+  sel.innerHTML = '<option value="">衣装自動選択</option>';
   const charOrder = [];
   const byChar = {{}};
   for (const c of pool) {{
@@ -892,7 +932,6 @@ function updateCounter() {{
     }}
   }}
   if (pool.some(c => c.id === cur)) sel.value = cur;
-  chk.disabled = !sel.value;
   if (typeof updateFab === "function") updateFab();
 }}
 
@@ -1033,14 +1072,11 @@ for (const btn of document.querySelectorAll(".btn-filter")) {{
   }});
 }}
 
-document.getElementById("fixedLeader").addEventListener("change", () => {{
-  const chk = document.getElementById("chkCostumeOnly");
-  chk.disabled = !document.getElementById("fixedLeader").value;
-  if (chk.disabled) chk.checked = false;
+document.getElementById("costumeSelect").addEventListener("change", () => {{
+  const chk = document.getElementById("chkMemberInclude");
+  chk.disabled = !document.getElementById("costumeSelect").value;
   updateCounter();
 }});
-
-document.getElementById("chkCostumeOnly").addEventListener("change", () => updateCounter());
 
 const workerBlob = URL.createObjectURL(new Blob([{json.dumps(solver_js)}], {{type:"application/javascript"}}));
 
@@ -1101,24 +1137,10 @@ function doSolve() {{
   document.getElementById("resultsArea").innerHTML = "";
 
   const owned = selected.size === 0 ? CARDS : CARDS.filter(c => selected.has(c.id));
-  const leaderVal = document.getElementById("fixedLeader").value || null;
-  const costumeOnly = document.getElementById("chkCostumeOnly").checked;
-  const fixedLeaderId = leaderVal && !costumeOnly ? leaderVal : null;
-  const costumeOnlyLeaderId = leaderVal && costumeOnly ? leaderVal : null;
-
-  if (costumeOnlyLeaderId) {{
-    const effective = owned.filter(c => c.id !== costumeOnlyLeaderId);
-    const effectiveChars = new Set(effective.map(c => c.character));
-    if (effective.length < 5 || effectiveChars.size < 5) {{
-      isComputing = false;
-      btn.disabled = false; btnRec.disabled = selected.size < 5; btn.textContent = "最強編成を探す";
-      fab.classList.remove("disabled"); setFabMode("solve");
-      pa.classList.remove("visible");
-      expandResults();
-      document.getElementById("resultsArea").innerHTML = '<div class="empty-msg">「衣装のみ」モードでは衣装カードを除いて5キャラ以上必要です。カードを追加してください。</div>';
-      return;
-    }}
-  }}
+  const costumeVal = document.getElementById("costumeSelect").value || null;
+  const memberInclude = document.getElementById("chkMemberInclude").checked;
+  const fixedLeaderId = costumeVal && memberInclude ? costumeVal : null;
+  const costumeOnlyLeaderId = costumeVal && !memberInclude ? costumeVal : null;
 
   const potentials = {{}};
   const levels = {{}};
@@ -1129,7 +1151,7 @@ function doSolve() {{
 
   const w = new Worker(workerBlob);
   const selSong = document.getElementById("songSelect").value;
-  w.postMessage({{ cards: owned, fixedLeaderId, costumeOnlyLeaderId, topN: parseInt(document.getElementById("topN").value), potentials, levels, levelTables: LEVEL_TABLES, songLength: selSong ? parseFloat(selSong) : null }});
+  w.postMessage({{ cards: owned, allCards: CARDS, fixedLeaderId, costumeOnlyLeaderId, sweepCostumes: !costumeVal && selected.size > 0, topN: parseInt(document.getElementById("topN").value), potentials, levels, levelTables: LEVEL_TABLES, songLength: selSong ? parseFloat(selSong) : null, stabilityLengths: document.getElementById("chkStability").checked ? [90, 120, 135, 150, 166] : null }});
 
   w.onerror = function() {{
     w.terminate();
@@ -1167,11 +1189,6 @@ document.getElementById("btnSolve").addEventListener("click", doSolve);
 document.getElementById("btnRecommend").addEventListener("click", doRecommend);
 
 function doRecommend() {{
-  if (document.getElementById("chkCostumeOnly").checked) {{
-    expandResults();
-    document.getElementById("resultsArea").innerHTML = '<div class="empty-msg">「衣装のみ」モードではレコメンドは使用できません。チェックを外してください。</div>';
-    return;
-  }}
   if (selected.size < 5) return;
   const uniqueChars = new Set([...selected].map(id => cardMap[id]?.character).filter(Boolean));
   if (uniqueChars.size < 5) {{
@@ -1197,6 +1214,8 @@ function doRecommend() {{
   document.getElementById("resultsArea").innerHTML = "";
 
   const ownedSpecs = [...selected].map(id => ({{ id, potential: getCardPotential(id), level: getCardLevel(id) }}));
+  const recCostumeVal = document.getElementById("costumeSelect").value || null;
+  const recMemberInclude = document.getElementById("chkMemberInclude").checked;
   const selSong = document.getElementById("songSelect").value;
 
   const w = new Worker(workerBlob);
@@ -1204,7 +1223,8 @@ function doRecommend() {{
     action: "recommend",
     allCards: CARDS,
     ownedSpecs,
-    fixedLeaderId: document.getElementById("fixedLeader").value || null,
+    fixedLeaderId: recCostumeVal && recMemberInclude ? recCostumeVal : null,
+    costumeOnlyLeaderId: recCostumeVal && !recMemberInclude ? recCostumeVal : null,
     acquireCount: parseInt(document.getElementById("acquireCount").value),
     topN: parseInt(document.getElementById("recommendTopN").value),
     levelTables: LEVEL_TABLES,
@@ -1343,8 +1363,7 @@ function saveToHistory(solveData) {{
     label: "",
     settings: {{
       topN: parseInt(document.getElementById("topN").value),
-      fixedLeaderId: document.getElementById("fixedLeader").value || null,
-      costumeOnly: document.getElementById("chkCostumeOnly").checked,
+      costumeLeaderId: document.getElementById("costumeSelect").value || null,
       songLength: document.getElementById("songSelect").value ? parseFloat(document.getElementById("songSelect").value) : null,
     }},
     snapshot: {{ ids: [...selected], allCards: selected.size === 0, potentials: pots, levels: lvs, defaultPotential, defaultLevel, levelEnabled }},
@@ -1451,10 +1470,7 @@ function restoreFromHistory(idx) {{
     if (snap.levels?.[id] != null) cardLevels[id] = snap.levels[id];
   }}
   if (entry.settings?.topN != null) document.getElementById("topN").value = entry.settings.topN;
-  document.getElementById("fixedLeader").value = entry.settings?.fixedLeaderId || "";
-  const chkCostume = document.getElementById("chkCostumeOnly");
-  chkCostume.disabled = !document.getElementById("fixedLeader").value;
-  chkCostume.checked = !!entry.settings?.costumeOnly && !chkCostume.disabled;
+  document.getElementById("costumeSelect").value = entry.settings?.costumeLeaderId || entry.settings?.fixedLeaderId || "";
   const songSel = document.getElementById("songSelect");
   songSel.value = entry.settings?.songLength != null ? entry.settings.songLength : "";
 
@@ -1486,7 +1502,7 @@ function renderResults(data) {{
   if (costumeLeaderId) {{
     const clCard = cardMap[costumeLeaderId];
     const clName = clCard ? `${{clCard.character}} / ${{clCard.card_name}}` : costumeLeaderId;
-    html += `<div style="background:#2a2d1f;color:#c0c060;padding:8px 12px;border-radius:6px;margin-bottom:8px;font-size:0.85rem">👗 衣装リーダー: ${{clName}}（メンバー外）</div>`;
+    html += `<div style="background:#2a2d1f;color:#c0c060;padding:8px 12px;border-radius:6px;margin-bottom:8px;font-size:0.85rem">👗 衣装: ${{clName}}</div>`;
   }}
   html += `<div class="results-title">最強編成 Top ${{results.length}}（${{data.totalCombinations.toLocaleString()}} 通り）</div>`;
   for (const r of results) {{
@@ -1509,7 +1525,8 @@ function renderResults(data) {{
       const pot = getCardPotential(mid);
       const lv = getCardLevel(mid);
       const s = getCardStats(card, pot, lv);
-      html += `<div class="member-card${{isLeader?" is-leader":""}}">
+      const showLeader = isLeader && !r.costume_only_leader_id;
+      html += `<div class="member-card${{showLeader ? " is-leader" : ""}}">
         <span class="type-badge type-${{card.type}}" style="float:right;margin-top:2px">${{TYPE_LABELS[card.type]}}</span>
         <div class="m-name">${{card.character}}</div>
         <div class="m-card-name">${{card.card_name}}</div>
@@ -1521,7 +1538,26 @@ function renderResults(data) {{
         <div class="m-pot-lv">${{pot}}凸${{levelEnabled ? ` Lv${{lv}}` : ''}}</div>
       </div>`;
     }}
-    html += `</div></div>`;
+    html += `</div>`;
+    if (r.stability) {{
+      const entries = Object.entries(r.stability).sort((a, b) => a[0] - b[0]);
+      const baseScore = r.unit_score;
+      html += `<div style="margin-top:10px;padding-top:8px;border-top:1px solid #2a3a4a">
+        <div style="font-size:0.72rem;color:#6b7f92;margin-bottom:6px">曲長別スコア安定性:</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">`;
+      for (const [len, score] of entries) {{
+        const diff = score - baseScore;
+        const diffColor = diff > 0 ? "#40d080" : diff < 0 ? "#f06060" : "#8899aa";
+        const diffText = diff > 0 ? `+${{diff.toLocaleString()}}` : diff.toLocaleString();
+        html += `<div style="background:#0f1923;border:1px solid #2a3a4a;border-radius:4px;padding:4px 8px;font-size:0.7rem;text-align:center;min-width:70px">
+          <div style="color:#8899aa">${{len}}秒</div>
+          <div style="color:#e0e6ed;font-weight:600">${{score.toLocaleString()}}</div>
+          <div style="color:${{diffColor}};font-size:0.65rem">${{diffText}}</div>
+        </div>`;
+      }}
+      html += `</div></div>`;
+    }}
+    html += `</div>`;
   }}
   area.innerHTML = html;
 }}
