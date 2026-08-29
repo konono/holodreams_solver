@@ -697,7 +697,7 @@ def _solve_sweep_costumes(owned_cards_input, all_cards, card_map, top_n, stat_sc
     char_groups = {}
     for card in owned:
         char_groups.setdefault(card["character"], []).append(card)
-    char_names = sorted(char_groups.keys(), key=lambda ch: -max(c["total"] for c in char_groups[ch]))
+    char_names = sorted(char_groups.keys(), key=lambda ch: (-max(c["total"] for c in char_groups[ch]), ch))
     n_chars = len(char_names)
     if n_chars < 5:
         return {"total_combinations": 0, "results": []}
@@ -856,7 +856,7 @@ def solve(
     for card in owned:
         char_groups.setdefault(card["character"], []).append(card)
 
-    char_names = sorted(char_groups.keys(), key=lambda ch: -max(c["total"] for c in char_groups[ch]))
+    char_names = sorted(char_groups.keys(), key=lambda ch: (-max(c["total"] for c in char_groups[ch]), ch))
     n_chars = len(char_names)
 
     if n_chars < 5:
