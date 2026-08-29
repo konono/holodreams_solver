@@ -256,6 +256,7 @@ function solveInternal(resolved, fixedLeaderId, topN, songLen, reportProgress, c
     if (costumeCard && costumeCard.potential_data && costumeCard.potential_data.length > 0) {{
       overrideCostumeSkill = costumeCard.potential_data[0].costume_skill;
     }}
+    resolved = resolved.filter(c => c.id !== costumeOnlyLeaderId);
   }}
   const charGroups = {{}};
   for (const c of resolved) {{
@@ -757,6 +758,7 @@ function renderCards() {{
     for (const card of filtered) {{
       const el = document.createElement("div");
       el.className = "card" + (selected.has(card.id) ? " selected" : "");
+      el.dataset.id = card.id;
       const pot = getCardPotential(card.id);
       const lv = getCardLevel(card.id);
       const s = getCardStats(card, pot, lv);
@@ -870,19 +872,21 @@ function updateCounter() {{
   const sel = document.getElementById("fixedLeader");
   const chk = document.getElementById("chkCostumeOnly");
   const cur = sel.value;
-  const pool = CARDS;
+  const costumeOnly = chk.checked;
+  const pool = costumeOnly ? CARDS : (selected.size > 0 ? CARDS.filter(c => selected.has(c.id)) : CARDS);
   sel.innerHTML = '<option value="">リーダー自動選択</option>';
+  const charOrder = [];
   const byChar = {{}};
-  for (const c of pool) {{ (byChar[c.character] || (byChar[c.character] = [])).push(c); }}
-  for (const [char, cards] of Object.entries(byChar)) {{
-    const grp = document.createElement("optgroup");
-    grp.label = char;
-    for (const c of cards) {{
+  for (const c of pool) {{
+    if (!byChar[c.character]) {{ charOrder.push(c.character); byChar[c.character] = []; }}
+    byChar[c.character].push(c);
+  }}
+  for (const char of charOrder) {{
+    for (const c of byChar[char]) {{
       const opt = document.createElement("option");
-      opt.value = c.id; opt.textContent = c.card_name + (c.variant ? ` [${{c.variant}}]` : "");
-      grp.appendChild(opt);
+      opt.value = c.id; opt.textContent = c.character + " / " + c.card_name;
+      sel.appendChild(opt);
     }}
-    sel.appendChild(grp);
   }}
   if (pool.some(c => c.id === cur)) sel.value = cur;
   chk.disabled = !sel.value;
@@ -1033,6 +1037,8 @@ document.getElementById("fixedLeader").addEventListener("change", () => {{
   updateCounter();
 }});
 
+document.getElementById("chkCostumeOnly").addEventListener("change", () => updateCounter());
+
 const workerBlob = URL.createObjectURL(new Blob([{json.dumps(solver_js)}], {{type:"application/javascript"}}));
 
 let fabMode = "solve";
@@ -1139,6 +1145,11 @@ document.getElementById("btnSolve").addEventListener("click", doSolve);
 document.getElementById("btnRecommend").addEventListener("click", doRecommend);
 
 function doRecommend() {{
+  if (document.getElementById("chkCostumeOnly").checked) {{
+    expandResults();
+    document.getElementById("resultsArea").innerHTML = '<div class="empty-msg">「衣装のみ」モードではレコメンドは使用できません。チェックを外してください。</div>';
+    return;
+  }}
   if (selected.size < 5) return;
   const uniqueChars = new Set([...selected].map(id => cardMap[id]?.character).filter(Boolean));
   if (uniqueChars.size < 5) {{
