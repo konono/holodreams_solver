@@ -496,7 +496,8 @@ self.onmessage = function(e) {{
     recResults.forEach((r, i) => r.rank = i + 1);
     self.postMessage({{ type: "recommend_done", base_score: baseScore, acquire_count: acquireCount, recommendations: recResults }});
   }} else {{
-    const {{ cards, fixedLeaderId, costumeOnlyLeaderId, sweepCostumes, topN, potentials, levels, levelTables, songLength, stabilityLengths }} = d;
+    const {{ cards, allCards: allCardsIn, fixedLeaderId, costumeOnlyLeaderId, sweepCostumes, topN, potentials, levels, levelTables, songLength, stabilityLengths }} = d;
+    const allCards = allCardsIn || cards;
     const SLEN = songLength || SONG_LENGTH;
     const lt = levelTables || {{}};
     const resolved = cards.map(c => {{
@@ -510,7 +511,6 @@ self.onmessage = function(e) {{
 
     if (sweepCostumes && !fixedLeaderId && !costumeOnlyLeaderId) {{
       let merged = [];
-      const allCards = typeof CARDS !== "undefined" ? CARDS : cards;
       for (const card of allCards) {{
         const r = solveInternal(resolved, null, topN, SLEN, false, card.id, allCards);
         totalCount += r.count;
@@ -521,7 +521,7 @@ self.onmessage = function(e) {{
       merged.forEach((r, i) => r.rank = i + 1);
       formatted = merged;
     }} else {{
-      const result = solveInternal(resolved, fixedLeaderId || null, topN, SLEN, true, costumeOnlyLeaderId || null, cards);
+      const result = solveInternal(resolved, fixedLeaderId || null, topN, SLEN, true, costumeOnlyLeaderId || null, allCards);
       totalCount = result.count;
       formatted = formatSolveResults(result, costumeOnlyLeaderId || null);
     }}
@@ -533,7 +533,7 @@ self.onmessage = function(e) {{
         let ocs = null;
         const clid = r.costume_only_leader_id;
         if (clid) {{
-          const cc = cards.find(c => c.id === clid);
+          const cc = allCards.find(c => c.id === clid);
           if (cc && cc.potential_data && cc.potential_data.length > 0) ocs = cc.potential_data[0].costume_skill;
         }}
         const team = r.member_ids.map(id => resolvedMap[id]);
@@ -1151,7 +1151,7 @@ function doSolve() {{
 
   const w = new Worker(workerBlob);
   const selSong = document.getElementById("songSelect").value;
-  w.postMessage({{ cards: owned, fixedLeaderId, costumeOnlyLeaderId, sweepCostumes: !costumeVal && selected.size > 0, topN: parseInt(document.getElementById("topN").value), potentials, levels, levelTables: LEVEL_TABLES, songLength: selSong ? parseFloat(selSong) : null, stabilityLengths: document.getElementById("chkStability").checked ? [90, 120, 135, 150, 166] : null }});
+  w.postMessage({{ cards: owned, allCards: CARDS, fixedLeaderId, costumeOnlyLeaderId, sweepCostumes: !costumeVal && selected.size > 0, topN: parseInt(document.getElementById("topN").value), potentials, levels, levelTables: LEVEL_TABLES, songLength: selSong ? parseFloat(selSong) : null, stabilityLengths: document.getElementById("chkStability").checked ? [90, 120, 135, 150, 166] : null }});
 
   w.onerror = function() {{
     w.terminate();
