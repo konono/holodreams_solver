@@ -8,6 +8,9 @@ FastAPI + HTML のWebアプリケーション。
 ## 起動方法
 
 ```bash
+# 初回: Goソルバーのビルドが必要
+cd solver_go && go build -o solver . && cd ..
+
 uv run python app.py
 # → http://localhost:8000
 ```
@@ -19,10 +22,14 @@ uv run python app.py
 - `data/id_map.json` — HolodoriDB ID ↔ HoloSolve IDマッピング
 - `scripts/sync_holodori.py` — HolodoriDBからデータ生成
 - `scripts/validate_against_yagoo.py` — Yagoo-dori生成データとの検算
-- `solver.py` — スコア計算エンジン
-- `app.py` — FastAPI サーバー
+- `solver.py` — スコア計算エンジン（Python参照実装）
+- `solver_go/` — Goソルバー（CLI + WASM、本番計算はこちらを使用）
+- `solver_go_bridge.py` — Go CLIをsubprocess経由で呼ぶPythonラッパー
+- `app.py` — FastAPI サーバー（solver_go_bridge経由でGoソルバーを使用）
 - `index.html` — フロントエンドUI（開発用、サーバー版）
-- `build_static.py` — スタンドアロンHTML生成（GitHub Pages用）
+- `build_static.py` — WASM版HTML生成（GitHub Pages用）
+- `wasm_bridge.js` — Web Worker内でWASMソルバーを実行
+- `wasm_exec.js` — Go標準WASMブリッジ
 
 ## スコア計算モデル
 

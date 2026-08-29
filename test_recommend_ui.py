@@ -330,15 +330,31 @@ def select_cards_standalone(page, card_ids):
 
 
 def test_standalone_recommend(browser_context):
-    """スタンドアロン版（dist/holosolve.html）でも同等の動作を確認"""
+    """WASM版（dist/index.html）でも同等の動作を確認"""
+    import http.server
     import pathlib
-    html_path = pathlib.Path(__file__).parent / "dist" / "holosolve.html"
+    import threading
+
+    dist_dir = pathlib.Path(__file__).parent / "dist"
+    html_path = dist_dir / "index.html"
+    wasm_path = dist_dir / "solver.wasm"
     if not html_path.exists():
-        pytest.skip("dist/holosolve.html not found")
+        pytest.skip("dist/index.html not found")
+    if not wasm_path.exists():
+        pytest.skip("dist/solver.wasm not found")
+
+    class Handler(http.server.SimpleHTTPRequestHandler):
+        def __init__(self, *a, **kw):
+            super().__init__(*a, directory=str(dist_dir), **kw)
+        def log_message(self, *a):
+            pass
+
+    srv = http.server.HTTPServer(("127.0.0.1", 18766), Handler)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
 
     page = browser_context.new_page()
     page.add_init_script("() => localStorage.clear()")
-    page.goto(f"file://{html_path.resolve()}")
+    page.goto("http://127.0.0.1:18766/index.html")
     page.wait_for_selector(".card", timeout=10000)
 
     btn = page.locator("#btnRecommend")

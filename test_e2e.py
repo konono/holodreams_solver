@@ -214,17 +214,17 @@ class TestPersistenceReload:
 
 class TestStaticBuild:
     def test_build_produces_html(self):
-        """build_static.py → dist/holosolve.html が生成される"""
+        """build_static.py → dist/index.html が生成される"""
         result = subprocess.run(
             ["uv", "run", "python", "build_static.py"],
             cwd=ROOT, capture_output=True, text=True, timeout=60,
         )
         assert result.returncode == 0
-        assert (ROOT / "dist" / "holosolve.html").exists()
+        assert (ROOT / "dist" / "index.html").exists()
 
     def test_build_contains_key_functions(self):
         """生成HTMLに主要関数が含まれる"""
-        html = (ROOT / "dist" / "holosolve.html").read_text()
+        html = (ROOT / "dist" / "index.html").read_text()
         for fn in ["savePersistence", "renderHistory", "restoreFromHistory",
                     "saveToHistory", "holodri_all_cards_mode"]:
             assert fn in html, f"{fn} not found in static build"

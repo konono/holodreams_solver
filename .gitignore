@@ -25,6 +25,10 @@ screenshots/
 # Build output
 dist/
 
+# Go binary
+solver_go/solver
+solver_go/solver.wasm
+
 # Workflow is managed via GitHub UI (workflow scope required)
 .github/workflows/
 .github/
