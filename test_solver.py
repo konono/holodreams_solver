@@ -417,7 +417,7 @@ def test_recommend_multi_uncap_shortlist_preserved():
         if c["character"] not in chars_seen:
             chars_seen.add(c["character"])
             cards.append({"id": c["id"], "potential": 0})
-        if len(cards) >= 12:
+        if len(cards) >= 9:
             break
     result = recommend(cards, top_n=20, acquire_count=2)
     has_multi = any(

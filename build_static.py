@@ -119,13 +119,13 @@ function checkCenterTypeCond(cond, tc) {{
   return false;
 }}
 
-function evaluateTeam(team, leaderIdx, songLen) {{
+function evaluateTeam(team, leaderIdx, songLen, overrideCostumeSkill) {{
   const SLEN = songLen || SONG_LENGTH;
   const leader = team[leaderIdx];
   const tc = countTypes(team), gc = countGroups(team);
 
   let cpr=0, ctr=0, csr=0, costumeSS=0;
-  const cs = leader.costume_skill;
+  const cs = overrideCostumeSkill || leader.costume_skill;
   if (checkCond(cs.condition, tc, gc, leader)) {{
     for (const e of cs.effects) {{
       const v = e.value / 100;
@@ -248,8 +248,15 @@ function permutations(arr) {{
   return result;
 }}
 
-function solveInternal(resolved, fixedLeaderId, topN, songLen, reportProgress) {{
+function solveInternal(resolved, fixedLeaderId, topN, songLen, reportProgress, costumeOnlyLeaderId, allCards) {{
   const SLEN = songLen || SONG_LENGTH;
+  let overrideCostumeSkill = null;
+  if (costumeOnlyLeaderId && allCards) {{
+    const costumeCard = allCards.find(c => c.id === costumeOnlyLeaderId);
+    if (costumeCard && costumeCard.potential_data && costumeCard.potential_data.length > 0) {{
+      overrideCostumeSkill = costumeCard.potential_data[0].costume_skill;
+    }}
+  }}
   const charGroups = {{}};
   for (const c of resolved) {{
     if (!charGroups[c.character]) charGroups[c.character] = [];
@@ -294,7 +301,7 @@ function solveInternal(resolved, fixedLeaderId, topN, songLen, reportProgress) {
       for (const c0 of gs[0]) for (const c1 of gs[1]) for (const c2 of gs[2]) for (const c3 of gs[3]) {{
         const team = [leaderCard, c0, c1, c2, c3];
         count++;
-        const r = evaluateTeam(team, 0, SLEN);
+        const r = evaluateTeam(team, 0, SLEN, overrideCostumeSkill);
         r.teamIds = team.map(x=>x.id);
         pushResult(r);
         if (reportAt && count % reportAt === 0) self.postMessage({{type:"progress",current:count,total:totalEst}});
@@ -308,7 +315,7 @@ function solveInternal(resolved, fixedLeaderId, topN, songLen, reportProgress) {
         count++;
         let best = null;
         for (let li=0;li<5;li++) {{
-          const r = evaluateTeam(team, li, SLEN);
+          const r = evaluateTeam(team, li, SLEN, overrideCostumeSkill);
           if (!best || r.unitScore > best.unitScore) best = r;
         }}
         best.teamIds = team.map(x=>x.id);
@@ -328,7 +335,7 @@ function solveInternal(resolved, fixedLeaderId, topN, songLen, reportProgress) {
     const indices = otherCards.map((_,i) => i);
     for (const perm of permutations(indices)) {{
       const team = [leaderCard, ...perm.map(i => otherCards[i])];
-      const score = evaluateTeam(team, 0, SLEN);
+      const score = evaluateTeam(team, 0, SLEN, overrideCostumeSkill);
       if (score.unitScore > r.unitScore) {{
         score.teamIds = team.map(c => c.id);
         score.leaderIdx = 0;
@@ -340,12 +347,12 @@ function solveInternal(resolved, fixedLeaderId, topN, songLen, reportProgress) {
   return {{ results, count }};
 }}
 
-function formatSolveResults(solveResult) {{
+function formatSolveResults(solveResult, costumeOnlyLeaderId) {{
   return solveResult.results.map((r,i) => ({{
     rank:i+1, unit_score:Math.round(r.unitScore), total_power:Math.round(r.totalPower),
     score_bonus:r.scoreBonus, active_pct:r.activePct, costume_sb_pct:r.costumeSbPct,
     passive_sb_pct:r.passiveSbPct, special_pct:r.specialPct,
-    leader_id:r.teamIds[r.leaderIdx], member_ids:r.teamIds
+    leader_id:r.teamIds[r.leaderIdx], costume_only_leader_id: costumeOnlyLeaderId || null, member_ids:r.teamIds
   }}));
 }}
 
@@ -489,15 +496,15 @@ self.onmessage = function(e) {{
     recResults.forEach((r, i) => r.rank = i + 1);
     self.postMessage({{ type: "recommend_done", base_score: baseScore, acquire_count: acquireCount, recommendations: recResults }});
   }} else {{
-    const {{ cards, fixedLeaderId, topN, potentials, levels, levelTables, songLength }} = d;
+    const {{ cards, fixedLeaderId, costumeOnlyLeaderId, topN, potentials, levels, levelTables, songLength }} = d;
     const SLEN = songLength || SONG_LENGTH;
     const resolved = cards.map(c => {{
       const pot = potentials[c.id] ?? 0;
       const lv = levels[c.id] ?? MAX_LEVEL;
       return resolveCard(c, pot, lv, levelTables || {{}});
     }});
-    const result = solveInternal(resolved, fixedLeaderId, topN, SLEN, true);
-    self.postMessage({{ type:"done", results: formatSolveResults(result), totalCombinations: result.count }});
+    const result = solveInternal(resolved, fixedLeaderId, topN, SLEN, true, costumeOnlyLeaderId || null, cards);
+    self.postMessage({{ type:"done", results: formatSolveResults(result, costumeOnlyLeaderId || null), totalCombinations: result.count }});
   }}
 }};
 """
@@ -566,9 +573,10 @@ def build():
       <option value="50">Top 50</option>
       <option value="100">Top 100</option>
     </select>
-    <select id="fixedLeader" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:6px 8px;border-radius:4px;font-size:0.8rem">
+    <select id="fixedLeader" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:6px 8px;border-radius:4px;font-size:0.8rem;max-width:260px">
       <option value="">リーダー自動選択</option>
     </select>
+    <label style="cursor:pointer;font-size:0.8rem;color:#8899aa"><input type="checkbox" id="chkCostumeOnly" style="vertical-align:middle;margin-right:2px" disabled>衣装のみ</label>
     <button class="btn-select-all" id="btnSelectAll">全選択</button>
     <button class="btn-clear" id="btnClear">全解除</button>
     <button class="btn-clear" id="btnCopyIds" style="font-size:0.75rem">IDコピー</button>
@@ -860,15 +868,24 @@ function updateCounter() {{
   document.getElementById("limitWarn").textContent =
     selected.size === 0 ? (leader ? "(リーダー固定 + 全カードで探索)" : "(全カードで探索)") : "";
   const sel = document.getElementById("fixedLeader");
+  const chk = document.getElementById("chkCostumeOnly");
   const cur = sel.value;
-  const pool = selected.size > 0 ? CARDS.filter(c => selected.has(c.id)) : CARDS;
+  const pool = CARDS;
   sel.innerHTML = '<option value="">リーダー自動選択</option>';
-  for (const c of pool) {{
-    const opt = document.createElement("option");
-    opt.value = c.id; opt.textContent = c.character + (c.variant ? `[${{c.variant}}]` : "");
-    sel.appendChild(opt);
+  const byChar = {{}};
+  for (const c of pool) {{ (byChar[c.character] || (byChar[c.character] = [])).push(c); }}
+  for (const [char, cards] of Object.entries(byChar)) {{
+    const grp = document.createElement("optgroup");
+    grp.label = char;
+    for (const c of cards) {{
+      const opt = document.createElement("option");
+      opt.value = c.id; opt.textContent = c.card_name + (c.variant ? ` [${{c.variant}}]` : "");
+      grp.appendChild(opt);
+    }}
+    sel.appendChild(grp);
   }}
   if (pool.some(c => c.id === cur)) sel.value = cur;
+  chk.disabled = !sel.value;
   if (typeof updateFab === "function") updateFab();
 }}
 
@@ -1009,7 +1026,12 @@ for (const btn of document.querySelectorAll(".btn-filter")) {{
   }});
 }}
 
-document.getElementById("fixedLeader").addEventListener("change", () => updateCounter());
+document.getElementById("fixedLeader").addEventListener("change", () => {{
+  const chk = document.getElementById("chkCostumeOnly");
+  chk.disabled = !document.getElementById("fixedLeader").value;
+  if (chk.disabled) chk.checked = false;
+  updateCounter();
+}});
 
 const workerBlob = URL.createObjectURL(new Blob([{json.dumps(solver_js)}], {{type:"application/javascript"}}));
 
@@ -1065,7 +1087,10 @@ function doSolve() {{
   document.getElementById("resultsArea").innerHTML = "";
 
   const owned = selected.size === 0 ? CARDS : CARDS.filter(c => selected.has(c.id));
-  const fixedLeaderId = document.getElementById("fixedLeader").value || null;
+  const leaderVal = document.getElementById("fixedLeader").value || null;
+  const costumeOnly = document.getElementById("chkCostumeOnly").checked;
+  const fixedLeaderId = leaderVal && !costumeOnly ? leaderVal : null;
+  const costumeOnlyLeaderId = leaderVal && costumeOnly ? leaderVal : null;
 
   const potentials = {{}};
   const levels = {{}};
@@ -1076,7 +1101,7 @@ function doSolve() {{
 
   const w = new Worker(workerBlob);
   const selSong = document.getElementById("songSelect").value;
-  w.postMessage({{ cards: owned, fixedLeaderId, topN: parseInt(document.getElementById("topN").value), potentials, levels, levelTables: LEVEL_TABLES, songLength: selSong ? parseFloat(selSong) : null }});
+  w.postMessage({{ cards: owned, fixedLeaderId, costumeOnlyLeaderId, topN: parseInt(document.getElementById("topN").value), potentials, levels, levelTables: LEVEL_TABLES, songLength: selSong ? parseFloat(selSong) : null }});
 
   w.onerror = function() {{
     w.terminate();
@@ -1227,11 +1252,12 @@ function renderRecommendations(data) {{
     if (r.best_team) {{
       html += `<div style="font-size:0.72rem;color:#6b7f92;margin-top:6px">ベストチーム: `;
       const leaderCard = cardMap[r.best_team.leader_id];
-      html += `<span style="color:#ffd700">★${{leaderCard ? leaderCard.character : r.best_team.leader_id}}</span>`;
+      const leaderLabel = leaderCard ? `${{leaderCard.character}}(${{leaderCard.card_name}})` : r.best_team.leader_id;
+      html += `<span style="color:#ffd700">★${{leaderLabel}}</span>`;
       for (const mid of r.best_team.member_ids) {{
         if (mid === r.best_team.leader_id) continue;
         const mc = cardMap[mid];
-        html += ` / ${{mc ? mc.character : mid}}`;
+        html += ` / ${{mc ? `${{mc.character}}(${{mc.card_name}})` : mid}}`;
       }}
       html += `</div>`;
     }}
@@ -1408,7 +1434,14 @@ function renderResults(data) {{
   const area = document.getElementById("resultsArea");
   const results = data.results;
   if (!results || !results.length) {{ area.innerHTML = '<div class="empty-msg">結果が見つかりませんでした。</div>'; return; }}
-  let html = `<div class="results-title">最強編成 Top ${{results.length}}（${{data.totalCombinations.toLocaleString()}} 通り）</div>`;
+  let html = "";
+  const costumeLeaderId = results[0] && results[0].costume_only_leader_id;
+  if (costumeLeaderId) {{
+    const clCard = cardMap[costumeLeaderId];
+    const clName = clCard ? `${{clCard.character}} / ${{clCard.card_name}}` : costumeLeaderId;
+    html += `<div style="background:#2a2d1f;color:#c0c060;padding:8px 12px;border-radius:6px;margin-bottom:8px;font-size:0.85rem">👗 衣装リーダー: ${{clName}}（メンバー外）</div>`;
+  }}
+  html += `<div class="results-title">最強編成 Top ${{results.length}}（${{data.totalCombinations.toLocaleString()}} 通り）</div>`;
   for (const r of results) {{
     const rankColors = {{ 1: "#ffd700", 2: "#c0c0c0", 3: "#cd7f32" }};
     const rc = rankColors[r.rank] || "";
