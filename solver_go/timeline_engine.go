@@ -5,10 +5,64 @@ import (
 	"sort"
 )
 
-// generateActiveAttempts produces all Active Skill trigger attempts for a card
-// within the song duration. Each attempt has a probability (without SP rate-up
-// for now — that is added in Phase 3) and creates a window [start, start+duration).
-func generateActiveAttempts(card *Card, cardIndex int, songDuration float64, rateUpAvg float64) []ActiveAttempt {
+// generateSpecialWindows produces SpecialWindows from a team and song timeline.
+// slot i's Special Skill is placed at SpecialPoints[i].
+func generateSpecialWindows(team [5]*Card, timeline *SongTimeline) []SpecialWindow {
+	if timeline == nil {
+		return nil
+	}
+	var windows []SpecialWindow
+	for i, card := range team {
+		if card.SpecialSkill == nil {
+			continue
+		}
+		sp := card.SpecialSkill
+		start := timeline.SpecialPoints[i]
+		end := math.Min(start+sp.Duration, timeline.Duration)
+		if end <= start {
+			continue
+		}
+		windows = append(windows, SpecialWindow{
+			Start:        start,
+			End:          end,
+			ScoreSupport: sp.ScoreSupport,
+			SkillRateUp:  sp.SkillRateUp,
+			SlotIndex:    i,
+		})
+	}
+	return windows
+}
+
+// rateUpAtTime returns the total skill rate up factor at time t from SP windows.
+// Returns the sum of (SkillRateUp / 100.0) for all active SP windows.
+func rateUpAtTime(spWindows []SpecialWindow, t float64) float64 {
+	total := 0.0
+	for i := range spWindows {
+		w := &spWindows[i]
+		if w.SkillRateUp > 0 && w.Start <= t && t < w.End {
+			total += w.SkillRateUp / 100.0
+		}
+	}
+	return total
+}
+
+// scoreSupportAtTime returns the total score support at time t from SP windows.
+func scoreSupportAtTime(spWindows []SpecialWindow, t float64) float64 {
+	total := 0.0
+	for i := range spWindows {
+		w := &spWindows[i]
+		if w.ScoreSupport > 0 && w.Start <= t && t < w.End {
+			total += w.ScoreSupport
+		}
+	}
+	return total
+}
+
+// generateActiveAttempts produces all Active Skill trigger attempts for a card.
+// When spWindows is provided, each attempt's probability is computed using the
+// SP Rate Up active at that trigger time (multiplicative model).
+// When spWindows is nil, rateUpAvg (time-averaged) is used as fallback.
+func generateActiveAttempts(card *Card, cardIndex int, songDuration float64, rateUpAvg float64, spWindows []SpecialWindow) []ActiveAttempt {
 	cs := &card.CenterSkill
 	if cs.Interval <= 0 || cs.Duration <= 0 {
 		return nil
@@ -18,10 +72,8 @@ func generateActiveAttempts(card *Card, cardIndex int, songDuration float64, rat
 	if cs.ActivationProbabilityPermil != nil {
 		baseProb = float64(*cs.ActivationProbabilityPermil) / 1000.0
 	}
-	boostedProb := math.Min(1.0, baseProb*(1.0+rateUpAvg))
 
 	scoreUp := cs.ScoreUp
-	// TODO: conditional score_up will be handled when typeCounts are passed in
 
 	var attempts []ActiveAttempt
 	for t := cs.Interval; t < songDuration; t += cs.Interval {
@@ -29,6 +81,15 @@ func generateActiveAttempts(card *Card, cardIndex int, songDuration float64, rat
 		if end <= t {
 			continue
 		}
+
+		var boostedProb float64
+		if spWindows != nil {
+			rateUp := rateUpAtTime(spWindows, t)
+			boostedProb = math.Min(1.0, baseProb*(1.0+rateUp))
+		} else {
+			boostedProb = math.Min(1.0, baseProb*(1.0+rateUpAvg))
+		}
+
 		attempts = append(attempts, ActiveAttempt{
 			Start:       t,
 			End:         end,
@@ -88,22 +149,70 @@ func rawActiveExposureAtTime(states []activeCardState, t float64) float64 {
 // Returns the average expected active score_up across all score events and the overlap loss.
 // If scoreEvents is nil or empty, it generates uniform events every 0.1s.
 func EvaluateActiveTimeline(team [5]*Card, songDuration float64, rateUpAvg float64, scoreEvents []ScoreEvent) (avgExpectedActive float64, overlapLoss float64) {
-	// Generate all attempts per card
+	return evaluateTimeline(team, songDuration, rateUpAvg, nil, scoreEvents, 0)
+}
+
+// EvaluateFullTimeline computes the full Timeline Expected Score including
+// Special Skill windows (rate-up and score support).
+// alwaysOnSupport is the sum of costume + passive score support (always active).
+func EvaluateFullTimeline(team [5]*Card, songDuration float64, timeline *SongTimeline, scoreEvents []ScoreEvent, alwaysOnSupport float64) TimelineEvalResult {
+	spWindows := generateSpecialWindows(team, timeline)
+
+	avgActive, overlapLoss := evaluateTimeline(team, songDuration, 0, spWindows, scoreEvents, alwaysOnSupport)
+
+	// SP efficiency per slot
+	var spEfficiency [5]float64
+	if timeline != nil {
+		cardStates := buildCardStates(team, songDuration, 0, spWindows)
+		for i, card := range team {
+			if card.SpecialSkill == nil || card.SpecialSkill.ScoreSupport <= 0 {
+				continue
+			}
+			start := timeline.SpecialPoints[i]
+			end := math.Min(start+card.SpecialSkill.Duration, songDuration)
+			if end <= start {
+				continue
+			}
+			count := 0
+			totalActive := 0.0
+			for j := range scoreEvents {
+				t := scoreEvents[j].Time
+				if t >= start && t < end {
+					totalActive += expectedMaxActiveAtTime(cardStates, t)
+					count++
+				}
+			}
+			if count > 0 {
+				spEfficiency[i] = totalActive / float64(count)
+			}
+		}
+	}
+
+	return TimelineEvalResult{
+		ExpectedActive:    avgActive,
+		ActiveOverlapLoss: overlapLoss,
+		SPEfficiency:      spEfficiency,
+	}
+}
+
+func buildCardStates(team [5]*Card, songDuration, rateUpAvg float64, spWindows []SpecialWindow) []activeCardState {
 	cardStates := make([]activeCardState, 0, 5)
 	for i, card := range team {
-		attempts := generateActiveAttempts(card, i, songDuration, rateUpAvg)
+		attempts := generateActiveAttempts(card, i, songDuration, rateUpAvg, spWindows)
 		cardStates = append(cardStates, activeCardState{
 			scoreUp:  card.CenterSkill.ScoreUp,
 			attempts: attempts,
 		})
 	}
-
-	// Sort by scoreUp descending for E[max] calculation
 	sort.Slice(cardStates, func(i, j int) bool {
 		return cardStates[i].scoreUp > cardStates[j].scoreUp
 	})
+	return cardStates
+}
 
-	// Generate uniform score events if none provided
+func evaluateTimeline(team [5]*Card, songDuration, rateUpAvg float64, spWindows []SpecialWindow, scoreEvents []ScoreEvent, alwaysOnSupport float64) (avgExpectedActive float64, overlapLoss float64) {
+	cardStates := buildCardStates(team, songDuration, rateUpAvg, spWindows)
+
 	if len(scoreEvents) == 0 {
 		n := int(songDuration * 10)
 		scoreEvents = make([]ScoreEvent, n)

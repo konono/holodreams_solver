@@ -187,7 +187,7 @@ func TestActiveTimeline_UniformEvents(t *testing.T) {
 
 func TestGenerateActiveAttempts_Basic(t *testing.T) {
 	card := makeTimelineCard(120, 25, 10, 1000)
-	attempts := generateActiveAttempts(card, 0, 100, 0)
+	attempts := generateActiveAttempts(card, 0, 100, 0, nil)
 
 	// Triggers at t=25, 50, 75 (100 is not < 100)
 	if len(attempts) != 3 {
@@ -204,7 +204,7 @@ func TestGenerateActiveAttempts_Basic(t *testing.T) {
 
 func TestGenerateActiveAttempts_ClipEnd(t *testing.T) {
 	card := makeTimelineCard(120, 45, 10, 1000)
-	attempts := generateActiveAttempts(card, 0, 50, 0)
+	attempts := generateActiveAttempts(card, 0, 50, 0, nil)
 
 	// Trigger at t=45, window [45, 50) (clipped from [45,55))
 	if len(attempts) != 1 {
@@ -212,5 +212,196 @@ func TestGenerateActiveAttempts_ClipEnd(t *testing.T) {
 	}
 	if math.Abs(attempts[0].End-50) > 0.001 {
 		t.Errorf("end=%f, want 50 (clipped)", attempts[0].End)
+	}
+}
+
+// --- Phase 3: Special Timeline tests ---
+
+func TestSPRateUp_BoostsProbability(t *testing.T) {
+	// Card with Medium prob (450 permil = 45%), interval=25
+	// SP Rate Up +45% at SP point 20 (duration 10 → [20,30))
+	// Active trigger at t=25 is inside SP window → boosted = 0.45 * 1.45 = 0.6525
+	card := makeTimelineCard(120, 25, 10, 450)
+	spCard := makeTimelineCard(0, 100, 0, 0)
+	spCard.SpecialSkill = &SpecialSkill{Duration: 10, SkillRateUp: 45}
+
+	team := [5]*Card{card, spCard, makeTimelineCard(0, 100, 0, 0), makeTimelineCard(0, 100, 0, 0), makeTimelineCard(0, 100, 0, 0)}
+	timeline := &SongTimeline{
+		Duration:      100,
+		SpecialPoints: [5]float64{20, 0, 0, 0, 0}, // slot 0 unused (no SP), slot 1 at t=20... wait
+	}
+	// slot 0 = card (no SP), slot 1 = spCard (SP at SpecialPoints[1])
+	// Actually: SpecialPoints[i] is for team[i]'s SP
+	// team[0] = card (no SP), team[1] = spCard (SP at SpecialPoints[1])
+	timeline.SpecialPoints = [5]float64{0, 20, 0, 0, 0}
+
+	spWindows := generateSpecialWindows(team, timeline)
+	if len(spWindows) != 1 {
+		t.Fatalf("expected 1 SP window, got %d", len(spWindows))
+	}
+
+	// Generate active attempts with SP windows
+	attempts := generateActiveAttempts(card, 0, 100, 0, spWindows)
+
+	// Trigger at t=25 is inside SP [20,30): boosted = 0.45 * 1.45 = 0.6525
+	// Trigger at t=50 is outside: boosted = 0.45 * 1.0 = 0.45
+	var probAt25, probAt50 float64
+	for _, a := range attempts {
+		if math.Abs(a.Start-25) < 0.001 {
+			probAt25 = a.Probability
+		}
+		if math.Abs(a.Start-50) < 0.001 {
+			probAt50 = a.Probability
+		}
+	}
+
+	if math.Abs(probAt25-0.6525) > 0.001 {
+		t.Errorf("prob at t=25 = %f, want 0.6525", probAt25)
+	}
+	if math.Abs(probAt50-0.45) > 0.001 {
+		t.Errorf("prob at t=50 = %f, want 0.45", probAt50)
+	}
+}
+
+func TestSPRateUp_MultipleSPs(t *testing.T) {
+	// Two SPs: +45% and +50%, both active at t=25
+	// boosted = 0.45 * (1 + 0.45 + 0.50) = 0.45 * 1.95 = 0.8775
+	card := makeTimelineCard(120, 25, 10, 450)
+
+	sp1 := makeTimelineCard(0, 100, 0, 0)
+	sp1.SpecialSkill = &SpecialSkill{Duration: 10, SkillRateUp: 45}
+	sp2 := makeTimelineCard(0, 100, 0, 0)
+	sp2.SpecialSkill = &SpecialSkill{Duration: 10, SkillRateUp: 50}
+	dummy := makeTimelineCard(0, 100, 0, 0)
+
+	team := [5]*Card{card, sp1, sp2, dummy, dummy}
+	timeline := &SongTimeline{
+		Duration:      100,
+		SpecialPoints: [5]float64{0, 20, 20, 0, 0},
+	}
+
+	spWindows := generateSpecialWindows(team, timeline)
+	attempts := generateActiveAttempts(card, 0, 100, 0, spWindows)
+
+	var probAt25 float64
+	for _, a := range attempts {
+		if math.Abs(a.Start-25) < 0.001 {
+			probAt25 = a.Probability
+		}
+	}
+
+	if math.Abs(probAt25-0.8775) > 0.001 {
+		t.Errorf("prob at t=25 = %f, want 0.8775", probAt25)
+	}
+}
+
+func TestSPBoundary_AtTriggerTime(t *testing.T) {
+	// SP window [25, 35), Active trigger at t=25 → inside (half-open interval)
+	card := makeTimelineCard(120, 25, 10, 450)
+	sp := makeTimelineCard(0, 100, 0, 0)
+	sp.SpecialSkill = &SpecialSkill{Duration: 10, SkillRateUp: 45}
+	dummy := makeTimelineCard(0, 100, 0, 0)
+
+	team := [5]*Card{card, sp, dummy, dummy, dummy}
+	timeline := &SongTimeline{
+		Duration:      100,
+		SpecialPoints: [5]float64{0, 25, 0, 0, 0},
+	}
+
+	spWindows := generateSpecialWindows(team, timeline)
+	attempts := generateActiveAttempts(card, 0, 100, 0, spWindows)
+
+	var probAt25 float64
+	for _, a := range attempts {
+		if math.Abs(a.Start-25) < 0.001 {
+			probAt25 = a.Probability
+		}
+	}
+	// t=25 is inside [25,35) → boosted
+	if math.Abs(probAt25-0.6525) > 0.001 {
+		t.Errorf("prob at t=25 = %f, want 0.6525 (SP boundary)", probAt25)
+	}
+}
+
+func TestSPBoundary_AtEndTime(t *testing.T) {
+	// SP window [15, 25), Active trigger at t=25 → outside (half-open: end excluded)
+	card := makeTimelineCard(120, 25, 10, 450)
+	sp := makeTimelineCard(0, 100, 0, 0)
+	sp.SpecialSkill = &SpecialSkill{Duration: 10, SkillRateUp: 45}
+	dummy := makeTimelineCard(0, 100, 0, 0)
+
+	team := [5]*Card{card, sp, dummy, dummy, dummy}
+	timeline := &SongTimeline{
+		Duration:      100,
+		SpecialPoints: [5]float64{0, 15, 0, 0, 0},
+	}
+
+	spWindows := generateSpecialWindows(team, timeline)
+	attempts := generateActiveAttempts(card, 0, 100, 0, spWindows)
+
+	var probAt25 float64
+	for _, a := range attempts {
+		if math.Abs(a.Start-25) < 0.001 {
+			probAt25 = a.Probability
+		}
+	}
+	// t=25 is NOT inside [15,25) → unboosted
+	if math.Abs(probAt25-0.45) > 0.001 {
+		t.Errorf("prob at t=25 = %f, want 0.45 (SP ended)", probAt25)
+	}
+}
+
+func TestScoreSupportTimeline(t *testing.T) {
+	// Verify scoreSupportAtTime works
+	windows := []SpecialWindow{
+		{Start: 20, End: 30, ScoreSupport: 160, SlotIndex: 0},
+		{Start: 50, End: 60, ScoreSupport: 120, SlotIndex: 1},
+	}
+
+	if s := scoreSupportAtTime(windows, 25); math.Abs(s-160) > 0.001 {
+		t.Errorf("support at t=25 = %f, want 160", s)
+	}
+	if s := scoreSupportAtTime(windows, 55); math.Abs(s-120) > 0.001 {
+		t.Errorf("support at t=55 = %f, want 120", s)
+	}
+	if s := scoreSupportAtTime(windows, 40); math.Abs(s) > 0.001 {
+		t.Errorf("support at t=40 = %f, want 0", s)
+	}
+	// Overlapping: both active at once (if they overlapped)
+	windows2 := []SpecialWindow{
+		{Start: 20, End: 30, ScoreSupport: 160},
+		{Start: 25, End: 35, ScoreSupport: 120},
+	}
+	if s := scoreSupportAtTime(windows2, 27); math.Abs(s-280) > 0.001 {
+		t.Errorf("overlapping support at t=27 = %f, want 280", s)
+	}
+}
+
+func TestSPEfficiency(t *testing.T) {
+	// Card with active at t=25 (p=1.0, scoreUp=120)
+	// SP with ScoreSupport=160 at t=20-30 (covers t=25 active window)
+	card := makeTimelineCard(120, 25, 10, 1000)
+	spCard := makeTimelineCard(0, 100, 0, 0)
+	spCard.SpecialSkill = &SpecialSkill{Duration: 10, ScoreSupport: 160}
+	dummy := makeTimelineCard(0, 100, 0, 0)
+
+	team := [5]*Card{card, spCard, dummy, dummy, dummy}
+	timeline := &SongTimeline{
+		Duration:      100,
+		SpecialPoints: [5]float64{0, 20, 0, 0, 0},
+	}
+
+	events := []ScoreEvent{
+		{Time: 22, Weight: 1}, // inside SP [20,30), no active (first trigger at 25)
+		{Time: 27, Weight: 1}, // inside SP [20,30), inside active [25,35)
+	}
+
+	result := EvaluateFullTimeline(team, 100, timeline, events, 0)
+
+	// SP efficiency for slot 1 (spCard): average E[max active] during SP window
+	// t=22: no active → 0, t=27: active 120 → 120
+	// avg = (0+120)/2 = 60
+	if math.Abs(result.SPEfficiency[1]-60) > 0.01 {
+		t.Errorf("SP efficiency[1]=%f, want 60", result.SPEfficiency[1])
 	}
 }
