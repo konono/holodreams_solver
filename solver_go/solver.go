@@ -39,7 +39,10 @@ func solve(cards []*Card, topN int, statScale, baseline, songLength float64, fix
 		charEntries = append(charEntries, charEntry{name, maxT})
 	}
 	sort.Slice(charEntries, func(i, j int) bool {
-		return charEntries[i].maxTotal > charEntries[j].maxTotal
+		if charEntries[i].maxTotal != charEntries[j].maxTotal {
+			return charEntries[i].maxTotal > charEntries[j].maxTotal
+		}
+		return charEntries[i].name < charEntries[j].name
 	})
 	charNames := make([]string, len(charEntries))
 	for i, e := range charEntries {
@@ -199,7 +202,10 @@ func solveSweepCostumes(cards []*Card, allRawCards []CardRaw, cardMap map[string
 		charEntries = append(charEntries, charEntry{name, maxT})
 	}
 	sort.Slice(charEntries, func(i, j int) bool {
-		return charEntries[i].maxTotal > charEntries[j].maxTotal
+		if charEntries[i].maxTotal != charEntries[j].maxTotal {
+			return charEntries[i].maxTotal > charEntries[j].maxTotal
+		}
+		return charEntries[i].name < charEntries[j].name
 	})
 	charNames := make([]string, len(charEntries))
 	for i, e := range charEntries {
