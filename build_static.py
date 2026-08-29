@@ -619,6 +619,7 @@ def build():
       <option value="">衣装自動選択</option>
     </select>
     <label style="cursor:pointer;font-size:0.8rem;color:#8899aa"><input type="checkbox" id="chkMemberInclude" style="vertical-align:middle;margin-right:2px" disabled checked>メンバーに含める</label>
+    <label style="cursor:pointer;font-size:0.8rem;color:#8899aa"><input type="checkbox" id="chkSweepCostumes" style="vertical-align:middle;margin-right:2px">全衣装探索</label>
     <button class="btn-select-all" id="btnSelectAll">全選択</button>
     <button class="btn-clear" id="btnClear">全解除</button>
     <button class="btn-clear" id="btnCopyIds" style="font-size:0.75rem">IDコピー</button>
@@ -1151,7 +1152,7 @@ function doSolve() {{
 
   const w = new Worker(workerBlob);
   const selSong = document.getElementById("songSelect").value;
-  w.postMessage({{ cards: owned, allCards: CARDS, fixedLeaderId, costumeOnlyLeaderId, sweepCostumes: !costumeVal && selected.size > 0, topN: parseInt(document.getElementById("topN").value), potentials, levels, levelTables: LEVEL_TABLES, songLength: selSong ? parseFloat(selSong) : null, stabilityLengths: document.getElementById("chkStability").checked ? [90, 120, 135, 150, 166] : null }});
+  w.postMessage({{ cards: owned, allCards: CARDS, fixedLeaderId, costumeOnlyLeaderId, sweepCostumes: document.getElementById("chkSweepCostumes").checked && !costumeVal, topN: parseInt(document.getElementById("topN").value), potentials, levels, levelTables: LEVEL_TABLES, songLength: selSong ? parseFloat(selSong) : null, stabilityLengths: document.getElementById("chkStability").checked ? [90, 120, 135, 150, 166] : null }});
 
   w.onerror = function() {{
     w.terminate();
