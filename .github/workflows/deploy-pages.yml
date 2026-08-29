@@ -6,6 +6,7 @@ on:
     paths:
       - 'data/cards.json'
       - 'solver.py'
+      - 'solver_go/**'
       - 'build_static.py'
       - 'index.html'
       - '.github/workflows/deploy-pages.yml'
@@ -26,10 +27,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: solver_go/go.mod
+
       - uses: astral-sh/setup-uv@v6
 
       - name: Install dependencies
         run: uv sync
+
+      - name: Build Go solver
+        run: |
+          cd solver_go && go build -o solver .
+          cd solver_go && GOOS=js GOARCH=wasm go build -o solver.wasm .
 
       - name: Run tests
         run: uv run pytest test_solver.py -v
@@ -40,7 +50,10 @@ jobs:
       - name: Prepare pages
         run: |
           mkdir -p _site
-          cp dist/holosolve.html _site/index.html
+          cp dist/index.html _site/index.html
+          cp solver_go/solver.wasm _site/solver.wasm
+          cp dist/wasm_exec.js _site/wasm_exec.js
+          cp dist/wasm_bridge.js _site/wasm_bridge.js
 
       - uses: actions/upload-pages-artifact@v3
         with:
