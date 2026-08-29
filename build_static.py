@@ -635,7 +635,10 @@ def build():
   </div>
 </div>
 
-<div id="fabSolve" class="fab-solve">最強編成を探す</div>
+<div class="fab-container">
+  <div id="fabRecommend" class="fab-btn fab-recommend disabled">レコメンド</div>
+  <div id="fabSolve" class="fab-btn">最強編成を探す</div>
+</div>
 
 <script>
 const CARDS = {cards_json};
@@ -1063,16 +1066,20 @@ function collapseResults() {{
 function setFabMode(mode) {{
   fabMode = mode;
   const fab = document.getElementById("fabSolve");
+  const fabRec = document.getElementById("fabRecommend");
   fab.classList.remove("disabled");
   if (mode === "back") {{
     fab.textContent = "カード編集に戻る";
     fab.classList.add("fab-back");
+    fabRec.style.display = "none";
   }} else {{
     fab.classList.remove("fab-back");
     const disabled = selected.size > 0 && selected.size < 5;
     fab.classList.toggle("disabled", disabled);
     const count = selected.size || "全";
     fab.textContent = `探索 (${{count}}枚)`;
+    fabRec.style.display = "";
+    fabRec.classList.toggle("disabled", selected.size < 5);
   }}
 }}
 
@@ -1089,6 +1096,7 @@ function doSolve() {{
   const pa = document.getElementById("progressArea");
   btn.disabled = true; btnRec.disabled = true; btn.textContent = "計算中...";
   fab.classList.add("disabled"); fab.textContent = "計算中...";
+  document.getElementById("fabRecommend").classList.add("disabled");
   pa.classList.add("visible");
   document.getElementById("resultsArea").innerHTML = "";
 
@@ -1299,6 +1307,10 @@ document.getElementById("fabSolve").addEventListener("click", () => {{
   }} else {{
     doSolve();
   }}
+}});
+
+document.getElementById("fabRecommend").addEventListener("click", () => {{
+  if (fabMode !== "back") doRecommend();
 }});
 
 document.getElementById("resultsToggle").addEventListener("click", () => {{
