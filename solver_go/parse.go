@@ -193,16 +193,47 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 
 			reranked := RerankTopN(legacySolveResults, cardMap, timeline, scoreEvents, statScale, baseline, songLength, overrideCostumeSkill, timelineTopN)
 
+			// Compute baseline LSI (no skills, just note weights × combo)
+			baselineLSI := 0.0
+			for i := range scoreEvents {
+				ev := &scoreEvents[i]
+				w := ev.Weight
+				if w <= 0 {
+					w = 1.0
+				}
+				combo := comboMultiplier(ev.ComboIndex)
+				baselineLSI += w * combo
+			}
+			// Use average TotalPower from top results for baseline
+			if len(reranked) > 0 {
+				baselineLSI *= reranked[0].UnitScore / ((1 + float64(legacyPool.Results[0].ScoreBonus)/100) * unitScoreK)
+			}
+
+			top1LSI := 0.0
+			if len(reranked) > 0 {
+				top1LSI = reranked[0].LiveScoreIndex
+			}
+
 			var timelineResults []TimelineJSONResult
 			for i, r := range reranked {
 				spEff := make([]float64, 0)
 				for _, v := range r.TimelineResult.SPEfficiency {
 					spEff = append(spEff, roundTo1(v))
 				}
+				skillEff := 0.0
+				if baselineLSI > 0 {
+					skillEff = r.LiveScoreIndex / baselineLSI
+				}
+				top1Pct := 0.0
+				if top1LSI > 0 {
+					top1Pct = r.LiveScoreIndex / top1LSI * 100
+				}
 				timelineResults = append(timelineResults, TimelineJSONResult{
 					Rank:              i + 1,
 					UnitScore:         int(math.Round(r.UnitScore)),
 					LiveScoreIndex:    int(math.Round(r.LiveScoreIndex)),
+					SkillEfficiency:   fixedFloat2(skillEff),
+					Top1Pct:           fixedFloat2(top1Pct),
 					ActiveOverlapLoss: fixedFloat(r.TimelineResult.ActiveOverlapLoss * 100),
 					MemberIDs:         r.TeamIDs[:],
 					SPEfficiency:      spEff,
@@ -245,6 +276,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 				LegacyResults: legacyResult.Results,
 				Timeline:      timelineResults,
 				CandidatePool: candidatePool,
+				BaselineLSI:   int(math.Round(baselineLSI)),
 				Stability:     stability,
 			}, nil
 		}

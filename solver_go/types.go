@@ -169,6 +169,12 @@ func (f fixedFloat) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf("%.1f", float64(f))), nil
 }
 
+type fixedFloat2 float64
+
+func (f fixedFloat2) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf("%.2f", float64(f))), nil
+}
+
 // JSON output types
 
 type JSONResult struct {
@@ -270,6 +276,8 @@ type TimelineJSONResult struct {
 	Rank              int        `json:"rank"`
 	UnitScore         int        `json:"unit_score"`
 	LiveScoreIndex    int        `json:"live_score_index"`
+	SkillEfficiency   fixedFloat2 `json:"skill_efficiency"`
+	Top1Pct           fixedFloat2 `json:"top1_pct"`
 	ActiveOverlapLoss fixedFloat `json:"active_overlap_loss"`
 	MemberIDs         []string   `json:"member_ids"`
 	SPEfficiency      []float64  `json:"sp_efficiency,omitempty"`
@@ -286,6 +294,7 @@ type TimelineJSONOutput struct {
 	LegacyResults []JSONResult              `json:"legacy_results"`
 	Timeline      []TimelineJSONResult      `json:"timeline_results"`
 	CandidatePool int                       `json:"candidate_pool"`
+	BaselineLSI   int                       `json:"baseline_lsi"`
 	Stability     []TimelineStabilityEntry  `json:"stability,omitempty"`
 }
 

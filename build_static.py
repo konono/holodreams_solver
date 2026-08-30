@@ -1090,7 +1090,8 @@ function renderTimelineResults(data) {{
       <div class="result-header">
         <span class="result-rank" ${{rc ? `style="color:${{rc}}"` : ''}}>#${{r.rank}}</span>
         <div class="result-scores">
-          <span>ライブ期待指数: <span class="main-score">${{r.live_score_index.toLocaleString()}}</span></span>
+          <span>スキル効率: <span class="main-score">${{r.skill_efficiency}}x</span></span>
+          <span>1位比: ${{r.top1_pct}}%</span>
           <span>ユニットスコア: ${{r.unit_score.toLocaleString()}}</span>
           <span style="font-size:0.7rem;color:#5a6e80">Active重複ロス: ${{r.active_overlap_loss}}%</span>
         </div>
