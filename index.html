@@ -1102,7 +1102,7 @@ async function doSolve() {
         cards: cardSpecs, stat_scale: statScale, baseline,
         fixed_leader_id: fixedLeader,
         costume_only_leader_id: costumeOnlyLeader,
-        sweep_costumes: !costumeVal && selected.size > 0,
+        sweep_costumes: !costumeVal,
         top_n: parseInt(document.getElementById("topN").value),
         song_length: getSelectedSongLength(),
         chart_score: getSelectedChartScore(),
