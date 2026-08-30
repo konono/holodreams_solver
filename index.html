@@ -1250,7 +1250,9 @@ async function doRecommend() {
   fabRec.classList.add("disabled");
   const ac = parseInt(document.getElementById("acquireCount").value);
   const timeNote = ac >= 4 ? '（候補が多い場合1〜2分かかることがあります）' : '（候補ごとに再計算するため時間がかかります）';
-  loading.innerHTML = `<span class="spinner"></span>強化レコメンドを分析中...${timeNote}`;
+  document.getElementById("progressText").textContent = `強化レコメンドを分析中...${timeNote}`;
+  document.getElementById("progressBarBg").style.display = "none";
+  document.getElementById("progressFill").style.width = "0%";
   loading.classList.add("visible");
   document.getElementById("resultsArea").innerHTML = "";
 
@@ -1272,9 +1274,6 @@ async function doRecommend() {
       const progressBar = document.getElementById("progressBarBg");
       const progressFill = document.getElementById("progressFill");
       const progressText = document.getElementById("progressText");
-      progressBar.style.display = "none";
-      progressFill.style.width = "0%";
-      progressText.textContent = "強化レコメンドを分析中...";
 
       fetch("/api/recommend/stream", {
         method: "POST",
@@ -1326,7 +1325,9 @@ async function doRecommend() {
     btn.disabled = selected.size < 5;
     btnSolve.disabled = selected.size > 0 && selected.size < 5;
     btn.textContent = "強化レコメンド";
-    loading.innerHTML = '<span class="spinner"></span>最強編成を探索中...';
+    document.getElementById("progressText").textContent = "最強編成を探索中...";
+    document.getElementById("progressBarBg").style.display = "none";
+    document.getElementById("progressFill").style.width = "0%";
     loading.classList.remove("visible");
     setFabMode("back");
   }
