@@ -58,24 +58,37 @@ python3 -m holodori_asset_tools download /tmp/holodori_assets --filter 'chart_m'
 
 初回は数分かかる。2 回目以降は `--no-overwrite` で差分のみ。
 
-### 2. charts.json を生成
+### 2. 公開用ビン集約データを生成
 
 ```bash
-python3 scripts/generate_charts.py /tmp/holodori_assets/resources/ --output data/charts.json
+python3 scripts/generate_charts.py /tmp/holodori_assets/resources/ \
+  --output data/chart_scores.json --bin-size 0.5
 ```
 
-### 3. 確認
+これが `data/chart_scores.json`（リポジトリに含まれる公開可能データ）。
+0.5 秒ビンに集約されており、個々のノート位置は復元不可能。
+
+### 3. （オプション）ローカル用フルデータを生成
+
+```bash
+python3 scripts/generate_charts.py /tmp/holodori_assets/resources/ \
+  --output data/charts.json
+```
+
+`data/charts.json` は `.gitignore` 対象。個別ノートのタイムスタンプを含む。
+
+### 4. 確認
 
 ```bash
 python3 -c "
 import json
-with open('data/charts.json') as f:
+with open('data/chart_scores.json') as f:
     charts = json.load(f)
 print(f'Charts: {len(charts)}')
 print(f'Songs: {len(set(v[\"music_id\"] for v in charts.values()))}')
-# Expert のサンプル
 c = charts.get('m0001_expert', {})
 print(f'SP points: {c.get(\"special_points\", [])}')
+print(f'Bins: {len(c.get(\"bins\", []))}')
 print(f'Notes: {c.get(\"total_notes\", 0)}')
 "
 ```
