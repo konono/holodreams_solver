@@ -224,6 +224,27 @@ function getSelectedChartScore() {{
   return window.CHART_SCORES[`${{songId}}_${{diff}}`] || null;
 }}
 
+function getStabilityCharts() {{
+  if (!window.CHART_SCORES || !window.SONGS) return null;
+  const currentSongId = document.getElementById("songSelect").value;
+  const diff = document.getElementById("diffSelect").value || "expert";
+  const targets = [95, 115, 130, 145, 160];
+  const songList = Object.values(window.SONGS).sort((a, b) => a.playing_seconds - b.playing_seconds);
+  const picked = [];
+  for (const target of targets) {{
+    let best = null, bestDist = Infinity;
+    for (const s of songList) {{
+      if (s.id === currentSongId) continue;
+      const key = `${{s.id}}_${{diff}}`;
+      if (!window.CHART_SCORES[key]) continue;
+      const dist = Math.abs(s.playing_seconds - target);
+      if (dist < bestDist) {{ bestDist = dist; best = key; }}
+    }}
+    if (best && !picked.includes(best)) picked.push(best);
+  }}
+  return picked.map(key => window.CHART_SCORES[key]);
+}}
+
 function loadPersistence() {{
   try {{
     const sp = localStorage.getItem("holodri_card_potentials");
@@ -689,7 +710,7 @@ function doSolve() {{
   const cardSpecs = owned.map(c => ({{ id: c.id, potential: getCardPotential(c.id), level: getCardLevel(c.id) }}));
 
   getWasmWorker().then(w => {{
-    w.postMessage({{ type: "solve", cards: cardSpecs, fixedLeaderId, costumeOnlyLeaderId, sweepCostumes: !costumeVal && selected.size > 0, topN: parseInt(document.getElementById("topN").value), songLength: getSelectedSongLength(), chartScore: getSelectedChartScore(), stabilityLengths: document.getElementById("chkStability").checked ? [95, 110, 125, 140, 155] : null }});
+    w.postMessage({{ type: "solve", cards: cardSpecs, fixedLeaderId, costumeOnlyLeaderId, sweepCostumes: !costumeVal && selected.size > 0, topN: parseInt(document.getElementById("topN").value), songLength: getSelectedSongLength(), chartScore: getSelectedChartScore(), stabilityCharts: document.getElementById("chkStability").checked && getSelectedChartScore() ? getStabilityCharts() : null, stabilityLengths: document.getElementById("chkStability").checked && !getSelectedChartScore() ? [95, 110, 125, 140, 155] : null }});
 
   w.onerror = function() {{
     w.onmessage = null;

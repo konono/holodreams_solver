@@ -38,7 +38,7 @@ func MonteCarloTimeline(
 	}
 	var allCards []cardAttempts
 	for i, card := range team {
-		attempts := generateActiveAttempts(card, i, songDuration, 0, spWindows)
+		attempts := generateActiveAttempts(card, i, songDuration, 0, spWindows, countTypes(team))
 		allCards = append(allCards, cardAttempts{
 			scoreUp:  card.CenterSkill.ScoreUp,
 			attempts: attempts,

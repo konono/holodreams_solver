@@ -25,11 +25,12 @@ type ActiveAttempt struct {
 
 // SpecialWindow represents the time window of a Special Skill activation.
 type SpecialWindow struct {
-	Start            float64
-	End              float64
-	ScoreSupport     float64
-	SkillRateUp      float64
-	SlotIndex        int
+	Start              float64
+	End                float64
+	ScoreSupport       float64
+	SkillRateUp        float64
+	SkillRateCondition *string
+	SlotIndex          int
 }
 
 // PlayAssumption defines the assumed play conditions for Timeline evaluation.

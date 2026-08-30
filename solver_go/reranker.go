@@ -48,6 +48,7 @@ func RerankTopN(
 	timeline *SongTimeline,
 	scoreEvents []ScoreEvent,
 	statScale, baseline, songLength float64,
+	overrideCostumeSkill *CostumeSkill,
 	finalN int,
 ) []TimelineRerankResult {
 	if timeline == nil || len(scoreEvents) == 0 {
@@ -64,8 +65,17 @@ func RerankTopN(
 			cards[i] = cardMap[id]
 		}
 
-		// Compute always-on support once per team (order-independent components)
-		eval := evaluateTeam(cards, lr.LeaderIdx, statScale, baseline, songLength, nil)
+		// Resolve costume override for costume-only leaders
+		var costumeSkill *CostumeSkill
+		if overrideCostumeSkill != nil {
+			costumeSkill = overrideCostumeSkill
+		} else if lr.CostumeOnlyLeaderID != "" {
+			if c, ok := cardMap[lr.CostumeOnlyLeaderID]; ok {
+				costumeSkill = &c.CostumeSkill
+			}
+		}
+
+		eval := evaluateTeam(cards, lr.LeaderIdx, statScale, baseline, songLength, costumeSkill)
 		alwaysOnSupport := eval.CostumeSSVal*100*costumeSSRate + eval.SupportSSVal*100*supportSSRate
 
 		for _, perm := range perms5 {

@@ -6,6 +6,13 @@ import (
 	"math"
 )
 
+func derefStr(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
+}
+
 func parseCardsFromJSON(raw json.RawMessage, cf *CardsFile) []*Card {
 	if len(raw) == 0 {
 		cards := make([]*Card, len(cf.Cards))
@@ -161,13 +168,21 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 				for i, id := range r.MemberIDs {
 					team[i] = id
 				}
+				leaderIdx := 0
+				for i, id := range r.MemberIDs {
+					if id == r.LeaderID {
+						leaderIdx = i
+						break
+					}
+				}
 				legacySolveResults = append(legacySolveResults, SolveResult{
 					Score: EvalResult{
 						UnitScore:  float64(r.UnitScore),
 						TotalPower: float64(r.TotalPower),
 					},
-					LeaderIdx: 0,
-					TeamIDs:   team,
+					LeaderIdx:           leaderIdx,
+					TeamIDs:             team,
+					CostumeOnlyLeaderID: derefStr(r.CostumeOnlyLeaderID),
 				})
 			}
 
@@ -176,7 +191,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 				scoreEvents = BinsToScoreEvents(input.ChartScoreData.Bins)
 			}
 
-			reranked := RerankTopN(legacySolveResults, cardMap, timeline, scoreEvents, statScale, baseline, songLength, timelineTopN)
+			reranked := RerankTopN(legacySolveResults, cardMap, timeline, scoreEvents, statScale, baseline, songLength, overrideCostumeSkill, timelineTopN)
 
 			var timelineResults []TimelineJSONResult
 			for i, r := range reranked {
@@ -212,7 +227,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 					if len(stEvents) == 0 {
 						continue
 					}
-					stReranked := RerankTopN(topTeams, cardMap, stTL, stEvents, statScale, baseline, songLength, 1)
+					stReranked := RerankTopN(topTeams, cardMap, stTL, stEvents, statScale, baseline, songLength, overrideCostumeSkill, 1)
 					topLSI := 0
 					if len(stReranked) > 0 {
 						topLSI = int(math.Round(stReranked[0].LiveScoreIndex))

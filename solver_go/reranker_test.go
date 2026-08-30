@@ -82,7 +82,7 @@ func TestRerankTopN_OrderMatters(t *testing.T) {
 		cardMap,
 		timeline,
 		events,
-		1.0, 0, 100,
+		1.0, 0, 100, nil,
 		5,
 	)
 
@@ -126,7 +126,7 @@ func TestRerankTopN_Dedup(t *testing.T) {
 		{Score: EvalResult{TotalPower: 100000}, TeamIDs: [5]string{"b", "a", "c", "d", "e"}},
 	}
 
-	results := RerankTopN(legacyResults, cardMap, timeline, events, 1.0, 0, 100, 10)
+	results := RerankTopN(legacyResults, cardMap, timeline, events, 1.0, 0, 100, nil, 10)
 
 	// Should have only 1 unique team set (despite 2 inputs with same cards)
 	if len(results) != 1 {

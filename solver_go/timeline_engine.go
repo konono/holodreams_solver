@@ -23,11 +23,12 @@ func generateSpecialWindows(team [5]*Card, timeline *SongTimeline) []SpecialWind
 			continue
 		}
 		windows = append(windows, SpecialWindow{
-			Start:        start,
-			End:          end,
-			ScoreSupport: sp.ScoreSupport,
-			SkillRateUp:  sp.SkillRateUp,
-			SlotIndex:    i,
+			Start:              start,
+			End:                end,
+			ScoreSupport:       sp.ScoreSupport,
+			SkillRateUp:        sp.SkillRateUp,
+			SkillRateCondition: sp.SkillRateCondition,
+			SlotIndex:          i,
 		})
 	}
 	return windows
@@ -35,11 +36,25 @@ func generateSpecialWindows(team [5]*Card, timeline *SongTimeline) []SpecialWind
 
 // rateUpAtTime returns the total skill rate up factor at time t from SP windows.
 // Returns the sum of (SkillRateUp / 100.0) for all active SP windows.
+// checkSPRateCondition checks if a SP Rate Up condition is met.
+// AP assumption: life conditions are always satisfied.
+func checkSPRateCondition(cond *string) bool {
+	if cond == nil {
+		return true
+	}
+	c := *cond
+	if len(c) >= 4 && c[:4] == "life" {
+		return true // AP前提: ライフ条件は常に成立
+	}
+	// combo conditions would need combo index at SP time — for now, assume met
+	return true
+}
+
 func rateUpAtTime(spWindows []SpecialWindow, t float64) float64 {
 	total := 0.0
 	for i := range spWindows {
 		w := &spWindows[i]
-		if w.SkillRateUp > 0 && w.Start <= t && t < w.End {
+		if w.SkillRateUp > 0 && w.Start <= t && t < w.End && checkSPRateCondition(w.SkillRateCondition) {
 			total += w.SkillRateUp / 100.0
 		}
 	}
@@ -62,7 +77,7 @@ func scoreSupportAtTime(spWindows []SpecialWindow, t float64) float64 {
 // When spWindows is provided, each attempt's probability is computed using the
 // SP Rate Up active at that trigger time (multiplicative model).
 // When spWindows is nil, rateUpAvg (time-averaged) is used as fallback.
-func generateActiveAttempts(card *Card, cardIndex int, songDuration float64, rateUpAvg float64, spWindows []SpecialWindow) []ActiveAttempt {
+func generateActiveAttempts(card *Card, cardIndex int, songDuration float64, rateUpAvg float64, spWindows []SpecialWindow, typeCounts map[string]int) []ActiveAttempt {
 	cs := &card.CenterSkill
 	if cs.Interval <= 0 || cs.Duration <= 0 {
 		return nil
@@ -74,6 +89,11 @@ func generateActiveAttempts(card *Card, cardIndex int, songDuration float64, rat
 	}
 
 	scoreUp := cs.ScoreUp
+	if cs.Condition != nil && typeCounts != nil && checkCenterTypeCondition(cs.Condition, typeCounts) {
+		if cs.ConditionalScoreUp != nil {
+			scoreUp = *cs.ConditionalScoreUp
+		}
+	}
 
 	var attempts []ActiveAttempt
 	for t := cs.Interval; t < songDuration; t += cs.Interval {
@@ -253,11 +273,18 @@ func EvaluateFullTimeline(team [5]*Card, totalPower, songDuration float64, timel
 }
 
 func buildCardStates(team [5]*Card, songDuration, rateUpAvg float64, spWindows []SpecialWindow) []activeCardState {
+	typeCounts := countTypes(team)
 	cardStates := make([]activeCardState, 0, 5)
 	for i, card := range team {
-		attempts := generateActiveAttempts(card, i, songDuration, rateUpAvg, spWindows)
+		attempts := generateActiveAttempts(card, i, songDuration, rateUpAvg, spWindows, typeCounts)
+		scoreUp := card.CenterSkill.ScoreUp
+		if card.CenterSkill.Condition != nil && checkCenterTypeCondition(card.CenterSkill.Condition, typeCounts) {
+			if card.CenterSkill.ConditionalScoreUp != nil {
+				scoreUp = *card.CenterSkill.ConditionalScoreUp
+			}
+		}
 		cardStates = append(cardStates, activeCardState{
-			scoreUp:  card.CenterSkill.ScoreUp,
+			scoreUp:  scoreUp,
 			attempts: attempts,
 		})
 	}

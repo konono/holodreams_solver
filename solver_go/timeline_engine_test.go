@@ -187,7 +187,7 @@ func TestActiveTimeline_UniformEvents(t *testing.T) {
 
 func TestGenerateActiveAttempts_Basic(t *testing.T) {
 	card := makeTimelineCard(120, 25, 10, 1000)
-	attempts := generateActiveAttempts(card, 0, 100, 0, nil)
+	attempts := generateActiveAttempts(card, 0, 100, 0, nil, nil)
 
 	// Triggers at t=25, 50, 75 (100 is not < 100)
 	if len(attempts) != 3 {
@@ -204,7 +204,7 @@ func TestGenerateActiveAttempts_Basic(t *testing.T) {
 
 func TestGenerateActiveAttempts_ClipEnd(t *testing.T) {
 	card := makeTimelineCard(120, 45, 10, 1000)
-	attempts := generateActiveAttempts(card, 0, 50, 0, nil)
+	attempts := generateActiveAttempts(card, 0, 50, 0, nil, nil)
 
 	// Trigger at t=45, window [45, 50) (clipped from [45,55))
 	if len(attempts) != 1 {
@@ -241,7 +241,7 @@ func TestSPRateUp_BoostsProbability(t *testing.T) {
 	}
 
 	// Generate active attempts with SP windows
-	attempts := generateActiveAttempts(card, 0, 100, 0, spWindows)
+	attempts := generateActiveAttempts(card, 0, 100, 0, spWindows, nil)
 
 	// Trigger at t=25 is inside SP [20,30): boosted = 0.45 * 1.45 = 0.6525
 	// Trigger at t=50 is outside: boosted = 0.45 * 1.0 = 0.45
@@ -281,7 +281,7 @@ func TestSPRateUp_MultipleSPs(t *testing.T) {
 	}
 
 	spWindows := generateSpecialWindows(team, timeline)
-	attempts := generateActiveAttempts(card, 0, 100, 0, spWindows)
+	attempts := generateActiveAttempts(card, 0, 100, 0, spWindows, nil)
 
 	var probAt25 float64
 	for _, a := range attempts {
@@ -309,7 +309,7 @@ func TestSPBoundary_AtTriggerTime(t *testing.T) {
 	}
 
 	spWindows := generateSpecialWindows(team, timeline)
-	attempts := generateActiveAttempts(card, 0, 100, 0, spWindows)
+	attempts := generateActiveAttempts(card, 0, 100, 0, spWindows, nil)
 
 	var probAt25 float64
 	for _, a := range attempts {
@@ -337,7 +337,7 @@ func TestSPBoundary_AtEndTime(t *testing.T) {
 	}
 
 	spWindows := generateSpecialWindows(team, timeline)
-	attempts := generateActiveAttempts(card, 0, 100, 0, spWindows)
+	attempts := generateActiveAttempts(card, 0, 100, 0, spWindows, nil)
 
 	var probAt25 float64
 	for _, a := range attempts {

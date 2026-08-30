@@ -75,6 +75,8 @@ def open_page(browser_context):
 
 
 def select_cards(page, count=6):
+    # Reset song selection to avoid Timeline reranking in tests
+    page.select_option("#songSelect", value="")
     ids = page.eval_on_selector_all(".card", f"els => els.slice(0, {count}).map(e => e.dataset.id)")
     for cid in ids:
         page.click(f'.card[data-id="{cid}"] .char-name')
