@@ -889,16 +889,28 @@ function renderRecommendations(data) {{
       if (hasCostume) {{
         const costumeCard = cardMap[r.best_team.costume_only_leader_id];
         const costumeLabel = costumeCard ? `${{costumeCard.character}}(${{costumeCard.card_name}})` : r.best_team.costume_only_leader_id;
-        html += `<div style="font-size:0.72rem;color:#c0c060;margin-top:6px">👗 ${{costumeLabel}}</div>`;
+        html += `<div style="color:#c0c060;font-size:0.75rem;margin:8px 0 4px">👗 ${{costumeLabel}}</div>`;
       }}
-      html += `<div style="font-size:0.72rem;color:#6b7f92;margin-top:${{hasCostume ? '2' : '6'}}px">${{hasCostume ? 'メンバー' : 'ベストチーム'}}: `;
-      for (let mi = 0; mi < r.best_team.member_ids.length; mi++) {{
-        const mid = r.best_team.member_ids[mi];
+      html += `<div style="font-size:0.72rem;color:#6b7f92;margin:${{hasCostume ? '0' : '8px'}} 0 4px">${{hasCostume ? 'メンバー' : 'ベストチーム'}}:</div>`;
+      html += `<div class="result-members">`;
+      for (const mid of r.best_team.member_ids) {{
         const mc = cardMap[mid];
+        if (!mc) continue;
         const isLeader = mid === r.best_team.leader_id && !hasCostume;
-        const label = mc ? `${{mc.character}}(${{mc.card_name}})` : mid;
-        if (mi > 0) html += ' / ';
-        html += isLeader ? `<span style="color:#ffd700">★${{label}}</span>` : label;
+        const pot = getCardPotential(mid);
+        const lv = getCardLevel(mid);
+        const s = getCardStats(mc, pot, lv);
+        html += `<div class="member-card${{isLeader ? " is-leader" : ""}}">
+          <span class="type-badge type-${{mc.type}}" style="float:right;margin-top:2px">${{TYPE_LABELS[mc.type]}}</span>
+          <div class="m-name">${{mc.character}}</div>
+          <div class="m-card-name">${{mc.card_name}}</div>
+          <div class="m-stats">
+            <span>P:${{s.performance.toLocaleString()}}</span>
+            <span>T:${{s.technique.toLocaleString()}}</span>
+            <span>S:${{s.sense.toLocaleString()}}</span>
+          </div>
+          <div class="m-pot-lv">${{pot}}凸${{levelEnabled ? ` Lv${{lv}}` : ''}}</div>
+        </div>`;
       }}
       html += `</div>`;
     }}
