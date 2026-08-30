@@ -78,6 +78,26 @@ func parseOwnedSpecsFromJSON(raw json.RawMessage) map[string]CardSpec {
 	return specs
 }
 
+func boardOptForReranked(r TimelineRerankResult, cardMap map[string]*Card, timeline *SongTimeline, scoreEvents []ScoreEvent, cdPermil, actPermil int) *BoardOptResult {
+	var team [5]*Card
+	for i, id := range r.TeamIDs {
+		team[i] = cardMap[id]
+	}
+	return OptimizeBoardForTeam(team, r.TotalPower, timeline.Duration, timeline, scoreEvents, r.AlwaysOnSupport, cdPermil, actPermil)
+}
+
+func getBoardPermils(input CLIInput) (int, int) {
+	cd := defaultCdReducePermil
+	act := defaultActivationUpPermil
+	if input.BoardCdReducePermil != nil {
+		cd = *input.BoardCdReducePermil
+	}
+	if input.BoardActivationUpPermil != nil {
+		act = *input.BoardActivationUpPermil
+	}
+	return cd, act
+}
+
 func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 	statScale := 1.0
 	if input.StatScale != nil {
@@ -179,6 +199,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 					top1LSI := 0.0
 					if len(reranked) > 0 { top1LSI = reranked[0].LiveScoreIndex }
 
+					cdPermilSweep, actPermilSweep := getBoardPermils(input)
 					var timelineResults []TimelineJSONResult
 					for i, r := range reranked {
 						spEff := make([]float64, 0)
@@ -195,6 +216,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 							s := r.CostumeOnlyLeaderID
 							costumePtr = &s
 						}
+						boardOpt := boardOptForReranked(r, cardMap, timeline, scoreEvents, cdPermilSweep, actPermilSweep)
 						timelineResults = append(timelineResults, TimelineJSONResult{
 							Rank:                i + 1,
 							UnitScore:           int(math.Round(r.UnitScore)),
@@ -206,6 +228,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 							CostumeOnlyLeaderID: costumePtr,
 							MemberIDs:           r.TeamIDs[:],
 							SPEfficiency:        spEff,
+							BoardOptimization:   boardOpt,
 						})
 					}
 					return TimelineJSONOutput{
@@ -309,6 +332,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 				top1LSI = reranked[0].LiveScoreIndex
 			}
 
+			cdPermil, actPermil := getBoardPermils(input)
 			var timelineResults []TimelineJSONResult
 			for i, r := range reranked {
 				spEff := make([]float64, 0)
@@ -329,6 +353,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 					s := r.CostumeOnlyLeaderID
 					costumePtr = &s
 				}
+				boardOpt := boardOptForReranked(r, cardMap, timeline, scoreEvents, cdPermil, actPermil)
 				timelineResults = append(timelineResults, TimelineJSONResult{
 					Rank:                i + 1,
 					UnitScore:           int(math.Round(r.UnitScore)),
@@ -340,6 +365,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 					CostumeOnlyLeaderID: costumePtr,
 					MemberIDs:           r.TeamIDs[:],
 					SPEfficiency:        spEff,
+					BoardOptimization:   boardOpt,
 				})
 			}
 

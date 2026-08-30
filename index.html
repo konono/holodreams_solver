@@ -1614,8 +1614,25 @@ function renderTimelineResults(data) {
           <span>ユニットスコア: ${r.unit_score.toLocaleString()}</span>
           <span style="font-size:0.7rem;color:#5a6e80">Active重複ロス: ${r.active_overlap_loss}%</span>
         </div>
-      </div>
-      <div class="result-members">`;
+      </div>`;
+
+    if (r.board_optimization) {
+      const bo = r.board_optimization;
+      const lsiDelta = bo.optimized_lsi - bo.baseline_lsi;
+      const lossDelta = bo.optimized_loss - bo.baseline_loss;
+      const hasImprovement = lsiDelta > 0;
+      html += `<div style="background:#0d1520;border:1px solid ${hasImprovement ? '#1a4a3a' : '#2a3a4a'};border-radius:6px;padding:8px 10px;margin:8px 0;font-size:0.72rem">
+        <div style="color:#8899aa;font-weight:600;margin-bottom:4px">ボード推奨</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+          <span>重複ロス: ${bo.baseline_loss}% → <span style="color:${hasImprovement ? '#40d080' : '#e0e6ed'}">${bo.optimized_loss}%</span>
+            ${lossDelta < 0 ? `<span style="color:#40d080;font-size:0.65rem">(${lossDelta.toFixed(1)}pt)</span>` : ''}</span>
+          <span>LSI: ${bo.baseline_lsi.toLocaleString()} → <span style="color:${hasImprovement ? '#40d080' : '#e0e6ed'}">${bo.optimized_lsi.toLocaleString()}</span>
+            ${lsiDelta > 0 ? `<span style="color:#40d080;font-size:0.65rem">(+${lsiDelta.toLocaleString()})</span>` : ''}</span>
+        </div>
+      </div>`;
+    }
+
+    html += `<div class="result-members">`;
 
     for (let i = 0; i < r.member_ids.length; i++) {
       const mid = r.member_ids[i];
@@ -1626,6 +1643,16 @@ function renderTimelineResults(data) {
       const s = getCardStats(card, pot, lv);
       const spEff = r.sp_efficiency?.[i];
       const spLabel = spEff != null && spEff > 0 ? `<div style="color:#c0a040;font-size:0.6rem">SP効率: ${spEff.toFixed(1)}</div>` : '';
+      let boardLabel = '';
+      if (r.board_optimization) {
+        const bm = r.board_optimization.members[i];
+        if (bm && (bm.cd_reduce || bm.activation_up)) {
+          const tags = [];
+          if (bm.cd_reduce) tags.push('頻度UP');
+          if (bm.activation_up) tags.push('確率UP');
+          boardLabel = `<div style="color:#60b0e0;font-size:0.6rem">${tags.join(' ')}</div>`;
+        }
+      }
       html += `<div class="member-card">
         <span class="type-badge type-${card.type}" style="float:right;margin-top:2px">${TYPE_LABELS[card.type]}</span>
         <div style="color:#5a6e80;font-size:0.6rem">slot ${i+1}</div>
@@ -1638,6 +1665,7 @@ function renderTimelineResults(data) {
         </div>
         <div class="m-pot-lv">${pot}凸${levelEnabled ? ` Lv${lv}` : ''}</div>
         ${spLabel}
+        ${boardLabel}
       </div>`;
     }
     html += `</div></div>`;

@@ -274,6 +274,138 @@ func EvaluateFullTimeline(team [5]*Card, totalPower, songDuration float64, timel
 	}
 }
 
+// generateActiveAttemptsWithBoard is like generateActiveAttempts but applies board effects:
+// cdReducePermil shortens interval, activationUpPermil boosts base probability.
+func generateActiveAttemptsWithBoard(card *Card, cardIndex int, songDuration float64, rateUpAvg float64, spWindows []SpecialWindow, typeCounts map[string]int, boardCfg *BoardConfig) []ActiveAttempt {
+	cs := &card.CenterSkill
+	if cs.Interval <= 0 || cs.Duration <= 0 {
+		return nil
+	}
+
+	interval := cs.Interval
+	baseProb := 1.0
+	if cs.ActivationProbabilityPermil != nil {
+		baseProb = float64(*cs.ActivationProbabilityPermil) / 1000.0
+	}
+
+	if boardCfg != nil {
+		if boardCfg.CdReducePermil > 0 {
+			interval = cs.Interval * (1.0 - float64(boardCfg.CdReducePermil)/1000.0)
+		}
+		if boardCfg.ActivationUpPermil > 0 {
+			baseProb = math.Min(1.0, baseProb*(1.0+float64(boardCfg.ActivationUpPermil)/1000.0))
+		}
+	}
+
+	scoreUp := cs.ScoreUp
+	if cs.Condition != nil && typeCounts != nil && checkCenterTypeCondition(cs.Condition, typeCounts) {
+		if cs.ConditionalScoreUp != nil {
+			scoreUp = *cs.ConditionalScoreUp
+		}
+	}
+
+	var attempts []ActiveAttempt
+	for t := interval; t < songDuration; t += interval {
+		end := math.Min(t+cs.Duration, songDuration)
+		if end <= t {
+			continue
+		}
+
+		var boostedProb float64
+		if spWindows != nil {
+			rateUp := rateUpAtTime(spWindows, t)
+			boostedProb = math.Min(1.0, baseProb*(1.0+rateUp))
+		} else {
+			boostedProb = math.Min(1.0, baseProb*(1.0+rateUpAvg))
+		}
+
+		attempts = append(attempts, ActiveAttempt{
+			Start:       t,
+			End:         end,
+			Probability: boostedProb,
+			ScoreUp:     scoreUp,
+			CardIndex:   cardIndex,
+		})
+	}
+	return attempts
+}
+
+// buildCardStatesWithBoard builds card states applying per-member board configs.
+func buildCardStatesWithBoard(team [5]*Card, songDuration float64, spWindows []SpecialWindow, boardConfigs [5]*BoardConfig) []activeCardState {
+	typeCounts := countTypes(team)
+	cardStates := make([]activeCardState, 0, 5)
+	for i, card := range team {
+		attempts := generateActiveAttemptsWithBoard(card, i, songDuration, 0, spWindows, typeCounts, boardConfigs[i])
+		scoreUp := card.CenterSkill.ScoreUp
+		if card.CenterSkill.Condition != nil && checkCenterTypeCondition(card.CenterSkill.Condition, typeCounts) {
+			if card.CenterSkill.ConditionalScoreUp != nil {
+				scoreUp = *card.CenterSkill.ConditionalScoreUp
+			}
+		}
+		cardStates = append(cardStates, activeCardState{
+			scoreUp:  scoreUp,
+			attempts: attempts,
+		})
+	}
+	sort.Slice(cardStates, func(i, j int) bool {
+		return cardStates[i].scoreUp > cardStates[j].scoreUp
+	})
+	return cardStates
+}
+
+// EvaluateFullTimelineWithBoard is like EvaluateFullTimeline but applies board configs.
+func EvaluateFullTimelineWithBoard(team [5]*Card, totalPower, songDuration float64, timeline *SongTimeline, scoreEvents []ScoreEvent, alwaysOnSupport float64, boardConfigs [5]*BoardConfig) TimelineEvalResult {
+	spWindows := generateSpecialWindows(team, timeline)
+	cardStates := buildCardStatesWithBoard(team, songDuration, spWindows, boardConfigs)
+
+	totalWeightedEmax := 0.0
+	totalWeightedRaw := 0.0
+	totalWeight := 0.0
+	relativeSongScore := 0.0
+
+	for i := range scoreEvents {
+		ev := &scoreEvents[i]
+		t := ev.Time
+		w := ev.Weight
+		if w <= 0 {
+			w = 1.0
+		}
+
+		emax := expectedMaxActiveAtTime(cardStates, t)
+		raw := rawActiveExposureAtTime(cardStates, t)
+
+		totalWeightedEmax += emax * w
+		totalWeightedRaw += raw * w
+		totalWeight += w
+
+		spSupport := 0.0
+		if spWindows != nil {
+			spSupport = scoreSupportAtTime(spWindows, t)
+		}
+		totalSupport := alwaysOnSupport + spSupport
+
+		skillMultiplier := (1.0 + emax/100.0) * (1.0 + totalSupport/100.0)
+		combo := comboMultiplier(ev.ComboIndex)
+		relativeSongScore += w * combo * skillMultiplier
+	}
+
+	var avgActive, overlapLoss float64
+	if totalWeight > 0 {
+		avgActive = totalWeightedEmax / totalWeight
+	}
+	if totalWeightedRaw > 0 {
+		overlapLoss = 1.0 - totalWeightedEmax/totalWeightedRaw
+	}
+
+	liveScoreIndex := totalPower * relativeSongScore
+
+	return TimelineEvalResult{
+		LiveScoreIndex:    liveScoreIndex,
+		ExpectedActive:    avgActive,
+		ActiveOverlapLoss: overlapLoss,
+	}
+}
+
 func buildCardStates(team [5]*Card, songDuration, rateUpAvg float64, spWindows []SpecialWindow) []activeCardState {
 	typeCounts := countTypes(team)
 	cardStates := make([]activeCardState, 0, 5)

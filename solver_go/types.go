@@ -224,6 +224,10 @@ type CLIInput struct {
 	StabilityLengths    []float64 `json:"stability_lengths"`
 	SweepCostumes       bool      `json:"sweep_costumes"`
 
+	// board optimization
+	BoardCdReducePermil    *int `json:"board_cd_reduce_permil"`
+	BoardActivationUpPermil *int `json:"board_activation_up_permil"`
+
 	// recommend
 	AcquireCount int `json:"acquire_count"`
 
@@ -282,7 +286,29 @@ type TimelineJSONResult struct {
 	ActiveOverlapLoss   fixedFloat  `json:"active_overlap_loss"`
 	CostumeOnlyLeaderID *string    `json:"costume_only_leader_id"`
 	MemberIDs           []string    `json:"member_ids"`
-	SPEfficiency        []float64   `json:"sp_efficiency,omitempty"`
+	SPEfficiency        []float64       `json:"sp_efficiency,omitempty"`
+	BoardOptimization   *BoardOptResult `json:"board_optimization,omitempty"`
+}
+
+// BoardConfig represents per-member board (skill tree) settings
+// that modify Active Skill timing and probability.
+type BoardConfig struct {
+	CdReducePermil    int `json:"cd_reduce_permil"`
+	ActivationUpPermil int `json:"activation_up_permil"`
+}
+
+type BoardMemberResult struct {
+	CdReduce     bool    `json:"cd_reduce"`
+	ActivationUp bool    `json:"activation_up"`
+	CardID       string  `json:"card_id"`
+}
+
+type BoardOptResult struct {
+	Members       [5]BoardMemberResult `json:"members"`
+	BaselineLoss  fixedFloat           `json:"baseline_loss"`
+	OptimizedLoss fixedFloat           `json:"optimized_loss"`
+	BaselineLSI   int                  `json:"baseline_lsi"`
+	OptimizedLSI  int                  `json:"optimized_lsi"`
 }
 
 type TimelineStabilityEntry struct {
