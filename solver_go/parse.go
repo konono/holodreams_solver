@@ -116,7 +116,116 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 			for i := range cf.Cards {
 				rawCardMap[cf.Cards[i].ID] = &cf.Cards[i]
 			}
-			return solveSweepCostumes(cards, cf.Cards, rawCardMap, topN, statScale, baseline, songLength, input.StabilityLengths, cf), nil
+			sweepResult := solveSweepCostumes(cards, cf.Cards, rawCardMap, topN, statScale, baseline, songLength, input.StabilityLengths, cf)
+
+			// Apply Timeline reranking to sweep results if chart data is provided
+			timeline := input.SongTimeline
+			if timeline == nil && input.ChartScoreData != nil {
+				timeline = ChartScoreToTimeline(input.ChartScoreData)
+			}
+			if timeline != nil {
+				scoreEvents := timeline.ScoreEvents
+				if len(scoreEvents) == 0 && input.ChartScoreData != nil {
+					scoreEvents = BinsToScoreEvents(input.ChartScoreData.Bins)
+				}
+				if len(scoreEvents) > 0 {
+					cardMap := make(map[string]*Card, len(cards))
+					for _, c := range cards {
+						cardMap[c.ID] = c
+					}
+					candidatePool := topN * 10
+					if candidatePool < 200 {
+						candidatePool = 200
+					}
+					sweepPool := solveSweepCostumes(cards, cf.Cards, rawCardMap, candidatePool, statScale, baseline, songLength, nil, cf)
+
+					var legacySolveResults []SolveResult
+					for _, r := range sweepPool.Results {
+						team := [5]string{}
+						for i, id := range r.MemberIDs {
+							team[i] = id
+						}
+						leaderIdx := 0
+						for i, id := range r.MemberIDs {
+							if id == r.LeaderID {
+								leaderIdx = i
+								break
+							}
+						}
+						var costumeSkill *CostumeSkill
+						if r.CostumeOnlyLeaderID != nil {
+							cid := *r.CostumeOnlyLeaderID
+							for ci := range cf.Cards {
+								if cf.Cards[ci].ID == cid && len(cf.Cards[ci].PotentialData) > 0 {
+									cs := cf.Cards[ci].PotentialData[0].CostumeSkill
+									costumeSkill = &cs
+									break
+								}
+							}
+						}
+						legacySolveResults = append(legacySolveResults, SolveResult{
+							Score: EvalResult{
+								UnitScore:  float64(r.UnitScore),
+								TotalPower: float64(r.TotalPower),
+							},
+							LeaderIdx:           leaderIdx,
+							TeamIDs:             team,
+							CostumeOnlyLeaderID: derefStr(r.CostumeOnlyLeaderID),
+						})
+						_ = costumeSkill
+					}
+
+					timelineTopN := topN
+					if input.TimelineTopN > 0 {
+						timelineTopN = input.TimelineTopN
+					}
+					reranked := RerankTopN(legacySolveResults, cardMap, timeline, scoreEvents, statScale, baseline, songLength, nil, timelineTopN)
+
+					baselineLSI := 0.0
+					for i := range scoreEvents {
+						ev := &scoreEvents[i]
+						w := ev.Weight
+						if w <= 0 { w = 1.0 }
+						baselineLSI += w * comboMultiplier(ev.ComboIndex)
+					}
+					if len(reranked) > 0 && len(sweepPool.Results) > 0 {
+						baselineLSI *= reranked[0].UnitScore / ((1 + float64(sweepPool.Results[0].ScoreBonus)/100) * unitScoreK)
+					}
+					top1LSI := 0.0
+					if len(reranked) > 0 { top1LSI = reranked[0].LiveScoreIndex }
+
+					var timelineResults []TimelineJSONResult
+					for i, r := range reranked {
+						spEff := make([]float64, 0)
+						for _, v := range r.TimelineResult.SPEfficiency {
+							spEff = append(spEff, roundTo1(v))
+						}
+						skillEff := 0.0
+						if baselineLSI > 0 { skillEff = r.LiveScoreIndex / baselineLSI }
+						top1Pct := 0.0
+						if top1LSI > 0 { top1Pct = r.LiveScoreIndex / top1LSI * 100 }
+						timelineResults = append(timelineResults, TimelineJSONResult{
+							Rank:              i + 1,
+							UnitScore:         int(math.Round(r.UnitScore)),
+							TotalPower:        int(math.Round(r.TotalPower)),
+							LiveScoreIndex:    int(math.Round(r.LiveScoreIndex)),
+							SkillEfficiency:   fixedFloat2(skillEff),
+							Top1Pct:           fixedFloat2(top1Pct),
+							ActiveOverlapLoss: fixedFloat(r.TimelineResult.ActiveOverlapLoss * 100),
+							MemberIDs:         r.TeamIDs[:],
+							SPEfficiency:      spEff,
+						})
+					}
+					return TimelineJSONOutput{
+						LegacyResults: sweepResult.Results,
+						Timeline:      timelineResults,
+						CandidatePool: candidatePool,
+						BaselineLSI:   int(math.Round(baselineLSI)),
+					}, nil
+				}
+			}
+
+			return sweepResult, nil
 		}
 
 		var overrideCostumeSkill *CostumeSkill

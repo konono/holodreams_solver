@@ -588,8 +588,13 @@ async function init() {
     const chartRes = await fetch("/api/chart_scores");
     if (chartRes.ok) {
       window.CHART_SCORES = await chartRes.json();
+      console.log(`chart_scores loaded: ${Object.keys(window.CHART_SCORES).length} charts`);
+    } else {
+      console.warn("chart_scores not available:", chartRes.status);
     }
-  } catch {}
+  } catch (e) {
+    console.warn("chart_scores fetch failed:", e);
+  }
   document.getElementById("songSelect").addEventListener("change", function() {
     document.getElementById("diffSelect").style.display = this.value ? "" : "none";
   });
