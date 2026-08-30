@@ -369,7 +369,11 @@ header p { color: #8899aa; font-size: 0.85rem; margin-top: 4px; }
   <div id="cardArea"><div class="empty-msg">カードデータを読み込み中...</div></div>
 
   <div class="loading-area" id="loadingArea">
-    <span class="spinner"></span>最強編成を探索中...
+    <span class="spinner"></span>
+    <div id="progressText">最強編成を探索中...</div>
+    <div style="width:200px;margin:10px auto 0;height:6px;background:#1a2735;border-radius:3px;overflow:hidden;display:none" id="progressBarBg">
+      <div id="progressFill" style="width:0%;height:100%;background:#4f8cff;border-radius:3px;transition:width 0.2s"></div>
+    </div>
   </div>
 
   <div id="resultsWrapper" style="display:none">
@@ -1095,26 +1099,64 @@ async function doSolve() {
       cardSpecs = [...selected].map(id => ({ id, potential: getCardPotential(id), level: getCardLevel(id) }));
     }
 
-    const res = await fetch("/api/solve", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        cards: cardSpecs, stat_scale: statScale, baseline,
-        fixed_leader_id: fixedLeader,
-        costume_only_leader_id: costumeOnlyLeader,
-        sweep_costumes: !costumeVal,
-        top_n: parseInt(document.getElementById("topN").value),
-        song_length: getSelectedSongLength(),
-        chart_score: getSelectedChartScore(),
-        stability_charts: document.getElementById("chkStability").checked && getSelectedChartScore() ? getStabilityCharts() : null,
-        stability_lengths: document.getElementById("chkStability").checked && !getSelectedChartScore() ? [95, 110, 125, 140, 155] : null,
-      }),
+    const solveBody = JSON.stringify({
+      cards: cardSpecs, stat_scale: statScale, baseline,
+      fixed_leader_id: fixedLeader,
+      costume_only_leader_id: costumeOnlyLeader,
+      sweep_costumes: !costumeVal,
+      top_n: parseInt(document.getElementById("topN").value),
+      song_length: getSelectedSongLength(),
+      chart_score: getSelectedChartScore(),
+      stability_charts: document.getElementById("chkStability").checked && getSelectedChartScore() ? getStabilityCharts() : null,
+      stability_lengths: document.getElementById("chkStability").checked && !getSelectedChartScore() ? [95, 110, 125, 140, 155] : null,
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || `サーバーエラー (${res.status})`);
-    }
-    const data = await res.json();
+
+    const data = await new Promise((resolve, reject) => {
+      const progressBar = document.getElementById("progressBarBg");
+      const progressFill = document.getElementById("progressFill");
+      const progressText = document.getElementById("progressText");
+      progressBar.style.display = "none";
+      progressFill.style.width = "0%";
+      progressText.textContent = "最強編成を探索中...";
+
+      fetch("/api/solve/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: solveBody,
+      }).then(res => {
+        if (!res.ok) return res.json().then(e => { throw new Error(e.detail || `サーバーエラー (${res.status})`); });
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        function pump() {
+          return reader.read().then(({ done, value }) => {
+            if (done) { reject(new Error("ストリームが途中で終了しました")); return; }
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n\n");
+            buffer = lines.pop();
+            for (const chunk of lines) {
+              const line = chunk.replace(/^data: /, "").trim();
+              if (!line) continue;
+              try {
+                const ev = JSON.parse(line);
+                if (ev.type === "progress") {
+                  progressBar.style.display = "block";
+                  const pct = Math.min(100, ev.current / ev.total * 100);
+                  progressFill.style.width = pct + "%";
+                  progressText.textContent = `${ev.current.toLocaleString()} / ${ev.total.toLocaleString()} 組み合わせを評価中...`;
+                } else if (ev.type === "done") {
+                  resolve(ev.result);
+                  return;
+                }
+              } catch(e) {}
+            }
+            return pump();
+          });
+        }
+        pump().catch(reject);
+      }).catch(reject);
+    });
+
     expandResults();
     renderResults(data);
     saveToHistory(data);
@@ -1129,6 +1171,9 @@ async function doSolve() {
     btnRec.disabled = selected.size < 5;
     btn.textContent = "最強編成を探す";
     loading.classList.remove("visible");
+    document.getElementById("progressBarBg").style.display = "none";
+    document.getElementById("progressFill").style.width = "0%";
+    document.getElementById("progressText").textContent = "最強編成を探索中...";
     setFabMode("back");
   }
 }

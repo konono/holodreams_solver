@@ -30,6 +30,52 @@ def _call_go(payload: dict) -> dict:
     return json.loads(result.stdout)
 
 
+def _call_go_stream(payload: dict):
+    """Run Go solver and yield progress events, then the final result.
+
+    Yields dicts: {"type": "progress", "current": int, "total": int}
+    Final yield:  {"type": "done", "result": dict}
+    """
+    proc = subprocess.Popen(
+        [str(_SOLVER_BIN)],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        cwd=str(Path(__file__).parent),
+    )
+    proc.stdin.write(json.dumps(payload).encode())
+    proc.stdin.close()
+
+    import select
+    import time
+
+    last_progress_time = 0
+    while True:
+        ready, _, _ = select.select([proc.stderr], [], [], 0.1)
+        if ready:
+            line = proc.stderr.readline()
+            if not line:
+                break
+            text = line.decode().strip()
+            if text.startswith("PROGRESS:"):
+                now = time.monotonic()
+                if now - last_progress_time < 0.15:
+                    continue
+                last_progress_time = now
+                parts = text[9:].split("/")
+                if len(parts) == 2:
+                    yield {"type": "progress", "current": int(parts[0]), "total": int(parts[1])}
+        elif proc.poll() is not None:
+            break
+
+    proc.wait()
+    if proc.returncode != 0:
+        err = proc.stderr.read().decode()
+        raise RuntimeError(f"Go solver failed: {err}")
+    stdout = proc.stdout.read()
+    yield {"type": "done", "result": json.loads(stdout)}
+
+
 def _build_cards_payload(owned_cards_input: list) -> list:
     if not owned_cards_input:
         return []
