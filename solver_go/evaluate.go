@@ -189,11 +189,11 @@ func evaluateTeam(team [5]*Card, leaderIdx int, statScale, baseline, songLength 
 		}
 	}
 
-	// Special → Active rate up time average
-	rateUpTimeAvg := 0.0
+	// Special → Active rate up (multiplicative: base_prob × (1 + rate_up_avg))
+	rateUpAvg := 0.0
 	for _, c := range team {
 		if c.SpecialSkill != nil && c.SpecialSkill.SkillRateUp > 0 {
-			rateUpTimeAvg += c.SpecialSkill.SkillRateUp * 10 * c.SpecialSkill.Duration / songLength
+			rateUpAvg += (c.SpecialSkill.SkillRateUp / 100.0) * c.SpecialSkill.Duration / songLength
 		}
 	}
 
@@ -215,7 +215,7 @@ func evaluateTeam(team [5]*Card, leaderIdx int, statScale, baseline, songLength 
 		if cs.ActivationProbabilityPermil != nil {
 			baseProb = float64(*cs.ActivationProbabilityPermil) / 1000.0
 		}
-		boostedProb := math.Min(1.0, baseProb+rateUpTimeAvg/1000.0)
+		boostedProb := math.Min(1.0, baseProb*(1.0+rateUpAvg))
 		uptime := math.Min(1.0, cs.Duration/cs.Interval*boostedProb)
 		activeMembers = append(activeMembers, activeEntry{scoreUp, uptime})
 	}

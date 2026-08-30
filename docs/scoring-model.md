@@ -47,7 +47,8 @@
 v2 Active詳細:
 ```
 uptime = min(1, duration / interval × boosted_prob)
-boosted_prob = base_prob + Σ(SP発動率UP × SP継続 / 曲長)
+boosted_prob = base_prob × (1 + rate_up_avg)        ← v3で乗算に修正
+rate_up_avg  = Σ(SP発動率UP/100 × SP継続 / 曲長)
 E[max] = Σ(score_up_i × uptime_i × Π(j<i: 1 - uptime_j))  ※value降順
 ```
 
@@ -227,9 +228,35 @@ v2ではExpected Maximumモデルを採用。各ノートで最強のActive 1つ
 
 ```
 uptime_i = min(1, duration_i / interval_i × boosted_prob_i)
-boosted_prob_i = base_prob_i + Σ(SP発動率UP × SP継続 / 曲長)
+boosted_prob_i = base_prob_i × (1 + rate_up_avg)      ← v3で乗算に修正
+rate_up_avg   = Σ(SP発動率UP/100 × SP継続 / 曲長)
 E[max] = Σ(score_up_i × uptime_i × Π(j<i: 1 - uptime_j))  ※value降順ソート
 active_pct = 52.89 + E[max] / 12.82
 ```
 
 v1ではΣ線形和で全員のActiveを合算し、発動率も無視していた。
+
+### v3: Timeline Expected Score Engine
+
+v3では曲ごとのチャートデータを用いた精密なライブ期待スコア計算を追加。
+Unit Score Predictor（v2）は高速全探索用にそのまま維持し、Top候補のみを
+Timeline Engineで再評価する二段階方式。
+
+```
+全候補 → Legacy Fast Solver → Top 200 → 5!=120順列 Timeline → Final Top N
+```
+
+Timeline Engineでは:
+- Active発動確率を各trigger時刻で個別に計算（SP Rate Upの時間依存性を反映）
+- E[max(active)]を各ノート/ビン時刻で解析的に計算（Monte Carlo不要）
+- Score Support × Active Score Up の乗算的相互作用を直接評価
+- SP固定5地点に基づく編成順最適化
+
+LiveScoreIndex = TotalPower × Σ(noteWeight × comboMultiplier × skillMultiplier)
+- ランキング用相対指標（同一曲内での編成比較に使用）
+- ゲーム内絶対スコアとは直接比較不可
+
+未実装項目（フォローアップ）:
+- SkillRateCondition（life_1000, combo条件付きSP Rate Up）
+- PlayAssumption（AP/FC前提の条件分岐）
+- ConditionalScoreUp（Timeline側でのタイプ条件Active）

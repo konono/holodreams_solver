@@ -319,6 +319,12 @@ header p { color: #8899aa; font-size: 0.85rem; margin-top: 4px; }
     <select id="songSelect" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:4px 6px;border-radius:4px;font-size:0.75rem;max-width:200px">
       <option value="">汎用（192秒）</option>
     </select>
+    <select id="diffSelect" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:4px 6px;border-radius:4px;font-size:0.75rem;display:none">
+      <option value="expert">Expert</option>
+      <option value="hard">Hard</option>
+      <option value="normal">Normal</option>
+      <option value="easy">Easy</option>
+    </select>
     <label style="cursor:pointer;font-size:0.75rem;color:#8899aa"><input type="checkbox" id="chkStability" style="vertical-align:middle;margin-right:2px">安定性分析</label>
     <span style="color:#3a4f66">|</span>
     <label>補正:</label>
@@ -484,6 +490,41 @@ function syncLevelUI() {
   document.getElementById("lvGlobalBtns").style.display = levelEnabled ? "" : "none";
 }
 
+function getSelectedSongLength() {
+  const sel = document.getElementById("songSelect");
+  if (!sel.value) return null;
+  const opt = sel.selectedOptions[0];
+  return opt?.dataset.seconds ? parseFloat(opt.dataset.seconds) : null;
+}
+
+function getSelectedChartScore() {
+  const songId = document.getElementById("songSelect").value;
+  if (!songId || !window.CHART_SCORES) return null;
+  const diff = document.getElementById("diffSelect").value || "expert";
+  return window.CHART_SCORES[`${songId}_${diff}`] || null;
+}
+
+function getStabilityCharts() {
+  if (!window.CHART_SCORES || !window.SONGS) return null;
+  const currentSongId = document.getElementById("songSelect").value;
+  const diff = document.getElementById("diffSelect").value || "expert";
+  const targets = [95, 115, 130, 145, 160];
+  const songList = Object.values(window.SONGS).sort((a, b) => a.playing_seconds - b.playing_seconds);
+  const picked = [];
+  for (const target of targets) {
+    let best = null, bestDist = Infinity;
+    for (const s of songList) {
+      if (s.id === currentSongId) continue;
+      const key = `${s.id}_${diff}`;
+      if (!window.CHART_SCORES[key]) continue;
+      const dist = Math.abs(s.playing_seconds - target);
+      if (dist < bestDist) { bestDist = dist; best = key; }
+    }
+    if (best && !picked.includes(best)) picked.push(best);
+  }
+  return picked.map(key => window.CHART_SCORES[key]);
+}
+
 async function init() {
   loadPersistence();
   syncLevelUI();
@@ -510,15 +551,62 @@ async function init() {
     const songsRes = await fetch("/api/songs");
     if (songsRes.ok) {
       const songsData = await songsRes.json();
+      window.SONGS = {};
       const songSel = document.getElementById("songSelect");
-      for (const s of (songsData.songs || [])) {
-        const opt = document.createElement("option");
-        opt.value = s.playing_seconds;
-        opt.textContent = `${s.name} (${s.playing_seconds}秒)`;
-        songSel.appendChild(opt);
+      const songsByRange = {};
+      const ranges = [
+        [0, 99, "~99秒"],
+        [100, 119, "100~119秒"],
+        [120, 139, "120~139秒"],
+        [140, 159, "140~159秒"],
+        [160, 999, "160秒~"],
+      ];
+      const sorted = (songsData.songs || []).slice().sort((a, b) => a.playing_seconds - b.playing_seconds || a.name.localeCompare(b.name));
+      for (const s of sorted) {
+        window.SONGS[s.id] = s;
+        const range = ranges.find(r => s.playing_seconds >= r[0] && s.playing_seconds <= r[1]);
+        const label = range ? range[2] : "その他";
+        (songsByRange[label] = songsByRange[label] || []).push(s);
+      }
+      for (const [, , label] of ranges) {
+        const group = songsByRange[label];
+        if (!group) continue;
+        const optgroup = document.createElement("optgroup");
+        optgroup.label = `${label} (${group.length}曲)`;
+        for (const s of group) {
+          const opt = document.createElement("option");
+          opt.value = s.id;
+          opt.dataset.seconds = s.playing_seconds;
+          opt.textContent = `${s.name} (${s.playing_seconds}秒)`;
+          optgroup.appendChild(opt);
+        }
+        songSel.appendChild(optgroup);
       }
     }
   } catch {}
+  try {
+    const chartRes = await fetch("/api/chart_scores");
+    if (chartRes.ok) {
+      window.CHART_SCORES = await chartRes.json();
+      console.log(`chart_scores loaded: ${Object.keys(window.CHART_SCORES).length} charts`);
+    } else {
+      console.warn("chart_scores not available:", chartRes.status);
+    }
+  } catch (e) {
+    console.warn("chart_scores fetch failed:", e);
+  }
+  document.getElementById("songSelect").addEventListener("change", function() {
+    document.getElementById("diffSelect").style.display = this.value ? "" : "none";
+  });
+  // デフォルト曲を設定（chart_scoresデータがある最初の曲）
+  if (window.CHART_SCORES && document.getElementById("songSelect").value === "") {
+    const defaultSong = "m0001";
+    const sel = document.getElementById("songSelect");
+    if (sel.querySelector(`option[value="${defaultSong}"]`)) {
+      sel.value = defaultSong;
+      document.getElementById("diffSelect").style.display = "";
+    }
+  }
   renderHistory();
 }
 
@@ -950,7 +1038,7 @@ document.getElementById("btnCalibrate").addEventListener("click", async () => {
       body: JSON.stringify({
         member_ids: teamIds, leader_id_1: l1, game_score_1: s1, leader_id_2: l2, game_score_2: s2,
         card_specs: cardSpecs,
-        song_length: document.getElementById("songSelect").value ? parseFloat(document.getElementById("songSelect").value) : null,
+        song_length: getSelectedSongLength(),
       }),
     });
     if (!res.ok) {
@@ -1016,8 +1104,10 @@ async function doSolve() {
         costume_only_leader_id: costumeOnlyLeader,
         sweep_costumes: !costumeVal && selected.size > 0,
         top_n: parseInt(document.getElementById("topN").value),
-        song_length: document.getElementById("songSelect").value ? parseFloat(document.getElementById("songSelect").value) : null,
-        stability_lengths: document.getElementById("chkStability").checked ? [90, 120, 135, 150, 166] : null,
+        song_length: getSelectedSongLength(),
+        chart_score: getSelectedChartScore(),
+        stability_charts: document.getElementById("chkStability").checked && getSelectedChartScore() ? getStabilityCharts() : null,
+        stability_lengths: document.getElementById("chkStability").checked && !getSelectedChartScore() ? [95, 110, 125, 140, 155] : null,
       }),
     });
     if (!res.ok) {
@@ -1127,7 +1217,7 @@ async function doRecommend() {
         costume_only_leader_id: recCostumeVal && !recMemberInclude ? recCostumeVal : null,
         acquire_count: parseInt(document.getElementById("acquireCount").value),
         top_n: parseInt(document.getElementById("recommendTopN").value),
-        song_length: document.getElementById("songSelect").value ? parseFloat(document.getElementById("songSelect").value) : null,
+        song_length: getSelectedSongLength(),
         sweep_costumes: !recCostumeVal && selected.size >= 5,
       }),
     });
@@ -1265,7 +1355,8 @@ function saveToHistory(solveData) {
     settings: {
       topN: parseInt(document.getElementById("topN").value),
       costumeLeaderId: document.getElementById("costumeSelect").value || null,
-      songLength: document.getElementById("songSelect").value ? parseFloat(document.getElementById("songSelect").value) : null,
+      songLength: getSelectedSongLength(),
+      songId: document.getElementById("songSelect").value || null,
       statScale, baseline,
     },
     snapshot: { ids: [...selected], allCards: selected.size === 0, potentials: pots, levels: lvs, defaultPotential, defaultLevel, levelEnabled },
@@ -1382,7 +1473,8 @@ function restoreFromHistory(idx) {
   if (entry.settings?.topN != null) document.getElementById("topN").value = entry.settings.topN;
   document.getElementById("costumeSelect").value = entry.settings?.costumeLeaderId || entry.settings?.fixedLeaderId || "";
   const songSel = document.getElementById("songSelect");
-  songSel.value = entry.settings?.songLength != null ? entry.settings.songLength : "";
+  songSel.value = entry.settings?.songId || "";
+  document.getElementById("diffSelect").style.display = songSel.value ? "" : "none";
 
   savePersistence();
   syncLevelUI();
@@ -1405,17 +1497,25 @@ document.getElementById("historyToggle").addEventListener("click", () => {
 
 function renderResults(data) {
   const area = document.getElementById("resultsArea");
-  const results = data.results;
-  if (!results || !results.length) {
+  const isTimeline = !!data.timeline_results;
+  const results = isTimeline ? data.legacy_results : data.results;
+  if ((!results || !results.length) && !isTimeline) {
     area.innerHTML = '<div class="empty-msg">結果が見つかりませんでした。</div>';
     return;
   }
 
-  const bLabel = data.baseline !== 0 ? ` / H=${data.baseline.toLocaleString()}` : "";
+  const bLabel = data.baseline !== 0 ? ` / H=${data.baseline?.toLocaleString() || ""}` : "";
   let html = "";
   if (data.warnings && data.warnings.length) {
     html += `<div style="background:#3d2a0f;color:#f0a040;padding:8px 12px;border-radius:6px;margin-bottom:8px;font-size:0.85rem">${data.warnings.join("<br>")}</div>`;
   }
+
+  if (isTimeline) {
+    html += renderTimelineResults(data);
+    area.innerHTML = html;
+    return;
+  }
+
   html += `<div class="results-title">最強編成 Top ${results.length}（${data.total_combinations.toLocaleString()} 通り${bLabel}）</div>`;
 
   for (const r of results) {
@@ -1482,6 +1582,98 @@ function renderResults(data) {
     html += `</div>`;
   }
   area.innerHTML = html;
+}
+
+function renderTimelineResults(data) {
+  const tResults = data.timeline_results;
+  const songId = document.getElementById("songSelect").value;
+  const songName = window.SONGS?.[songId]?.name || songId;
+  const diff = document.getElementById("diffSelect").value || "expert";
+
+  let html = `<div class="results-title">ライブ期待スコア Top ${tResults.length}（${songName} ${diff}）</div>`;
+  html += `<div style="font-size:0.72rem;color:#6b7f92;margin-bottom:10px">候補プール: ${data.candidate_pool} 編成 × 120 順列 → Timeline評価</div>`;
+
+  for (const r of tResults) {
+    const rankColors = { 1: "#ffd700", 2: "#c0c0c0", 3: "#cd7f32" };
+    const rankColor = rankColors[r.rank] || "";
+
+    let costumeLabel = "";
+    if (r.costume_only_leader_id) {
+      const clCard = cardMap[r.costume_only_leader_id];
+      costumeLabel = clCard ? `👗 ${clCard.character}(${clCard.card_name})` : `👗 ${r.costume_only_leader_id}`;
+    }
+
+    html += `<div class="result-card">
+      ${costumeLabel ? `<div style="color:#c0c060;font-size:0.75rem;margin-bottom:6px">${costumeLabel}</div>` : ''}
+      <div class="result-header">
+        <span class="result-rank" ${rankColor ? `style="color:${rankColor}"` : ''}>#${r.rank}</span>
+        <div class="result-scores">
+          <span>スキル効率: <span class="main-score">${r.skill_efficiency}x</span></span>
+          <span>1位比: ${r.top1_pct}%</span>
+          <span>総合力: ${r.total_power.toLocaleString()}</span>
+          <span>ユニットスコア: ${r.unit_score.toLocaleString()}</span>
+          <span style="font-size:0.7rem;color:#5a6e80">Active重複ロス: ${r.active_overlap_loss}%</span>
+        </div>
+      </div>
+      <div class="result-members">`;
+
+    for (let i = 0; i < r.member_ids.length; i++) {
+      const mid = r.member_ids[i];
+      const card = cardMap[mid];
+      if (!card) continue;
+      const pot = getCardPotential(mid);
+      const lv = getCardLevel(mid);
+      const s = getCardStats(card, pot, lv);
+      const spEff = r.sp_efficiency?.[i];
+      const spLabel = spEff != null && spEff > 0 ? `<div style="color:#c0a040;font-size:0.6rem">SP効率: ${spEff.toFixed(1)}</div>` : '';
+      html += `<div class="member-card">
+        <span class="type-badge type-${card.type}" style="float:right;margin-top:2px">${TYPE_LABELS[card.type]}</span>
+        <div style="color:#5a6e80;font-size:0.6rem">slot ${i+1}</div>
+        <div class="m-name">${card.character}</div>
+        <div class="m-card-name">${card.card_name}</div>
+        <div class="m-stats">
+          <span>P:${s.performance.toLocaleString()}</span>
+          <span>T:${s.technique.toLocaleString()}</span>
+          <span>S:${s.sense.toLocaleString()}</span>
+        </div>
+        <div class="m-pot-lv">${pot}凸${levelEnabled ? ` Lv${lv}` : ''}</div>
+        ${spLabel}
+      </div>`;
+    }
+    html += `</div></div>`;
+  }
+
+  if (data.stability?.length) {
+    const mainLSI = tResults[0]?.live_score_index || 0;
+    html += `<div style="margin-top:16px;padding-top:12px;border-top:1px solid #2a3a4a">
+      <div style="font-size:0.85rem;color:#e0e6ed;margin-bottom:8px;font-weight:600">曲別安定性</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">`;
+    for (const s of data.stability) {
+      const song = window.SONGS?.[s.music_id];
+      const name = song?.name || s.music_id;
+      const diff = mainLSI > 0 ? ((s.top_lsi - mainLSI) / mainLSI * 100).toFixed(1) : "0.0";
+      const diffColor = diff > 0 ? "#40d080" : diff < 0 ? "#f06060" : "#8899aa";
+      html += `<div style="background:#0f1923;border:1px solid #2a3a4a;border-radius:6px;padding:8px 10px;font-size:0.72rem;min-width:120px;max-width:160px">
+        <div style="color:#8899aa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${name}">${name}</div>
+        <div style="color:#5a6e80;font-size:0.65rem">${s.duration}秒 / ${s.difficulty}</div>
+        <div style="color:#e0e6ed;font-weight:600;margin-top:2px">LSI: ${s.top_lsi.toLocaleString()}</div>
+        <div style="color:${diffColor};font-size:0.65rem">${diff > 0 ? '+' : ''}${diff}%</div>
+      </div>`;
+    }
+    html += `</div></div>`;
+  }
+
+  if (data.legacy_results?.length) {
+    html += `<details style="margin-top:16px"><summary style="color:#6b7f92;font-size:0.8rem;cursor:pointer">Legacy Unit Score 順位（参考）</summary>`;
+    html += `<div style="margin-top:8px">`;
+    for (const r of data.legacy_results) {
+      const members = r.member_ids.map(id => cardMap[id]?.character || id).join(", ");
+      html += `<div style="font-size:0.75rem;color:#8899aa;padding:4px 0;border-bottom:1px solid #1a2735">#${r.rank} ${r.unit_score.toLocaleString()} — ${members}</div>`;
+    }
+    html += `</div></details>`;
+  }
+
+  return html;
 }
 
 init();

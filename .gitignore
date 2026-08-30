@@ -31,5 +31,5 @@ solver_go/solver.wasm
 cli/holosolve
 
 # Workflow is managed via GitHub UI (workflow scope required)
-.github/workflows/
-.github/
+# .github/ is now tracked for CI fixes
+data/charts.json

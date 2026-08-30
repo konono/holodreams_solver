@@ -48,6 +48,8 @@ class SolveRequest(BaseModel):
     song_length: float | None = None
     stability_lengths: list[float] | None = None
     sweep_costumes: bool = False
+    chart_score: dict | None = None
+    stability_charts: list[dict] | None = None
 
     @field_validator("song_length")
     @classmethod
@@ -97,6 +99,14 @@ async def get_songs():
     return {"songs": []}
 
 
+@app.get("/api/chart_scores")
+async def get_chart_scores():
+    path = ROOT / "data" / "chart_scores.json"
+    if path.exists():
+        return FileResponse(path, media_type="application/json")
+    return {}
+
+
 @app.post("/api/solve")
 def post_solve(req: SolveRequest):
     cm = _card_map()
@@ -131,6 +141,10 @@ def post_solve(req: SolveRequest):
         kwargs["stability_lengths"] = req.stability_lengths
     if req.sweep_costumes:
         kwargs["sweep_costumes"] = True
+    if req.chart_score:
+        kwargs["chart_score"] = req.chart_score
+    if req.stability_charts:
+        kwargs["stability_charts"] = req.stability_charts
     result = solve(actual, **kwargs)
     if dropped > 0:
         warnings.append(f"{dropped}枚の不明なカードIDを除外しました")

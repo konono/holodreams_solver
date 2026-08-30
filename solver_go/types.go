@@ -64,9 +64,10 @@ type CostumeSkill struct {
 }
 
 type SpecialSkill struct {
-	Duration     float64 `json:"duration"`
-	ScoreSupport float64 `json:"score_support"`
-	SkillRateUp  float64 `json:"skill_rate_up"`
+	Duration           float64 `json:"duration"`
+	ScoreSupport       float64 `json:"score_support"`
+	SkillRateUp        float64 `json:"skill_rate_up"`
+	SkillRateCondition *string `json:"skill_rate_condition"`
 }
 
 type PotentialData struct {
@@ -168,6 +169,12 @@ func (f fixedFloat) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf("%.1f", float64(f))), nil
 }
 
+type fixedFloat2 float64
+
+func (f fixedFloat2) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf("%.2f", float64(f))), nil
+}
+
 // JSON output types
 
 type JSONResult struct {
@@ -203,6 +210,13 @@ type CLIInput struct {
 	StatScale *float64       `json:"stat_scale"`
 	Baseline  *float64       `json:"baseline"`
 	SongLength *float64      `json:"song_length"`
+
+	// timeline (optional)
+	SongTimeline       *SongTimeline      `json:"song_timeline"`
+	ChartScoreData     *ChartScore        `json:"chart_score"`
+	StabilityCharts    []ChartScore       `json:"stability_charts"`
+	PlayAssumption     *PlayAssumption    `json:"play_assumption"`
+	TimelineTopN       int                `json:"timeline_top_n"`
 
 	// solve
 	FixedLeaderID       *string   `json:"fixed_leader_id"`
@@ -256,6 +270,33 @@ type RecommendBestTeam struct {
 	LeaderID            string   `json:"leader_id"`
 	MemberIDs           []string `json:"member_ids"`
 	CostumeOnlyLeaderID *string  `json:"costume_only_leader_id,omitempty"`
+}
+
+type TimelineJSONResult struct {
+	Rank                int         `json:"rank"`
+	UnitScore           int         `json:"unit_score"`
+	TotalPower          int         `json:"total_power"`
+	LiveScoreIndex      int         `json:"live_score_index"`
+	SkillEfficiency     fixedFloat2 `json:"skill_efficiency"`
+	Top1Pct             fixedFloat2 `json:"top1_pct"`
+	ActiveOverlapLoss   fixedFloat  `json:"active_overlap_loss"`
+	CostumeOnlyLeaderID *string    `json:"costume_only_leader_id"`
+	MemberIDs           []string    `json:"member_ids"`
+	SPEfficiency        []float64   `json:"sp_efficiency,omitempty"`
+}
+
+type TimelineStabilityEntry struct {
+	MusicID    string `json:"music_id"`
+	Difficulty string `json:"difficulty"`
+	Duration   int    `json:"duration"`
+	TopLSI     int    `json:"top_lsi"`
+}
+
+type TimelineJSONOutput struct {
+	LegacyResults []JSONResult              `json:"legacy_results"`
+	Timeline      []TimelineJSONResult      `json:"timeline_results"`
+	CandidatePool int                       `json:"candidate_pool"`
+	Stability     []TimelineStabilityEntry  `json:"stability,omitempty"`
 }
 
 type RecommendOutput struct {

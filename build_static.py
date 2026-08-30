@@ -29,6 +29,12 @@ def build():
         with open(songs_path, encoding="utf-8") as f:
             songs = json.load(f).get("songs", [])
     songs_json = json.dumps(songs, ensure_ascii=False)
+    chart_scores_path = ROOT / "data" / "chart_scores.json"
+    chart_scores = {}
+    if chart_scores_path.exists():
+        with open(chart_scores_path, encoding="utf-8") as f:
+            chart_scores = json.load(f)
+    chart_scores_json = json.dumps(chart_scores, separators=(",", ":"))
     with open(ROOT / "index.html", encoding="utf-8") as f:
         template = f.read()
 
@@ -115,6 +121,12 @@ def build():
     <select id="songSelect" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:4px 6px;border-radius:4px;font-size:0.75rem;max-width:200px">
       <option value="">汎用（192秒）</option>
     </select>
+    <select id="diffSelect" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:4px 6px;border-radius:4px;font-size:0.75rem;display:none">
+      <option value="expert">Expert</option>
+      <option value="hard">Hard</option>
+      <option value="normal">Normal</option>
+      <option value="easy">Easy</option>
+    </select>
     <label style="cursor:pointer;font-size:0.75rem;color:#8899aa"><input type="checkbox" id="chkStability" style="vertical-align:middle;margin-right:2px">安定性分析</label>
   </div>
 
@@ -148,7 +160,12 @@ def build():
 <script>
 const CARDS = {cards_json};
 const LEVEL_TABLES = {level_tables_json};
-const SONGS = {songs_json};
+const SONGS_LIST = {songs_json};
+const SONGS = {{}};
+for (const s of SONGS_LIST) SONGS[s.id] = s;
+const CHART_SCORES = {chart_scores_json};
+window.SONGS = SONGS;
+window.CHART_SCORES = CHART_SCORES;
 const GROUP_ORDER = ["0期生","1期生","2期生","ゲーマーズ","3期生","4期生","5期生","holoX","ID1期生","ID2期生","ID3期生","Myth","Promise","Advent","ReGLOSS","水着"];
 const TYPE_LABELS = {{happy:"Happy",pure:"Pure",cute:"Cute"}};
 const MAX_LEVEL = 80;
@@ -191,6 +208,41 @@ function getCardStats(card, potential, level) {{
     technique: cd(baseValue * (permil.technique || 333) * mul, 1000000),
     sense: cd(baseValue * (permil.sense || 334) * mul, 1000000),
   }};
+}}
+
+function getSelectedSongLength() {{
+  const sel = document.getElementById("songSelect");
+  if (!sel.value) return null;
+  const opt = sel.selectedOptions[0];
+  return opt?.dataset.seconds ? parseFloat(opt.dataset.seconds) : null;
+}}
+
+function getSelectedChartScore() {{
+  const songId = document.getElementById("songSelect").value;
+  if (!songId || !window.CHART_SCORES) return null;
+  const diff = document.getElementById("diffSelect").value || "expert";
+  return window.CHART_SCORES[`${{songId}}_${{diff}}`] || null;
+}}
+
+function getStabilityCharts() {{
+  if (!window.CHART_SCORES || !window.SONGS) return null;
+  const currentSongId = document.getElementById("songSelect").value;
+  const diff = document.getElementById("diffSelect").value || "expert";
+  const targets = [95, 115, 130, 145, 160];
+  const songList = Object.values(window.SONGS).sort((a, b) => a.playing_seconds - b.playing_seconds);
+  const picked = [];
+  for (const target of targets) {{
+    let best = null, bestDist = Infinity;
+    for (const s of songList) {{
+      if (s.id === currentSongId) continue;
+      const key = `${{s.id}}_${{diff}}`;
+      if (!window.CHART_SCORES[key]) continue;
+      const dist = Math.abs(s.playing_seconds - target);
+      if (dist < bestDist) {{ bestDist = dist; best = key; }}
+    }}
+    if (best && !picked.includes(best)) picked.push(best);
+  }}
+  return picked.map(key => window.CHART_SCORES[key]);
 }}
 
 function loadPersistence() {{
@@ -446,11 +498,34 @@ for (const btn of document.querySelectorAll(".btn-lv-global")) {{
 }}
 
 const songSel = document.getElementById("songSelect");
-for (const s of SONGS) {{
-  const opt = document.createElement("option");
-  opt.value = s.playing_seconds;
-  opt.textContent = `${{s.name}} (${{s.playing_seconds}}秒)`;
-  songSel.appendChild(opt);
+const songsByRange = {{}};
+const ranges = [[0,99,"~99秒"],[100,119,"100~119秒"],[120,139,"120~139秒"],[140,159,"140~159秒"],[160,999,"160秒~"]];
+const sortedSongs = SONGS_LIST.slice().sort((a,b) => a.playing_seconds - b.playing_seconds || a.name.localeCompare(b.name));
+for (const s of sortedSongs) {{
+  const range = ranges.find(r => s.playing_seconds >= r[0] && s.playing_seconds <= r[1]);
+  const label = range ? range[2] : "その他";
+  (songsByRange[label] = songsByRange[label] || []).push(s);
+}}
+for (const [,,label] of ranges) {{
+  const group = songsByRange[label];
+  if (!group) continue;
+  const optgroup = document.createElement("optgroup");
+  optgroup.label = `${{label}} (${{group.length}}曲)`;
+  for (const s of group) {{
+    const opt = document.createElement("option");
+    opt.value = s.id;
+    opt.dataset.seconds = s.playing_seconds;
+    opt.textContent = `${{s.name}} (${{s.playing_seconds}}秒)`;
+    optgroup.appendChild(opt);
+  }}
+  songSel.appendChild(optgroup);
+}}
+songSel.addEventListener("change", function() {{
+  document.getElementById("diffSelect").style.display = this.value ? "" : "none";
+}});
+if (Object.keys(CHART_SCORES).length > 0) {{
+  songSel.value = "m0001";
+  document.getElementById("diffSelect").style.display = songSel.value ? "" : "none";
 }}
 
 document.getElementById("btnCopyIds").addEventListener("click", () => {{
@@ -635,7 +710,7 @@ function doSolve() {{
   const cardSpecs = owned.map(c => ({{ id: c.id, potential: getCardPotential(c.id), level: getCardLevel(c.id) }}));
 
   getWasmWorker().then(w => {{
-    w.postMessage({{ type: "solve", cards: cardSpecs, fixedLeaderId, costumeOnlyLeaderId, sweepCostumes: !costumeVal && selected.size > 0, topN: parseInt(document.getElementById("topN").value), songLength: selSong ? parseFloat(selSong) : null, stabilityLengths: document.getElementById("chkStability").checked ? [90, 120, 135, 150, 166] : null }});
+    w.postMessage({{ type: "solve", cards: cardSpecs, fixedLeaderId, costumeOnlyLeaderId, sweepCostumes: !costumeVal && selected.size > 0, topN: parseInt(document.getElementById("topN").value), songLength: getSelectedSongLength(), chartScore: getSelectedChartScore(), stabilityCharts: document.getElementById("chkStability").checked && getSelectedChartScore() ? getStabilityCharts() : null, stabilityLengths: document.getElementById("chkStability").checked && !getSelectedChartScore() ? [95, 110, 125, 140, 155] : null }});
 
   w.onerror = function() {{
     w.onmessage = null;
@@ -1000,8 +1075,77 @@ document.getElementById("historyToggle").addEventListener("click", () => {{
   }}
 }});
 
+function renderTimelineResults(data) {{
+  const tResults = data.timeline_results;
+  const songId = document.getElementById("songSelect").value;
+  const song = window.SONGS?.[songId];
+  const songName = song?.name || songId;
+  const diff = document.getElementById("diffSelect").value || "expert";
+  let html = `<div class="results-title">ライブ期待スコア Top ${{tResults.length}}（${{songName}} ${{diff}}）</div>`;
+  html += `<div style="font-size:0.72rem;color:#6b7f92;margin-bottom:10px">候補プール: ${{data.candidate_pool}} 編成 × 120 順列 → Timeline評価</div>`;
+  for (const r of tResults) {{
+    const rankColors = {{ 1: "#ffd700", 2: "#c0c0c0", 3: "#cd7f32" }};
+    const rc = rankColors[r.rank] || "";
+    let costumeLabel = "";
+    if (r.costume_only_leader_id) {{
+      const clCard = cardMap[r.costume_only_leader_id];
+      costumeLabel = clCard ? `👗 ${{clCard.character}}(${{clCard.card_name}})` : `👗 ${{r.costume_only_leader_id}}`;
+    }}
+
+    html += `<div class="result-card">
+      ${{costumeLabel ? `<div style="color:#c0c060;font-size:0.75rem;margin-bottom:6px">${{costumeLabel}}</div>` : ''}}
+      <div class="result-header">
+        <span class="result-rank" ${{rc ? `style="color:${{rc}}"` : ''}}>#${{r.rank}}</span>
+        <div class="result-scores">
+          <span>スキル効率: <span class="main-score">${{r.skill_efficiency}}x</span></span>
+          <span>1位比: ${{r.top1_pct}}%</span>
+          <span>総合力: ${{r.total_power.toLocaleString()}}</span>
+          <span>ユニットスコア: ${{r.unit_score.toLocaleString()}}</span>
+          <span style="font-size:0.7rem;color:#5a6e80">Active重複ロス: ${{r.active_overlap_loss}}%</span>
+        </div>
+      </div>
+      <div class="result-members">`;
+    for (let i = 0; i < r.member_ids.length; i++) {{
+      const mid = r.member_ids[i];
+      const card = cardMap[mid]; if (!card) continue;
+      const pot = getCardPotential(mid);
+      const lv = getCardLevel(mid);
+      const s = getCardStats(card, pot, lv);
+      const spEff = r.sp_efficiency?.[i];
+      const spLabel = spEff != null && spEff > 0 ? `<div style="color:#c0a040;font-size:0.6rem">SP効率: ${{spEff.toFixed(1)}}</div>` : '';
+      html += `<div class="member-card">
+        <span class="type-badge type-${{card.type}}" style="float:right;margin-top:2px">${{TYPE_LABELS[card.type]}}</span>
+        <div style="color:#5a6e80;font-size:0.6rem">slot ${{i+1}}</div>
+        <div class="m-name">${{card.character}}</div>
+        <div class="m-card-name">${{card.card_name}}</div>
+        <div class="m-stats">
+          <span>P:${{s.performance.toLocaleString()}}</span>
+          <span>T:${{s.technique.toLocaleString()}}</span>
+          <span>S:${{s.sense.toLocaleString()}}</span>
+        </div>
+        <div class="m-pot-lv">${{pot}}凸${{levelEnabled ? ` Lv${{lv}}` : ''}}</div>
+        ${{spLabel}}
+      </div>`;
+    }}
+    html += `</div></div>`;
+  }}
+  if (data.legacy_results?.length) {{
+    html += `<details style="margin-top:16px"><summary style="color:#6b7f92;font-size:0.8rem;cursor:pointer">Legacy Unit Score 順位（参考）</summary><div style="margin-top:8px">`;
+    for (const r of data.legacy_results) {{
+      const members = r.member_ids.map(id => cardMap[id]?.character || id).join(", ");
+      html += `<div style="font-size:0.75rem;color:#8899aa;padding:4px 0;border-bottom:1px solid #1a2735">#${{r.rank}} ${{r.unit_score.toLocaleString()}} — ${{members}}</div>`;
+    }}
+    html += `</div></details>`;
+  }}
+  return html;
+}}
+
 function renderResults(data) {{
   const area = document.getElementById("resultsArea");
+  if (data.timeline_results) {{
+    area.innerHTML = renderTimelineResults(data);
+    return;
+  }}
   const results = data.results;
   if (!results || !results.length) {{ area.innerHTML = '<div class="empty-msg">結果が見つかりませんでした。</div>'; return; }}
   let html = "";
