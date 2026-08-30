@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 )
 
 func parseCardsFromJSON(raw json.RawMessage, cf *CardsFile) []*Card {
@@ -130,7 +131,78 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 			return JSONOutput{TotalCombinations: 0, StatScale: statScale, Baseline: baseline, Results: []JSONResult{}}, nil
 		}
 
-		return solve(cards, topN, statScale, baseline, songLength, fixedLeader, costumeOnly, overrideCostumeSkill, input.StabilityLengths), nil
+		legacyResult := solve(cards, topN, statScale, baseline, songLength, fixedLeader, costumeOnly, overrideCostumeSkill, input.StabilityLengths)
+
+		// Timeline reranking if chart data is provided
+		timeline := input.SongTimeline
+		if timeline == nil && input.ChartScoreData != nil {
+			timeline = ChartScoreToTimeline(input.ChartScoreData)
+		}
+		if timeline != nil && len(timeline.ScoreEvents) > 0 {
+			cardMap := make(map[string]*Card, len(cards))
+			for _, c := range cards {
+				cardMap[c.ID] = c
+			}
+
+			candidatePool := topN * 10
+			if candidatePool < 200 {
+				candidatePool = 200
+			}
+			timelineTopN := topN
+			if input.TimelineTopN > 0 {
+				timelineTopN = input.TimelineTopN
+			}
+
+			legacyPool := solve(cards, candidatePool, statScale, baseline, songLength, fixedLeader, costumeOnly, overrideCostumeSkill, nil)
+
+			var legacySolveResults []SolveResult
+			for _, r := range legacyPool.Results {
+				team := [5]string{}
+				for i, id := range r.MemberIDs {
+					team[i] = id
+				}
+				legacySolveResults = append(legacySolveResults, SolveResult{
+					Score: EvalResult{
+						UnitScore:  float64(r.UnitScore),
+						TotalPower: float64(r.TotalPower),
+					},
+					LeaderIdx: 0,
+					TeamIDs:   team,
+				})
+			}
+
+			alwaysOnSupport := 0.0
+			scoreEvents := timeline.ScoreEvents
+			if len(scoreEvents) == 0 {
+				scoreEvents = BinsToScoreEvents(input.ChartScoreData.Bins)
+			}
+
+			reranked := RerankTopN(legacySolveResults, cardMap, timeline, scoreEvents, alwaysOnSupport, statScale, baseline, songLength, timelineTopN)
+
+			var timelineResults []TimelineJSONResult
+			for i, r := range reranked {
+				spEff := make([]float64, 0)
+				for _, v := range r.TimelineResult.SPEfficiency {
+					spEff = append(spEff, roundTo1(v))
+				}
+				timelineResults = append(timelineResults, TimelineJSONResult{
+					Rank:              i + 1,
+					UnitScore:         int(math.Round(r.UnitScore)),
+					LiveScoreIndex:    int(math.Round(r.LiveScoreIndex)),
+					ActiveOverlapLoss: fixedFloat(r.TimelineResult.ActiveOverlapLoss * 100),
+					MemberIDs:         r.TeamIDs[:],
+					SPEfficiency:      spEff,
+				})
+			}
+
+			return TimelineJSONOutput{
+				LegacyResults: legacyResult.Results,
+				Timeline:      timelineResults,
+				CandidatePool: candidatePool,
+			}, nil
+		}
+
+		return legacyResult, nil
 
 	case "calibrate":
 		if input.CardSpecs == nil {

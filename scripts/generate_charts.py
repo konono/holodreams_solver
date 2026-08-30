@@ -129,10 +129,59 @@ def parse_sus(filepath):
     }
 
 
+def bin_chart(chart, bin_size=0.5):
+    """Aggregate note-level data into time bins.
+
+    Each bin contains the total weight, note count, and combo index at the
+    end of the bin. This destroys individual note positions (making chart
+    reconstruction impossible) while preserving the information needed for
+    Timeline Engine scoring.
+    """
+    notes = chart["notes"]
+    if not notes:
+        return {**chart, "bins": [], "bin_size": bin_size}
+
+    duration = chart.get("duration") or notes[-1]["time"] + 1
+    n_bins = int(duration / bin_size) + 1
+
+    bins = []
+    ni = 0
+    for i in range(n_bins):
+        t_start = i * bin_size
+        t_end = t_start + bin_size
+        count = 0
+        total_weight = 0
+        last_combo = 0
+
+        while ni < len(notes) and notes[ni]["time"] < t_end:
+            count += 1
+            total_weight += notes[ni]["weight"]
+            last_combo = notes[ni]["combo_index"]
+            ni += 1
+
+        if count > 0:
+            bins.append({
+                "t": round(t_start + bin_size / 2, 2),
+                "n": count,
+                "w": total_weight,
+                "c": last_combo,
+            })
+
+    del chart["notes"]
+    chart["bins"] = bins
+    chart["bin_size"] = bin_size
+    return chart
+
+
 def main():
     parser = argparse.ArgumentParser(description="Generate charts.json from SUS files")
     parser.add_argument("sus_dir", help="Directory containing SUS files")
     parser.add_argument("--output", default="data/charts.json", help="Output path")
+    parser.add_argument(
+        "--bin-size", type=float, default=None,
+        help="Aggregate notes into time bins of this size (seconds). "
+             "Produces a publishable format that cannot reconstruct the original chart.",
+    )
     args = parser.parse_args()
 
     sus_files = sorted(glob(os.path.join(args.sus_dir, "chart_*.sus")))
@@ -179,6 +228,10 @@ def main():
             duration = song_durations.get(chart["music_id"])
             if duration:
                 chart["duration"] = duration
+
+    if args.bin_size:
+        for key in charts:
+            charts[key] = bin_chart(charts[key], args.bin_size)
 
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)

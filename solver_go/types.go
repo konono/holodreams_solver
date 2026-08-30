@@ -206,8 +206,10 @@ type CLIInput struct {
 	SongLength *float64      `json:"song_length"`
 
 	// timeline (optional)
-	SongTimeline *SongTimeline  `json:"song_timeline"`
+	SongTimeline   *SongTimeline   `json:"song_timeline"`
+	ChartScoreData *ChartScore     `json:"chart_score"`
 	PlayAssumption *PlayAssumption `json:"play_assumption"`
+	TimelineTopN   int             `json:"timeline_top_n"`
 
 	// solve
 	FixedLeaderID       *string   `json:"fixed_leader_id"`
@@ -261,6 +263,21 @@ type RecommendBestTeam struct {
 	LeaderID            string   `json:"leader_id"`
 	MemberIDs           []string `json:"member_ids"`
 	CostumeOnlyLeaderID *string  `json:"costume_only_leader_id,omitempty"`
+}
+
+type TimelineJSONResult struct {
+	Rank              int        `json:"rank"`
+	UnitScore         int        `json:"unit_score"`
+	LiveScoreIndex    int        `json:"live_score_index"`
+	ActiveOverlapLoss fixedFloat `json:"active_overlap_loss"`
+	MemberIDs         []string   `json:"member_ids"`
+	SPEfficiency      []float64  `json:"sp_efficiency,omitempty"`
+}
+
+type TimelineJSONOutput struct {
+	LegacyResults []JSONResult         `json:"legacy_results"`
+	Timeline      []TimelineJSONResult `json:"timeline_results"`
+	CandidatePool int                  `json:"candidate_pool"`
 }
 
 type RecommendOutput struct {
