@@ -1140,6 +1140,11 @@ async function doSolve() {
               try {
                 const ev = JSON.parse(line);
                 if (ev.type === "progress") {
+                  if (ev.current < 0) {
+                    progressFill.style.width = "100%";
+                    progressText.textContent = "Timeline評価 + ボード最適化中...";
+                    return pump();
+                  }
                   progressBar.style.display = "block";
                   const pct = Math.min(100, ev.current / ev.total * 100);
                   progressFill.style.width = pct + "%";

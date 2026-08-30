@@ -214,6 +214,9 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 					if len(reranked) > 0 { top1LSI = reranked[0].LiveScoreIndex }
 
 					cdPermilSweep, actPermilSweep := getBoardPermils(input)
+					if progressCallback != nil {
+						progressCallback(-1, -1) // signal: entering timeline rerank phase
+					}
 					var timelineResults []TimelineJSONResult
 					for i, r := range reranked {
 						spEff := make([]float64, 0)
@@ -230,7 +233,10 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 							s := r.CostumeOnlyLeaderID
 							costumePtr = &s
 						}
-						boardOpt := boardOptForReranked(r, cardMap, timeline, scoreEvents, cdPermilSweep, actPermilSweep)
+						var boardOpt *BoardOptResult
+						if i < 3 {
+							boardOpt = boardOptForReranked(r, cardMap, timeline, scoreEvents, cdPermilSweep, actPermilSweep)
+						}
 						timelineResults = append(timelineResults, TimelineJSONResult{
 							Rank:                i + 1,
 							UnitScore:           int(math.Round(r.UnitScore)),
@@ -366,6 +372,9 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 			}
 
 			cdPermil, actPermil := getBoardPermils(input)
+			if progressCallback != nil {
+				progressCallback(-1, -1)
+			}
 			var timelineResults []TimelineJSONResult
 			for i, r := range reranked {
 				spEff := make([]float64, 0)
@@ -386,7 +395,10 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 					s := r.CostumeOnlyLeaderID
 					costumePtr = &s
 				}
-				boardOpt := boardOptForReranked(r, cardMap, timeline, scoreEvents, cdPermil, actPermil)
+				var boardOpt *BoardOptResult
+				if i < 3 {
+					boardOpt = boardOptForReranked(r, cardMap, timeline, scoreEvents, cdPermil, actPermil)
+				}
 				timelineResults = append(timelineResults, TimelineJSONResult{
 					Rank:                i + 1,
 					UnitScore:           int(math.Round(r.UnitScore)),
