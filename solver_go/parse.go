@@ -152,17 +152,6 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 								break
 							}
 						}
-						var costumeSkill *CostumeSkill
-						if r.CostumeOnlyLeaderID != nil {
-							cid := *r.CostumeOnlyLeaderID
-							for ci := range cf.Cards {
-								if cf.Cards[ci].ID == cid && len(cf.Cards[ci].PotentialData) > 0 {
-									cs := cf.Cards[ci].PotentialData[0].CostumeSkill
-									costumeSkill = &cs
-									break
-								}
-							}
-						}
 						legacySolveResults = append(legacySolveResults, SolveResult{
 							Score: EvalResult{
 								UnitScore:  float64(r.UnitScore),
@@ -172,7 +161,6 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 							TeamIDs:             team,
 							CostumeOnlyLeaderID: derefStr(r.CostumeOnlyLeaderID),
 						})
-						_ = costumeSkill
 					}
 
 					timelineTopN := topN
@@ -181,15 +169,12 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 					}
 					reranked := RerankTopN(legacySolveResults, cardMap, timeline, scoreEvents, statScale, baseline, songLength, nil, timelineTopN)
 
-					baselineLSI := 0.0
+					rawComboSumSweep := 0.0
 					for i := range scoreEvents {
 						ev := &scoreEvents[i]
 						w := ev.Weight
 						if w <= 0 { w = 1.0 }
-						baselineLSI += w * comboMultiplier(ev.ComboIndex)
-					}
-					if len(reranked) > 0 && len(sweepPool.Results) > 0 {
-						baselineLSI *= reranked[0].UnitScore / ((1 + float64(sweepPool.Results[0].ScoreBonus)/100) * unitScoreK)
+						rawComboSumSweep += w * comboMultiplier(ev.ComboIndex)
 					}
 					top1LSI := 0.0
 					if len(reranked) > 0 { top1LSI = reranked[0].LiveScoreIndex }
@@ -201,7 +186,8 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 							spEff = append(spEff, roundTo1(v))
 						}
 						skillEff := 0.0
-						if baselineLSI > 0 { skillEff = r.LiveScoreIndex / baselineLSI }
+						noSkillLSI := r.TotalPower * rawComboSumSweep
+						if noSkillLSI > 0 { skillEff = r.LiveScoreIndex / noSkillLSI }
 						top1Pct := 0.0
 						if top1LSI > 0 { top1Pct = r.LiveScoreIndex / top1LSI * 100 }
 						var costumePtr *string
@@ -226,7 +212,6 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 						LegacyResults: sweepResult.Results,
 						Timeline:      timelineResults,
 						CandidatePool: candidatePool,
-						BaselineLSI:   int(math.Round(baselineLSI)),
 					}, nil
 				}
 			}
@@ -267,8 +252,8 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 			}
 
 			candidatePool := topN * 10
-			if candidatePool < 200 {
-				candidatePool = 200
+			if candidatePool < 1000 {
+				candidatePool = 1000
 			}
 			timelineTopN := topN
 			if input.TimelineTopN > 0 {
@@ -308,20 +293,15 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 
 			reranked := RerankTopN(legacySolveResults, cardMap, timeline, scoreEvents, statScale, baseline, songLength, overrideCostumeSkill, timelineTopN)
 
-			// Compute baseline LSI (no skills, just note weights × combo)
-			baselineLSI := 0.0
+			// rawComboSum: sum of (noteWeight × comboMultiplier) with no skills
+			rawComboSum := 0.0
 			for i := range scoreEvents {
 				ev := &scoreEvents[i]
 				w := ev.Weight
 				if w <= 0 {
 					w = 1.0
 				}
-				combo := comboMultiplier(ev.ComboIndex)
-				baselineLSI += w * combo
-			}
-			// Use average TotalPower from top results for baseline
-			if len(reranked) > 0 {
-				baselineLSI *= reranked[0].UnitScore / ((1 + float64(legacyPool.Results[0].ScoreBonus)/100) * unitScoreK)
+				rawComboSum += w * comboMultiplier(ev.ComboIndex)
 			}
 
 			top1LSI := 0.0
@@ -336,8 +316,9 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 					spEff = append(spEff, roundTo1(v))
 				}
 				skillEff := 0.0
-				if baselineLSI > 0 {
-					skillEff = r.LiveScoreIndex / baselineLSI
+				noSkillLSI := r.TotalPower * rawComboSum
+				if noSkillLSI > 0 {
+					skillEff = r.LiveScoreIndex / noSkillLSI
 				}
 				top1Pct := 0.0
 				if top1LSI > 0 {
@@ -398,7 +379,6 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 				LegacyResults: legacyResult.Results,
 				Timeline:      timelineResults,
 				CandidatePool: candidatePool,
-				BaselineLSI:   int(math.Round(baselineLSI)),
 				Stability:     stability,
 			}, nil
 		}

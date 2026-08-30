@@ -133,3 +133,41 @@ func TestRerankTopN_Dedup(t *testing.T) {
 		t.Errorf("expected 1 deduped result, got %d", len(results))
 	}
 }
+
+func TestRerankTopN_DedupKeepsDifferentCostumes(t *testing.T) {
+	d := makeTimelineCard(80, 25, 10, 1000)
+	cards := []*Card{
+		{ID: "a", CenterSkill: d.CenterSkill, Stats: d.Stats, Type: "cute", Group: "holo1", CostumeSkill: CostumeSkill{Effects: []CostumeEffect{{Stat: "all", Value: 50}}}},
+		{ID: "b", CenterSkill: d.CenterSkill, Stats: d.Stats, Type: "cute", Group: "holo1", CostumeSkill: CostumeSkill{Effects: []CostumeEffect{{Stat: "all", Value: 30}}}},
+		{ID: "c", CenterSkill: d.CenterSkill, Stats: d.Stats, Type: "cute", Group: "holo1"},
+		{ID: "d", CenterSkill: d.CenterSkill, Stats: d.Stats, Type: "cute", Group: "holo1"},
+		{ID: "e", CenterSkill: d.CenterSkill, Stats: d.Stats, Type: "cute", Group: "holo1"},
+	}
+	cardMap := map[string]*Card{}
+	for _, c := range cards {
+		cardMap[c.ID] = c
+	}
+
+	timeline := &SongTimeline{Duration: 100, SpecialPoints: [5]float64{20, 40, 60, 80, 90}}
+	events := []ScoreEvent{{Time: 50, ComboIndex: 0, Weight: 1}}
+
+	// Same 5 members, different costume_only_leader_id
+	legacyResults := []SolveResult{
+		{Score: EvalResult{TotalPower: 100000}, TeamIDs: [5]string{"a", "b", "c", "d", "e"}, CostumeOnlyLeaderID: "a"},
+		{Score: EvalResult{TotalPower: 100000}, TeamIDs: [5]string{"a", "b", "c", "d", "e"}, CostumeOnlyLeaderID: "b"},
+	}
+
+	results := RerankTopN(legacyResults, cardMap, timeline, events, 1.0, 0, 100, nil, 10)
+
+	if len(results) < 2 {
+		t.Errorf("expected >=2 results (different costumes), got %d", len(results))
+	}
+
+	costumes := map[string]bool{}
+	for _, r := range results {
+		costumes[r.CostumeOnlyLeaderID] = true
+	}
+	if !costumes["a"] || !costumes["b"] {
+		t.Errorf("both costume 'a' and 'b' should be present, got %v", costumes)
+	}
+}

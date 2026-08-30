@@ -296,7 +296,6 @@ type TimelineJSONOutput struct {
 	LegacyResults []JSONResult              `json:"legacy_results"`
 	Timeline      []TimelineJSONResult      `json:"timeline_results"`
 	CandidatePool int                       `json:"candidate_pool"`
-	BaselineLSI   int                       `json:"baseline_lsi"`
 	Stability     []TimelineStabilityEntry  `json:"stability,omitempty"`
 }
 

@@ -107,18 +107,22 @@ func RerankTopN(
 		return allResults[i].LiveScoreIndex > allResults[j].LiveScoreIndex
 	})
 
-	// Deduplicate: keep only the best permutation per team set
-	seen := map[[5]string]bool{}
+	// Deduplicate: keep only the best permutation per (team set + costume)
+	type dedupKey struct {
+		members [5]string
+		costume string
+	}
+	seen := map[dedupKey]bool{}
 	var deduped []TimelineRerankResult
 	for _, r := range allResults {
-		// Normalize team for dedup (sort IDs)
-		key := r.TeamIDs
-		sortedKey := key
-		sort.Strings(sortedKey[:])
-		if seen[sortedKey] {
+		var sorted5 [5]string
+		copy(sorted5[:], r.TeamIDs[:])
+		sort.Strings(sorted5[:])
+		dk := dedupKey{members: sorted5, costume: r.CostumeOnlyLeaderID}
+		if seen[dk] {
 			continue
 		}
-		seen[sortedKey] = true
+		seen[dk] = true
 		deduped = append(deduped, r)
 		if len(deduped) >= finalN {
 			break
