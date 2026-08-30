@@ -34,6 +34,8 @@ type SpecialWindow struct {
 }
 
 // PlayAssumption defines the assumed play conditions for Timeline evaluation.
+// Currently AP (All Perfect) is assumed and this struct is not yet used in evaluation.
+// Future: support GREAT/MISS rates, manual play, AUTO mode.
 type PlayAssumption struct {
 	AllPerfect   bool `json:"all_perfect"`
 	StartingLife int  `json:"starting_life"`

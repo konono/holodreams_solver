@@ -216,7 +216,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 				var topTeams []SolveResult
 				for _, r := range reranked {
 					topTeams = append(topTeams, SolveResult{
-						Score:     EvalResult{UnitScore: r.UnitScore, TotalPower: r.UnitScore},
+						Score:     EvalResult{UnitScore: r.UnitScore},
 						LeaderIdx: r.LeaderIdx,
 						TeamIDs:   r.TeamIDs,
 					})

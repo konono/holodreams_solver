@@ -46,7 +46,9 @@ func checkSPRateCondition(cond *string) bool {
 	if len(c) >= 4 && c[:4] == "life" {
 		return true // AP前提: ライフ条件は常に成立
 	}
-	// combo conditions would need combo index at SP time — for now, assume met
+	// TODO: combo_100等の条件はSP発動時点のcombo indexで判定すべきだが、
+	// 現在のSP発動地点にはcombo情報がないため常に成立として扱う。
+	// 実影響は小さい（AP前提なら曲序盤以外はcombo条件を満たす）。
 	return true
 }
 
