@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"sort"
 )
 
 // BoardEffectsData holds board effect parameters loaded from data/board_effects.json.
@@ -81,6 +82,10 @@ func getActivationUpTotalPermil() int {
 // OptimizeBoardForTeam optimizes per-member cdReduce node counts to
 // maximize LiveScoreIndex. activationUp is always fully unlocked.
 // Search space: (maxNodes+1)^5 combinations.
+//
+// Uses a fast evaluation path: Active probabilities are pre-computed for all
+// (member × cdLevel × scoreEvent) combinations, then the 1024-combo search
+// uses only array lookups and arithmetic instead of regenerating timelines.
 func OptimizeBoardForTeam(
 	team [5]*Card,
 	totalPower, songDuration float64,
@@ -96,6 +101,7 @@ func OptimizeBoardForTeam(
 	maxNodes := getCdReduceMaxNodes()
 	actUpPermil := getActivationUpTotalPermil()
 
+	// Baseline evaluation (full, for the result)
 	var baseConfigs [5]*BoardConfig
 	for i := 0; i < 5; i++ {
 		baseConfigs[i] = &BoardConfig{
@@ -104,36 +110,142 @@ func OptimizeBoardForTeam(
 	}
 	baseResult := EvaluateFullTimelineWithBoard(team, totalPower, songDuration, timeline, scoreEvents, alwaysOnSupport, baseConfigs)
 
+	// --- Pre-compute fixed data ---
+	spWindows := generateSpecialWindows(team, timeline)
+	typeCounts := countTypes(team)
+	nEvents := len(scoreEvents)
+	nLevels := maxNodes + 1
+
+	// Resolve scoreUp per card and determine sort order (descending scoreUp).
+	// The sort order is independent of board config.
+	type cardInfo struct {
+		origIdx int
+		scoreUp float64
+	}
+	cardInfos := make([]cardInfo, 5)
+	for i, card := range team {
+		su := card.CenterSkill.ScoreUp
+		if card.CenterSkill.Condition != nil && checkCenterTypeCondition(card.CenterSkill.Condition, typeCounts) {
+			if card.CenterSkill.ConditionalScoreUp != nil {
+				su = *card.CenterSkill.ConditionalScoreUp
+			}
+		}
+		cardInfos[i] = cardInfo{origIdx: i, scoreUp: su}
+	}
+	sort.Slice(cardInfos, func(i, j int) bool {
+		return cardInfos[i].scoreUp > cardInfos[j].scoreUp
+	})
+
+	// Pre-compute per-event fixed values: weight, comboMultiplier, scoreSupportAtTime
+	type eventFixed struct {
+		weight          float64
+		comboWeight     float64 // weight * comboMultiplier
+		supportFactor   float64 // 1 + (alwaysOnSupport + spSupport) / 100
+	}
+	evFixed := make([]eventFixed, nEvents)
+	for ei := range scoreEvents {
+		ev := &scoreEvents[ei]
+		w := ev.Weight
+		if w <= 0 {
+			w = 1.0
+		}
+		spSupport := 0.0
+		if spWindows != nil {
+			spSupport = scoreSupportAtTime(spWindows, ev.Time)
+		}
+		combo := comboMultiplier(ev.ComboIndex)
+		evFixed[ei] = eventFixed{
+			weight:        w,
+			comboWeight:   w * combo,
+			supportFactor: 1.0 + (alwaysOnSupport+spSupport)/100.0,
+		}
+	}
+
+	// --- Phase 1: Pre-compute Active probabilities ---
+	// activeProb[sortedCardIdx][cdLevel][eventIdx] = probability that this card is active
+	// Only 5 * nLevels = 20 sets of ActiveAttempts need to be generated.
+	activeProb := make([][][]float64, 5)
+	for si := 0; si < 5; si++ {
+		ci := cardInfos[si].origIdx
+		card := team[ci]
+		activeProb[si] = make([][]float64, nLevels)
+		for lv := 0; lv < nLevels; lv++ {
+			cfg := &BoardConfig{
+				CdReducePermil:     lv * cdPerNode,
+				ActivationUpPermil: actUpPermil,
+			}
+			attempts := generateActiveAttemptsWithBoard(card, ci, songDuration, 0, spWindows, typeCounts, cfg)
+			state := &activeCardState{attempts: attempts}
+			probs := make([]float64, nEvents)
+			for ei := range scoreEvents {
+				probs[ei] = activeProbAtTime(state, scoreEvents[ei].Time)
+			}
+			activeProb[si][lv] = probs
+		}
+	}
+
+	// scoreUps in sorted order
+	var scoreUps [5]float64
+	for si := 0; si < 5; si++ {
+		scoreUps[si] = cardInfos[si].scoreUp
+	}
+
+	// --- Phase 2-4: Fast search ---
 	bestLSI := baseResult.LiveScoreIndex
-	bestLoss := baseResult.ActiveOverlapLoss
 	var bestLevels [5]int
 
 	totalCombos := 1
 	for i := 0; i < 5; i++ {
-		totalCombos *= (maxNodes + 1)
+		totalCombos *= nLevels
 	}
+
+	// Map from sorted card index to the cdLevel for this combo
+	var levels [5]int
 
 	for combo := 0; combo < totalCombos; combo++ {
-		var configs [5]*BoardConfig
-		var levels [5]int
+		// Extract levels (sorted card order matches cardInfos order)
 		rem := combo
-		for i := 0; i < 5; i++ {
-			level := rem % (maxNodes + 1)
-			rem /= (maxNodes + 1)
-			levels[i] = level
-			configs[i] = &BoardConfig{
-				CdReducePermil:     level * cdPerNode,
-				ActivationUpPermil: actUpPermil,
-			}
+		for si := 0; si < 5; si++ {
+			levels[si] = rem % nLevels
+			rem /= nLevels
 		}
 
-		result := EvaluateFullTimelineWithBoard(team, totalPower, songDuration, timeline, scoreEvents, alwaysOnSupport, configs)
-		if result.LiveScoreIndex > bestLSI {
-			bestLSI = result.LiveScoreIndex
-			bestLoss = result.ActiveOverlapLoss
-			bestLevels = levels
+		// Compute LiveScoreIndex using only cached probabilities
+		relativeSongScore := 0.0
+		for ei := 0; ei < nEvents; ei++ {
+			// E[max] calculation: sorted by scoreUp descending
+			emax := 0.0
+			probNoneHigher := 1.0
+			for si := 0; si < 5; si++ {
+				p := activeProb[si][levels[si]][ei]
+				emax += scoreUps[si] * p * probNoneHigher
+				probNoneHigher *= (1.0 - p)
+			}
+
+			ef := &evFixed[ei]
+			skillMultiplier := (1.0 + emax/100.0) * ef.supportFactor
+			relativeSongScore += ef.comboWeight * skillMultiplier
+		}
+
+		lsi := totalPower * relativeSongScore
+		if lsi > bestLSI {
+			bestLSI = lsi
+			// Map sorted levels back to original card order
+			for si := 0; si < 5; si++ {
+				bestLevels[cardInfos[si].origIdx] = levels[si]
+			}
 		}
 	}
+
+	// --- Final: full evaluation for best config to get overlap loss ---
+	var bestConfigs [5]*BoardConfig
+	for i := 0; i < 5; i++ {
+		bestConfigs[i] = &BoardConfig{
+			CdReducePermil:     bestLevels[i] * cdPerNode,
+			ActivationUpPermil: actUpPermil,
+		}
+	}
+	bestResult := EvaluateFullTimelineWithBoard(team, totalPower, songDuration, timeline, scoreEvents, alwaysOnSupport, bestConfigs)
 
 	var members [5]BoardMemberResult
 	for i := 0; i < 5; i++ {
@@ -146,8 +258,8 @@ func OptimizeBoardForTeam(
 	return &BoardOptResult{
 		Members:       members,
 		BaselineLoss:  fixedFloat(baseResult.ActiveOverlapLoss * 100),
-		OptimizedLoss: fixedFloat(bestLoss * 100),
+		OptimizedLoss: fixedFloat(bestResult.ActiveOverlapLoss * 100),
 		BaselineLSI:   int(math.Round(baseResult.LiveScoreIndex)),
-		OptimizedLSI:  int(math.Round(bestLSI)),
+		OptimizedLSI:  int(math.Round(bestResult.LiveScoreIndex)),
 	}
 }
