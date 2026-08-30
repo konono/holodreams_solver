@@ -49,6 +49,7 @@ class SolveRequest(BaseModel):
     stability_lengths: list[float] | None = None
     sweep_costumes: bool = False
     chart_score: dict | None = None
+    stability_charts: list[dict] | None = None
 
     @field_validator("song_length")
     @classmethod
@@ -142,6 +143,8 @@ def post_solve(req: SolveRequest):
         kwargs["sweep_costumes"] = True
     if req.chart_score:
         kwargs["chart_score"] = req.chart_score
+    if req.stability_charts:
+        kwargs["stability_charts"] = req.stability_charts
     result = solve(actual, **kwargs)
     if dropped > 0:
         warnings.append(f"{dropped}枚の不明なカードIDを除外しました")

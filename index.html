@@ -504,6 +504,27 @@ function getSelectedChartScore() {
   return window.CHART_SCORES[`${songId}_${diff}`] || null;
 }
 
+function getStabilityCharts() {
+  if (!window.CHART_SCORES || !window.SONGS) return null;
+  const currentSongId = document.getElementById("songSelect").value;
+  const diff = document.getElementById("diffSelect").value || "expert";
+  const targets = [95, 115, 130, 145, 160];
+  const songList = Object.values(window.SONGS).sort((a, b) => a.playing_seconds - b.playing_seconds);
+  const picked = [];
+  for (const target of targets) {
+    let best = null, bestDist = Infinity;
+    for (const s of songList) {
+      if (s.id === currentSongId) continue;
+      const key = `${s.id}_${diff}`;
+      if (!window.CHART_SCORES[key]) continue;
+      const dist = Math.abs(s.playing_seconds - target);
+      if (dist < bestDist) { bestDist = dist; best = key; }
+    }
+    if (best && !picked.includes(best)) picked.push(best);
+  }
+  return picked.map(key => window.CHART_SCORES[key]);
+}
+
 async function init() {
   loadPersistence();
   syncLevelUI();
@@ -1080,7 +1101,8 @@ async function doSolve() {
         top_n: parseInt(document.getElementById("topN").value),
         song_length: getSelectedSongLength(),
         chart_score: getSelectedChartScore(),
-        stability_lengths: document.getElementById("chkStability").checked ? [95, 110, 125, 140, 155] : null,
+        stability_charts: document.getElementById("chkStability").checked && getSelectedChartScore() ? getStabilityCharts() : null,
+        stability_lengths: document.getElementById("chkStability").checked && !getSelectedChartScore() ? [95, 110, 125, 140, 155] : null,
       }),
     });
     if (!res.ok) {
@@ -1602,6 +1624,26 @@ function renderTimelineResults(data) {
         </div>
         <div class="m-pot-lv">${pot}凸${levelEnabled ? ` Lv${lv}` : ''}</div>
         ${spLabel}
+      </div>`;
+    }
+    html += `</div></div>`;
+  }
+
+  if (data.stability?.length) {
+    const mainLSI = tResults[0]?.live_score_index || 0;
+    html += `<div style="margin-top:16px;padding-top:12px;border-top:1px solid #2a3a4a">
+      <div style="font-size:0.85rem;color:#e0e6ed;margin-bottom:8px;font-weight:600">曲別安定性</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">`;
+    for (const s of data.stability) {
+      const song = window.SONGS?.[s.music_id];
+      const name = song?.name || s.music_id;
+      const diff = mainLSI > 0 ? ((s.top_lsi - mainLSI) / mainLSI * 100).toFixed(1) : "0.0";
+      const diffColor = diff > 0 ? "#40d080" : diff < 0 ? "#f06060" : "#8899aa";
+      html += `<div style="background:#0f1923;border:1px solid #2a3a4a;border-radius:6px;padding:8px 10px;font-size:0.72rem;min-width:120px;max-width:160px">
+        <div style="color:#8899aa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${name}">${name}</div>
+        <div style="color:#5a6e80;font-size:0.65rem">${s.duration}秒 / ${s.difficulty}</div>
+        <div style="color:#e0e6ed;font-weight:600;margin-top:2px">LSI: ${s.top_lsi.toLocaleString()}</div>
+        <div style="color:${diffColor};font-size:0.65rem">${diff > 0 ? '+' : ''}${diff}%</div>
       </div>`;
     }
     html += `</div></div>`;

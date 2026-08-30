@@ -64,6 +64,7 @@ self.onmessage = async function (e) {
         payload.costume_only_leader_id = d.costumeOnlyLeaderId;
       if (d.stabilityLengths) payload.stability_lengths = d.stabilityLengths;
       if (d.chartScore) payload.chart_score = d.chartScore;
+      if (d.stabilityCharts) payload.stability_charts = d.stabilityCharts;
 
       const result = callSolver(payload);
 

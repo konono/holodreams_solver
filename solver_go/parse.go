@@ -194,10 +194,43 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 				})
 			}
 
+			// Stability: rerank top N across additional songs
+			var stability []TimelineStabilityEntry
+			if len(input.StabilityCharts) > 0 && len(reranked) > 0 {
+				// Use only the top N teams (already determined) for stability
+				var topTeams []SolveResult
+				for _, r := range reranked {
+					topTeams = append(topTeams, SolveResult{
+						Score:     EvalResult{UnitScore: r.UnitScore, TotalPower: r.UnitScore},
+						LeaderIdx: r.LeaderIdx,
+						TeamIDs:   r.TeamIDs,
+					})
+				}
+				for _, sc := range input.StabilityCharts {
+					stTL := ChartScoreToTimeline(&sc)
+					stEvents := BinsToScoreEvents(sc.Bins)
+					if len(stEvents) == 0 {
+						continue
+					}
+					stReranked := RerankTopN(topTeams, cardMap, stTL, stEvents, statScale, baseline, songLength, 1)
+					topLSI := 0
+					if len(stReranked) > 0 {
+						topLSI = int(math.Round(stReranked[0].LiveScoreIndex))
+					}
+					stability = append(stability, TimelineStabilityEntry{
+						MusicID:    sc.MusicID,
+						Difficulty: sc.Difficulty,
+						Duration:   int(sc.Duration),
+						TopLSI:     topLSI,
+					})
+				}
+			}
+
 			return TimelineJSONOutput{
 				LegacyResults: legacyResult.Results,
 				Timeline:      timelineResults,
 				CandidatePool: candidatePool,
+				Stability:     stability,
 			}, nil
 		}
 

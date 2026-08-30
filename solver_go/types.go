@@ -206,10 +206,11 @@ type CLIInput struct {
 	SongLength *float64      `json:"song_length"`
 
 	// timeline (optional)
-	SongTimeline   *SongTimeline   `json:"song_timeline"`
-	ChartScoreData *ChartScore     `json:"chart_score"`
-	PlayAssumption *PlayAssumption `json:"play_assumption"`
-	TimelineTopN   int             `json:"timeline_top_n"`
+	SongTimeline       *SongTimeline      `json:"song_timeline"`
+	ChartScoreData     *ChartScore        `json:"chart_score"`
+	StabilityCharts    []ChartScore       `json:"stability_charts"`
+	PlayAssumption     *PlayAssumption    `json:"play_assumption"`
+	TimelineTopN       int                `json:"timeline_top_n"`
 
 	// solve
 	FixedLeaderID       *string   `json:"fixed_leader_id"`
@@ -274,10 +275,18 @@ type TimelineJSONResult struct {
 	SPEfficiency      []float64  `json:"sp_efficiency,omitempty"`
 }
 
+type TimelineStabilityEntry struct {
+	MusicID    string `json:"music_id"`
+	Difficulty string `json:"difficulty"`
+	Duration   int    `json:"duration"`
+	TopLSI     int    `json:"top_lsi"`
+}
+
 type TimelineJSONOutput struct {
-	LegacyResults []JSONResult         `json:"legacy_results"`
-	Timeline      []TimelineJSONResult `json:"timeline_results"`
-	CandidatePool int                  `json:"candidate_pool"`
+	LegacyResults []JSONResult              `json:"legacy_results"`
+	Timeline      []TimelineJSONResult      `json:"timeline_results"`
+	CandidatePool int                       `json:"candidate_pool"`
+	Stability     []TimelineStabilityEntry  `json:"stability,omitempty"`
 }
 
 type RecommendOutput struct {
