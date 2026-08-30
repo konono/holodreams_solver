@@ -33,6 +33,7 @@ type TimelineRerankResult struct {
 	TeamIDs        [5]string
 	LeaderIdx      int
 	UnitScore      float64
+	TotalPower     float64
 	LiveScoreIndex float64
 	TimelineResult TimelineEvalResult
 }
@@ -92,6 +93,7 @@ func RerankTopN(
 				TeamIDs:        ids,
 				LeaderIdx:      lr.LeaderIdx,
 				UnitScore:      eval.UnitScore,
+				TotalPower:     eval.TotalPower,
 				LiveScoreIndex: result.LiveScoreIndex,
 				TimelineResult: result,
 			})

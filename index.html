@@ -1598,6 +1598,7 @@ function renderTimelineResults(data) {
         <div class="result-scores">
           <span>スキル効率: <span class="main-score">${r.skill_efficiency}x</span></span>
           <span>1位比: ${r.top1_pct}%</span>
+          <span>総合力: ${r.total_power.toLocaleString()}</span>
           <span>ユニットスコア: ${r.unit_score.toLocaleString()}</span>
           <span style="font-size:0.7rem;color:#5a6e80">Active重複ロス: ${r.active_overlap_loss}%</span>
         </div>

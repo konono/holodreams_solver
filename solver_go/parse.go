@@ -231,6 +231,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 				timelineResults = append(timelineResults, TimelineJSONResult{
 					Rank:              i + 1,
 					UnitScore:         int(math.Round(r.UnitScore)),
+					TotalPower:        int(math.Round(r.TotalPower)),
 					LiveScoreIndex:    int(math.Round(r.LiveScoreIndex)),
 					SkillEfficiency:   fixedFloat2(skillEff),
 					Top1Pct:           fixedFloat2(top1Pct),
