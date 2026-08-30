@@ -1621,13 +1621,14 @@ function renderTimelineResults(data) {
       const lsiDelta = bo.optimized_lsi - bo.baseline_lsi;
       const lossDelta = bo.optimized_loss - bo.baseline_loss;
       const hasImprovement = lsiDelta > 0;
+      const lossColor = lossDelta < 0 ? '#40d080' : lossDelta > 0 ? '#f0a050' : '#e0e6ed';
       html += `<div style="background:#0d1520;border:1px solid ${hasImprovement ? '#1a4a3a' : '#2a3a4a'};border-radius:6px;padding:8px 10px;margin:8px 0;font-size:0.72rem">
-        <div style="color:#8899aa;font-weight:600;margin-bottom:4px">ボード推奨</div>
+        <div style="color:#8899aa;font-weight:600;margin-bottom:4px">ボード推奨 <span style="font-weight:400;font-size:0.6rem;color:#5a6e80">— スコア最大化</span></div>
         <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
-          <span>重複ロス: ${bo.baseline_loss}% → <span style="color:${hasImprovement ? '#40d080' : '#e0e6ed'}">${bo.optimized_loss}%</span>
-            ${lossDelta < 0 ? `<span style="color:#40d080;font-size:0.65rem">(${lossDelta.toFixed(1)}pt)</span>` : ''}</span>
           <span>LSI: ${bo.baseline_lsi.toLocaleString()} → <span style="color:${hasImprovement ? '#40d080' : '#e0e6ed'}">${bo.optimized_lsi.toLocaleString()}</span>
             ${lsiDelta > 0 ? `<span style="color:#40d080;font-size:0.65rem">(+${lsiDelta.toLocaleString()})</span>` : ''}</span>
+          <span>重複ロス: ${bo.baseline_loss}% → <span style="color:${lossColor}">${bo.optimized_loss}%</span>
+            <span style="color:${lossColor};font-size:0.65rem">(${lossDelta > 0 ? '+' : ''}${lossDelta.toFixed(1)}pt)</span></span>
         </div>
       </div>`;
     }
