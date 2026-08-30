@@ -369,7 +369,11 @@ header p { color: #8899aa; font-size: 0.85rem; margin-top: 4px; }
   <div id="cardArea"><div class="empty-msg">カードデータを読み込み中...</div></div>
 
   <div class="loading-area" id="loadingArea">
-    <span class="spinner"></span>最強編成を探索中...
+    <span class="spinner"></span>
+    <div id="progressText">最強編成を探索中...</div>
+    <div style="width:200px;margin:10px auto 0;height:6px;background:#1a2735;border-radius:3px;overflow:hidden;display:none" id="progressBarBg">
+      <div id="progressFill" style="width:0%;height:100%;background:#4f8cff;border-radius:3px;transition:width 0.2s"></div>
+    </div>
   </div>
 
   <div id="resultsWrapper" style="display:none">
@@ -600,7 +604,7 @@ async function init() {
   });
   // デフォルト曲を設定（chart_scoresデータがある最初の曲）
   if (window.CHART_SCORES && document.getElementById("songSelect").value === "") {
-    const defaultSong = "m0001";
+    const defaultSong = "m0091";
     const sel = document.getElementById("songSelect");
     if (sel.querySelector(`option[value="${defaultSong}"]`)) {
       sel.value = defaultSong;
@@ -1095,26 +1099,69 @@ async function doSolve() {
       cardSpecs = [...selected].map(id => ({ id, potential: getCardPotential(id), level: getCardLevel(id) }));
     }
 
-    const res = await fetch("/api/solve", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        cards: cardSpecs, stat_scale: statScale, baseline,
-        fixed_leader_id: fixedLeader,
-        costume_only_leader_id: costumeOnlyLeader,
-        sweep_costumes: !costumeVal && selected.size > 0,
-        top_n: parseInt(document.getElementById("topN").value),
-        song_length: getSelectedSongLength(),
-        chart_score: getSelectedChartScore(),
-        stability_charts: document.getElementById("chkStability").checked && getSelectedChartScore() ? getStabilityCharts() : null,
-        stability_lengths: document.getElementById("chkStability").checked && !getSelectedChartScore() ? [95, 110, 125, 140, 155] : null,
-      }),
+    const solveBody = JSON.stringify({
+      cards: cardSpecs, stat_scale: statScale, baseline,
+      fixed_leader_id: fixedLeader,
+      costume_only_leader_id: costumeOnlyLeader,
+      sweep_costumes: !costumeVal,
+      top_n: parseInt(document.getElementById("topN").value),
+      song_length: getSelectedSongLength(),
+      chart_score: getSelectedChartScore(),
+      stability_charts: document.getElementById("chkStability").checked && getSelectedChartScore() ? getStabilityCharts() : null,
+      stability_lengths: document.getElementById("chkStability").checked && !getSelectedChartScore() ? [95, 110, 125, 140, 155] : null,
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || `サーバーエラー (${res.status})`);
-    }
-    const data = await res.json();
+
+    const data = await new Promise((resolve, reject) => {
+      const progressBar = document.getElementById("progressBarBg");
+      const progressFill = document.getElementById("progressFill");
+      const progressText = document.getElementById("progressText");
+      progressBar.style.display = "none";
+      progressFill.style.width = "0%";
+      progressText.textContent = "最強編成を探索中...";
+
+      fetch("/api/solve/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: solveBody,
+      }).then(res => {
+        if (!res.ok) return res.json().then(e => { throw new Error(e.detail || `サーバーエラー (${res.status})`); });
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        function pump() {
+          return reader.read().then(({ done, value }) => {
+            if (done) { reject(new Error("ストリームが途中で終了しました")); return; }
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n\n");
+            buffer = lines.pop();
+            for (const chunk of lines) {
+              const line = chunk.replace(/^data: /, "").trim();
+              if (!line) continue;
+              try {
+                const ev = JSON.parse(line);
+                if (ev.type === "progress") {
+                  if (ev.current < 0) {
+                    progressFill.style.width = "100%";
+                    progressText.textContent = "Timeline評価 + ボード最適化中...";
+                    return pump();
+                  }
+                  progressBar.style.display = "block";
+                  const pct = Math.min(100, ev.current / ev.total * 100);
+                  progressFill.style.width = pct + "%";
+                  progressText.textContent = `${ev.current.toLocaleString()} / ${ev.total.toLocaleString()} 組み合わせを評価中...`;
+                } else if (ev.type === "done") {
+                  resolve(ev.result);
+                  return;
+                }
+              } catch(e) {}
+            }
+            return pump();
+          });
+        }
+        pump().catch(reject);
+      }).catch(reject);
+    });
+
     expandResults();
     renderResults(data);
     saveToHistory(data);
@@ -1129,6 +1176,9 @@ async function doSolve() {
     btnRec.disabled = selected.size < 5;
     btn.textContent = "最強編成を探す";
     loading.classList.remove("visible");
+    document.getElementById("progressBarBg").style.display = "none";
+    document.getElementById("progressFill").style.width = "0%";
+    document.getElementById("progressText").textContent = "最強編成を探索中...";
     setFabMode("back");
   }
 }
@@ -1360,15 +1410,25 @@ function saveToHistory(solveData) {
       statScale, baseline,
     },
     snapshot: { ids: [...selected], allCards: selected.size === 0, potentials: pots, levels: lvs, defaultPotential, defaultLevel, levelEnabled },
-    results: (solveData.results || []).slice(0, 3).map(r => ({
+    results: (solveData.timeline_results || solveData.results || []).slice(0, 3).map(r => ({
       rank: r.rank, unit_score: r.unit_score, total_power: r.total_power,
-      score_bonus: r.score_bonus, leader_id: r.leader_id, member_ids: r.member_ids,
+      score_bonus: r.score_bonus, live_score_index: r.live_score_index,
+      leader_id: r.leader_id, member_ids: r.member_ids,
     })),
+    isTimeline: !!solveData.timeline_results,
   };
+  const resultKey = `holodri_result_${entry.ts}`;
+  try { localStorage.setItem(resultKey, JSON.stringify(solveData)); } catch {}
+  entry.resultKey = resultKey;
   let history = [];
   try { history = JSON.parse(localStorage.getItem("holodri_solve_history") || "[]"); } catch {}
   history.unshift(entry);
-  if (history.length > 20) history = history.slice(0, 20);
+  if (history.length > 20) {
+    for (const old of history.slice(20)) {
+      if (old.resultKey) try { localStorage.removeItem(old.resultKey); } catch {}
+    }
+    history = history.slice(0, 20);
+  }
   localStorage.setItem("holodri_solve_history", JSON.stringify(history));
   renderHistory();
 }
@@ -1388,20 +1448,34 @@ function renderHistory() {
     const dt = new Date(h.ts);
     const timeStr = `${dt.getMonth()+1}/${dt.getDate()} ${dt.getHours()}:${String(dt.getMinutes()).padStart(2,"0")}`;
     const top1 = h.results[0];
-    const leaderCard = top1 ? cardMap[top1.leader_id] : null;
-    const leaderName = leaderCard ? leaderCard.character : "?";
     const nCards = (h.snapshot?.ids || []).length;
     const labelVal = (h.label || "").replace(/"/g, "&quot;");
+    let scoreText = "-";
+    let detailText = "";
+    if (top1) {
+      if (h.isTimeline && top1.live_score_index) {
+        const lsi = top1.live_score_index;
+        const m = lsi / 1e6;
+        scoreText = m >= 1000 ? `LSI ${(m/1000).toFixed(1)}B` : `LSI ${Math.round(m).toLocaleString()}M`;
+        const members = (top1.member_ids || []).map(id => cardMap[id]?.character || "?").slice(0, 3).join(", ");
+        detailText = `#1 ${members} / ${nCards || "全"}枚`;
+      } else {
+        scoreText = top1.unit_score.toLocaleString();
+        const leaderCard = top1.leader_id ? cardMap[top1.leader_id] : null;
+        const leaderName = leaderCard ? leaderCard.character : "?";
+        detailText = `#1 ${leaderName}リーダー / ${nCards || "全"}枚 / SB ${top1.score_bonus ?? "-"}%`;
+      }
+    }
     html += `<div class="history-entry">
       <div class="h-header">
         <span>
           <span class="h-time">${timeStr}</span>
           <input class="h-label-input" placeholder="メモ" value="${labelVal}" data-idx="${i}">
         </span>
-        <span class="h-score">${top1 ? top1.unit_score.toLocaleString() : "-"}</span>
+        <span class="h-score">${scoreText}</span>
       </div>
       <div style="color:#8899aa;font-size:0.72rem">
-        #1 ${leaderName}リーダー / ${nCards || "全"}枚 / SB ${top1 ? top1.score_bonus : "-"}%
+        ${detailText}
       </div>
       <div style="display:flex;gap:4px;margin-top:6px">
         <button class="h-btn" data-action="restore" data-idx="${i}">復元</button>
@@ -1431,6 +1505,8 @@ function renderHistory() {
 function deleteHistory(idx) {
   let history = [];
   try { history = JSON.parse(localStorage.getItem("holodri_solve_history") || "[]"); } catch {}
+  const entry = history[idx];
+  if (entry?.resultKey) try { localStorage.removeItem(entry.resultKey); } catch {}
   history.splice(idx, 1);
   localStorage.setItem("holodri_solve_history", JSON.stringify(history));
   renderHistory();
@@ -1481,6 +1557,17 @@ function restoreFromHistory(idx) {
   updateBaselineDisplay();
   renderCards();
   updateCounter();
+
+  if (entry.resultKey) {
+    try {
+      const savedData = JSON.parse(localStorage.getItem(entry.resultKey));
+      if (savedData) {
+        expandResults();
+        renderResults(savedData);
+        document.getElementById("resultsWrapper").scrollIntoView({ behavior: "smooth" });
+      }
+    } catch {}
+  }
 }
 
 document.getElementById("historyToggle").addEventListener("click", () => {
@@ -1592,10 +1679,33 @@ function renderTimelineResults(data) {
 
   let html = `<div class="results-title">ライブ期待スコア Top ${tResults.length}（${songName} ${diff}）</div>`;
   html += `<div style="font-size:0.72rem;color:#6b7f92;margin-bottom:10px">候補プール: ${data.candidate_pool} 編成 × 120 順列 → Timeline評価</div>`;
+  html += `<details style="margin-bottom:12px;font-size:0.7rem;color:#6b7f92">
+    <summary style="cursor:pointer;color:#4f8cff;user-select:none">結果の見かた</summary>
+    <div style="background:#0d1520;border:1px solid #2a3a4a;border-radius:6px;padding:10px 12px;margin-top:6px;line-height:1.7">
+      <div style="margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #2a3a4a">
+        <div style="color:#4f8cff;font-weight:600;margin-bottom:2px">スキルの種類</div>
+        <div><b style="color:#e0e6ed">Activeスキル</b> — 一定周期で自動発動し、スコアをアップさせるスキル。カードごとに周期（秒）・スコアアップ率・発動確率が異なります。5人のうち最も高いActiveのみが有効（最大値モデル）で、同時発動は無駄になります。</div>
+        <div><b style="color:#e0e6ed">SPスキル（スペシャル）</b> — 曲中の決まったタイミングで1回発動し、スコアサポートや他スキルの発動率UPを一定時間付与します。スロット順で発動タイミングが決まるため、配置が重要です。</div>
+        <div><b style="color:#e0e6ed">パッシブスキル</b> — 常時発動するステータスバフやスコアサポート効果。</div>
+        <div><b style="color:#e0e6ed">衣装スキル</b> — リーダーの衣装が全メンバーに付与するステータスバフやスコアサポート効果。</div>
+      </div>
+      <div><b style="color:#e0e6ed">LSI（ライブ期待スコア指標）</b> — 総合力 × ノートごとのスキル倍率の合計。同じ曲での編成比較用の相対指標で、値が大きいほど高スコアが期待できます。</div>
+      <div><b style="color:#e0e6ed">スキル効率</b> — スキルなし時と比べた倍率。2.0x ならスキルで2倍のスコア。Active・衣装SS・パッシブSB・SP効果の合計効果です。</div>
+      <div><b style="color:#e0e6ed">Active期待値</b> — 5人のActiveスキルの期待スコアアップ値。発動タイミング・確率・重複を考慮した解析値（E[max]モデル）。</div>
+      <div><b style="color:#e0e6ed">重複ロス</b> — 複数メンバーのActiveが同時発動して無駄になる割合。発動周期の異なるメンバーで編成すると改善できます。</div>
+      <div style="margin-top:4px;border-top:1px solid #2a3a4a;padding-top:4px"><b style="color:#e0e6ed">各メンバーの Active</b> — スコア: 発動時のスコアアップ% / 周期: 発動間隔（秒）/ 確率: 1回あたりの発動確率。同じ周期のメンバーが多いと重複ロスが増えます。</div>
+      <div><b style="color:#e0e6ed">SP配置効果</b> — このスロットのSP発動中に他メンバーのActiveがどれだけ乗るかの値。slot 1 は曲序盤でActive発動が少なく低くなりやすい。値が低くても高Activeやステータスなど別の強みで選ばれています。◎(80+) ○(50+) △(20+) ▽(20未満)。</div>
+      <div><b style="color:#e0e6ed">ボード推奨</b> — 確率UPは全ノード開放推奨。頻度UPは周期の重複パターンに応じて最適なノード数（0〜3）を算出。各ノードで発動周期が4%短縮されます。</div>
+    </div>
+  </details>`;
+
+  const top1LSI = tResults[0]?.live_score_index || 1;
+  const fmtLSI = v => { const m = v / 1e6; return m >= 1000 ? `${(m/1000).toFixed(1)}B` : `${Math.round(m).toLocaleString()}M`; };
 
   for (const r of tResults) {
     const rankColors = { 1: "#ffd700", 2: "#c0c0c0", 3: "#cd7f32" };
-    const rankColor = rankColors[r.rank] || "";
+    const rankColor = rankColors[r.rank] || "#4f8cff";
+    const barPct = top1LSI > 0 ? (r.live_score_index / top1LSI * 100) : 100;
 
     let costumeLabel = "";
     if (r.costume_only_leader_id) {
@@ -1605,17 +1715,61 @@ function renderTimelineResults(data) {
 
     html += `<div class="result-card">
       ${costumeLabel ? `<div style="color:#c0c060;font-size:0.75rem;margin-bottom:6px">${costumeLabel}</div>` : ''}
-      <div class="result-header">
-        <span class="result-rank" ${rankColor ? `style="color:${rankColor}"` : ''}>#${r.rank}</span>
-        <div class="result-scores">
-          <span>スキル効率: <span class="main-score">${r.skill_efficiency}x</span></span>
-          <span>1位比: ${r.top1_pct}%</span>
-          <span>総合力: ${r.total_power.toLocaleString()}</span>
-          <span>ユニットスコア: ${r.unit_score.toLocaleString()}</span>
-          <span style="font-size:0.7rem;color:#5a6e80">Active重複ロス: ${r.active_overlap_loss}%</span>
-        </div>
+      <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:4px">
+        <span class="result-rank" style="color:${rankColor}">#${r.rank}</span>
+        <span style="font-size:0.75rem;color:#e0e6ed;font-weight:700">LSI: ${fmtLSI(r.live_score_index)}</span>
+        <span style="font-size:0.65rem;color:#5a6e80" title="ライブ期待スコア指標の実値">(${r.live_score_index.toLocaleString()})</span>
+        <span style="font-size:0.75rem;color:#8899aa;margin-left:auto">${r.top1_pct}%</span>
       </div>
-      <div class="result-members">`;
+      <div style="height:4px;background:#1a2735;border-radius:2px;margin-bottom:10px;overflow:hidden">
+        <div style="width:${barPct}%;height:100%;background:${rankColor};border-radius:2px;transition:width 0.3s"></div>
+      </div>
+      <div style="display:flex;gap:16px;font-size:0.72rem;color:#8899aa;margin-bottom:6px;flex-wrap:wrap">
+        <span>総合力: <span style="color:#e0e6ed;font-weight:600">${r.total_power.toLocaleString()}</span></span>
+        <span title="スキルなし時と比べた倍率（Active・衣装SS・パッシブSB・SP効果の合計）">スキル効率: <span style="color:#e0e6ed;font-weight:600">${r.skill_efficiency}x</span></span>
+        <span style="color:#5a6e80">ユニットスコア: ${r.unit_score.toLocaleString()}</span>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:0.65rem;margin-bottom:8px">
+        <span style="background:#0d1520;border:1px solid #2a3a4a;border-radius:4px;padding:2px 8px" title="5人のActiveスキルの期待スコアアップ値 (E[max]モデル)">Active期待値 <span style="color:#40d080">+${r.expected_active}%</span></span>
+        <span style="background:#0d1520;border:1px solid #2a3a4a;border-radius:4px;padding:2px 8px" title="衣装スキルによるスコアサポート効果">衣装SS <span style="color:#e0e6ed">${r.costume_sb_pct}%</span></span>
+        <span style="background:#0d1520;border:1px solid #2a3a4a;border-radius:4px;padding:2px 8px" title="パッシブスキルによるスコアサポート効果">パッシブSB <span style="color:#e0e6ed">${r.passive_sb_pct}%</span></span>
+        <span style="background:#0d1520;border:1px solid #2a3a4a;border-radius:4px;padding:2px 8px" title="スペシャルスキルの時間加重スコア効果">SP効果 <span style="color:#e0e6ed">${r.special_pct}%</span></span>
+        <span style="background:#0d1520;border:1px solid #3a2a1a;border-radius:4px;padding:2px 8px" title="複数メンバーのActiveが同時発動して無駄になる割合。周期の異なるメンバーで編成すると改善できます">重複ロス <span style="color:#f0a050">${r.active_overlap_loss}%</span>${r.board_optimization ? ' <span style="color:#5a6e80">(ボード適用前)</span>' : ''}</span>
+      </div>
+`;
+
+    if (r.board_optimization) {
+      const bo = r.board_optimization;
+      const lsiPct = bo.baseline_lsi > 0 ? ((bo.optimized_lsi - bo.baseline_lsi) / bo.baseline_lsi * 100) : 0;
+      const lossDelta = bo.optimized_loss - bo.baseline_loss;
+      const hasImprovement = lsiPct > 0.01;
+      const lossColor = lossDelta < -0.05 ? '#40d080' : lossDelta > 0.05 ? '#f0a050' : '#e0e6ed';
+      html += `<div style="background:#0d1520;border:1px solid ${hasImprovement ? '#1a4a3a' : '#2a3a4a'};border-radius:6px;padding:8px 10px;margin:8px 0;font-size:0.72rem">
+        <div style="color:#8899aa;font-weight:600;margin-bottom:4px" title="確率UPは全ノード開放推奨。頻度UPは周期の重複パターンに応じて最適なノード数を算出">ボード推奨</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
+          <span>スコア改善: <span style="color:${hasImprovement ? '#40d080' : '#e0e6ed'};font-weight:600">${lsiPct > 0 ? '+' : ''}${lsiPct.toFixed(2)}%</span></span>
+          <span style="color:#5a6e80">重複ロス: ${bo.baseline_loss}% → ${bo.optimized_loss}%
+            <span style="color:${lossColor}">(${lossDelta > 0 ? '+' : ''}${lossDelta.toFixed(1)}pt)</span></span>
+        </div>
+        <div style="font-size:0.65rem;color:#6b7f92;margin-bottom:4px">確率UP: 全ノード開放推奨 (全員共通)</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:0.65rem">
+          ${bo.members.map((m, idx) => {
+            const c = cardMap[r.member_ids[idx]];
+            const name = c ? c.character : r.member_ids[idx];
+            const cdLabel = m.cd_reduce_nodes > 0
+              ? `<span style="color:#60b0e0">頻度UP ×${m.cd_reduce_nodes}</span>`
+              : `<span style="color:#5a6e80">頻度UP 不要</span>`;
+            return `<span style="background:#0a1018;border:1px solid #2a3a4a;border-radius:4px;padding:3px 8px">${name}: ${cdLabel}</span>`;
+          }).join('')}
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;margin-top:6px;font-size:0.6rem;color:#5a6e80">
+          <span>頻度UP: grade2 / 各5ポイント消費</span>
+          <a href="https://holodori.best/tools/board-optimizer" target="_blank" rel="noopener" style="color:#4f8cff;text-decoration:none">holodori.best Board Optimizer →</a>
+        </div>
+      </div>`;
+    }
+
+    html += `<div class="result-members">`;
 
     for (let i = 0; i < r.member_ids.length; i++) {
       const mid = r.member_ids[i];
@@ -1625,7 +1779,33 @@ function renderTimelineResults(data) {
       const lv = getCardLevel(mid);
       const s = getCardStats(card, pot, lv);
       const spEff = r.sp_efficiency?.[i];
-      const spLabel = spEff != null && spEff > 0 ? `<div style="color:#c0a040;font-size:0.6rem">SP効率: ${spEff.toFixed(1)}</div>` : '';
+      let spLabel = '';
+      if (spEff != null && spEff > 0) {
+        const spRating = spEff >= 80 ? '◎' : spEff >= 50 ? '○' : spEff >= 20 ? '△' : '▽';
+        const spColor = spEff >= 80 ? '#40d080' : spEff >= 50 ? '#c0a040' : spEff >= 20 ? '#8899aa' : '#f06060';
+        spLabel = `<div style="font-size:0.6rem;color:${spColor}" title="SP発動中に他メンバーのActiveがどれだけ乗るか。低くても高Activeやステータスなど別の強みで選ばれています">SP配置効果 <span style="font-weight:600">${spRating} ${spEff.toFixed(1)}</span></div>`;
+      }
+      let boardLabel = '';
+      if (r.board_optimization) {
+        const bm = r.board_optimization.members[i];
+        if (bm && bm.cd_reduce_nodes > 0) {
+          boardLabel = `<div style="color:#60b0e0;font-size:0.6rem" title="頻度UPボードノードを${bm.cd_reduce_nodes}個開放推奨 (各4%周期短縮)">頻度UP ×${bm.cd_reduce_nodes}</div>`;
+        }
+      }
+      // Active性能表示
+      let activeLabel = '';
+      const pd = card.potential_data;
+      if (pd) {
+        const cs = pd[Math.min(pot, pd.length - 1)]?.center_skill;
+        if (cs && cs.score_up > 0) {
+          const prob = cs.activation_probability_permil != null ? (cs.activation_probability_permil / 10).toFixed(0) + '%' : '確定';
+          activeLabel = `<div style="display:flex;gap:4px;font-size:0.6rem;color:#5a6e80;margin-top:3px">
+            <span style="flex:1;text-align:center"><span style="display:block;color:#5a6e80">スコア</span><span style="color:#40d080">+${cs.score_up}%</span></span>
+            <span style="flex:1;text-align:center"><span style="display:block;color:#5a6e80">周期</span><span style="color:#8899aa">${cs.interval}秒</span></span>
+            <span style="flex:1;text-align:center"><span style="display:block;color:#5a6e80">確率</span><span style="color:#8899aa">${prob}</span></span>
+          </div>`;
+        }
+      }
       html += `<div class="member-card">
         <span class="type-badge type-${card.type}" style="float:right;margin-top:2px">${TYPE_LABELS[card.type]}</span>
         <div style="color:#5a6e80;font-size:0.6rem">slot ${i+1}</div>
@@ -1637,7 +1817,9 @@ function renderTimelineResults(data) {
           <span>S:${s.sense.toLocaleString()}</span>
         </div>
         <div class="m-pot-lv">${pot}凸${levelEnabled ? ` Lv${lv}` : ''}</div>
+        ${activeLabel}
         ${spLabel}
+        ${boardLabel}
       </div>`;
     }
     html += `</div></div>`;

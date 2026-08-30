@@ -23,6 +23,7 @@ MASTER_FILES = [
     "LiveSkillEffectTarget", "LiveSkillTrigger",
     "LiveSpecialSkillLevel",
     "Music", "LiveCombo",
+    "SkillTreeNode", "SkillTreeEffect",
     "LangCard_Jpn", "LangCharacter_Jpn", "LangCharacterGrouping_Jpn",
     "LangMusic_Jpn",
 ]
@@ -839,6 +840,61 @@ def main():
     with open(songs_path, "w", encoding="utf-8") as f:
         json.dump({"songs": songs, "combo_table": combo_table}, f, ensure_ascii=False, indent=2)
     print(f"Wrote {songs_path} ({len(songs)} songs, {len(combo_table)} combo breakpoints)")
+
+    # --- Generate board_effects.json ---
+    print("\nGenerating board effects data...")
+    tree_nodes = masters.get("SkillTreeNode", [])
+    tree_effects = index_by(masters.get("SkillTreeEffect", []), "id")
+
+    cd_reduce_nodes = []
+    activation_up_nodes = []
+
+    for node in tree_nodes:
+        if "CARD" not in node.get("type", ""):
+            continue
+        effect_id = node.get("skillTreeEffectId", "")
+        effect = tree_effects.get(effect_id, {})
+        effect_type = effect.get("effectType", "")
+        value = int(effect.get("value", "0"))
+        grade = node.get("grade", 1)
+        cost_pts = node.get("consumptionSkillTreePointQuantity", 0)
+        items = node.get("consumptions", [])
+
+        entry = {
+            "node_group": node.get("groupId", ""),
+            "value_permil": value,
+            "grade": grade,
+            "cost_points": cost_pts,
+            "cost_items": [{"id": it["resourceId"], "quantity": int(it["quantity"])} for it in items],
+        }
+
+        if "COOL_TIME_SHORTEN" in effect_type:
+            cd_reduce_nodes.append(entry)
+        elif "ACTIVATION_PROBABILITY" in effect_type:
+            activation_up_nodes.append(entry)
+
+    cd_reduce_nodes.sort(key=lambda x: x["node_group"])
+    activation_up_nodes.sort(key=lambda x: (x["value_permil"], x["node_group"]))
+
+    board_effects = {
+        "generated": datetime.now(timezone.utc).isoformat(),
+        "source": "HolodoriDB/holodori-db-jpn-diff SkillTreeNode + SkillTreeEffect",
+        "cd_reduce": {
+            "nodes": cd_reduce_nodes,
+            "per_node_permil": cd_reduce_nodes[0]["value_permil"] if cd_reduce_nodes else 40,
+            "max_nodes": len(cd_reduce_nodes),
+            "total_permil": sum(n["value_permil"] for n in cd_reduce_nodes),
+        },
+        "activation_up": {
+            "nodes": activation_up_nodes,
+            "total_permil": sum(n["value_permil"] for n in activation_up_nodes),
+        },
+    }
+
+    board_path = output_dir / "board_effects.json"
+    with open(board_path, "w", encoding="utf-8") as f:
+        json.dump(board_effects, f, ensure_ascii=False, indent=2)
+    print(f"Wrote {board_path} (cdReduce: {len(cd_reduce_nodes)} nodes/{board_effects['cd_reduce']['total_permil']}‰, activationUp: {len(activation_up_nodes)} nodes/{board_effects['activation_up']['total_permil']}‰)")
 
 
 if __name__ == "__main__":

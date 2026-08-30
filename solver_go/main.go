@@ -28,6 +28,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	loadBoardEffects(".")
+
+	progressCallback = func(current, total int) {
+		fmt.Fprintf(os.Stderr, "PROGRESS:%d/%d\n", current, total)
+	}
+
 	result, err := dispatchAction(input, cf)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)

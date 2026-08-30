@@ -39,8 +39,17 @@ cd solver_go && GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o solver.wasm .
 [tasks.dev]
 description = "Goソルバーリビルド + 開発サーバー起動"
 run = """
-cd solver_go && go build -o solver .
+(cd solver_go && go build -o solver .)
 uv run python app.py
+"""
+
+[tasks."sync:all"]
+description = "全データ同期（カード + ボード + チャート）"
+run = """
+uv run python scripts/sync_holodori.py
+pip install -q git+https://github.com/HolodoriDB/holodori-asset-tools.git git+https://github.com/UntitledCharts/sonolus-level-converters.git 2>/dev/null || true
+python3 -m holodori_asset_tools download /tmp/holodori_assets --filter 'chart_m' --workers 4 --no-overwrite
+python3 scripts/generate_charts.py /tmp/holodori_assets/resources/ --output data/chart_scores.json --bin-size 0.5
 """
 
 [tasks."build:cli"]

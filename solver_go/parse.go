@@ -78,6 +78,14 @@ func parseOwnedSpecsFromJSON(raw json.RawMessage) map[string]CardSpec {
 	return specs
 }
 
+func boardOptForReranked(r TimelineRerankResult, cardMap map[string]*Card, timeline *SongTimeline, scoreEvents []ScoreEvent) *BoardOptResult {
+	var team [5]*Card
+	for i, id := range r.TeamIDs {
+		team[i] = cardMap[id]
+	}
+	return OptimizeBoardForTeam(team, r.TotalPower, timeline.Duration, timeline, scoreEvents, r.AlwaysOnSupport)
+}
+
 func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 	statScale := 1.0
 	if input.StatScale != nil {
@@ -116,14 +124,32 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 			for i := range cf.Cards {
 				rawCardMap[cf.Cards[i].ID] = &cf.Cards[i]
 			}
-			sweepResult := solveSweepCostumes(cards, cf.Cards, rawCardMap, topN, statScale, baseline, songLength, input.StabilityLengths, cf)
-
 			// Apply Timeline reranking to sweep results if chart data is provided
 			timeline := input.SongTimeline
 			if timeline == nil && input.ChartScoreData != nil {
 				timeline = ChartScoreToTimeline(input.ChartScoreData)
 			}
-			if timeline != nil {
+
+			hasTimeline := timeline != nil
+			sweepTopN := topN
+			if hasTimeline {
+				scoreEvents := timeline.ScoreEvents
+				if len(scoreEvents) == 0 && input.ChartScoreData != nil {
+					scoreEvents = BinsToScoreEvents(input.ChartScoreData.Bins)
+				}
+				hasTimeline = len(scoreEvents) > 0
+			}
+			candidatePool := topN
+			if hasTimeline {
+				candidatePool = topN * 10
+				if candidatePool < 1000 {
+					candidatePool = 1000
+				}
+			}
+
+			sweepResult := solveSweepCostumes(cards, cf.Cards, rawCardMap, candidatePool, statScale, baseline, songLength, input.StabilityLengths, cf)
+
+			if hasTimeline {
 				scoreEvents := timeline.ScoreEvents
 				if len(scoreEvents) == 0 && input.ChartScoreData != nil {
 					scoreEvents = BinsToScoreEvents(input.ChartScoreData.Bins)
@@ -133,11 +159,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 					for _, c := range cards {
 						cardMap[c.ID] = c
 					}
-					candidatePool := topN * 10
-					if candidatePool < 1000 {
-						candidatePool = 1000
-					}
-					sweepPool := solveSweepCostumes(cards, cf.Cards, rawCardMap, candidatePool, statScale, baseline, songLength, nil, cf)
+					sweepPool := sweepResult
 
 					var legacySolveResults []SolveResult
 					for _, r := range sweepPool.Results {
@@ -179,6 +201,10 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 					top1LSI := 0.0
 					if len(reranked) > 0 { top1LSI = reranked[0].LiveScoreIndex }
 
+	
+					if progressCallback != nil {
+						progressCallback(-1, -1) // signal: entering timeline rerank phase
+					}
 					var timelineResults []TimelineJSONResult
 					for i, r := range reranked {
 						spEff := make([]float64, 0)
@@ -195,6 +221,10 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 							s := r.CostumeOnlyLeaderID
 							costumePtr = &s
 						}
+						var boardOpt *BoardOptResult
+						if i < 10 {
+							boardOpt = boardOptForReranked(r, cardMap, timeline, scoreEvents)
+						}
 						timelineResults = append(timelineResults, TimelineJSONResult{
 							Rank:                i + 1,
 							UnitScore:           int(math.Round(r.UnitScore)),
@@ -203,19 +233,32 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 							SkillEfficiency:     fixedFloat2(skillEff),
 							Top1Pct:             fixedFloat2(top1Pct),
 							ActiveOverlapLoss:   fixedFloat(r.TimelineResult.ActiveOverlapLoss * 100),
+							ExpectedActive:      fixedFloat(r.TimelineResult.ExpectedActive),
+							CostumeSBPct:        fixedFloat(r.CostumeSBPct),
+							PassiveSBPct:        fixedFloat(r.PassiveSBPct),
+							SpecialPct:          fixedFloat(r.SpecialPct),
 							CostumeOnlyLeaderID: costumePtr,
 							MemberIDs:           r.TeamIDs[:],
 							SPEfficiency:        spEff,
+							BoardOptimization:   boardOpt,
 						})
 					}
+					legacyResults := sweepPool.Results
+					if len(legacyResults) > sweepTopN {
+						legacyResults = legacyResults[:sweepTopN]
+					}
 					return TimelineJSONOutput{
-						LegacyResults: sweepResult.Results,
+						LegacyResults: legacyResults,
 						Timeline:      timelineResults,
 						CandidatePool: candidatePool,
 					}, nil
 				}
 			}
 
+			// Non-timeline: truncate to topN
+			if len(sweepResult.Results) > sweepTopN {
+				sweepResult.Results = sweepResult.Results[:sweepTopN]
+			}
 			return sweepResult, nil
 		}
 
@@ -238,29 +281,36 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 			return JSONOutput{TotalCombinations: 0, StatScale: statScale, Baseline: baseline, Results: []JSONResult{}}, nil
 		}
 
-		legacyResult := solve(cards, topN, statScale, baseline, songLength, fixedLeader, costumeOnly, overrideCostumeSkill, input.StabilityLengths)
-
 		// Timeline reranking if chart data is provided
 		timeline := input.SongTimeline
 		if timeline == nil && input.ChartScoreData != nil {
 			timeline = ChartScoreToTimeline(input.ChartScoreData)
 		}
-		if timeline != nil && len(timeline.ScoreEvents) > 0 {
+		useTimeline := timeline != nil && len(timeline.ScoreEvents) > 0
+
+		solveTopN := topN
+		if useTimeline {
+			solveTopN = topN * 10
+			if solveTopN < 1000 {
+				solveTopN = 1000
+			}
+		}
+
+		legacyResult := solve(cards, solveTopN, statScale, baseline, songLength, fixedLeader, costumeOnly, overrideCostumeSkill, input.StabilityLengths)
+
+		if useTimeline {
 			cardMap := make(map[string]*Card, len(cards))
 			for _, c := range cards {
 				cardMap[c.ID] = c
 			}
 
-			candidatePool := topN * 10
-			if candidatePool < 1000 {
-				candidatePool = 1000
-			}
+			candidatePool := solveTopN
 			timelineTopN := topN
 			if input.TimelineTopN > 0 {
 				timelineTopN = input.TimelineTopN
 			}
 
-			legacyPool := solve(cards, candidatePool, statScale, baseline, songLength, fixedLeader, costumeOnly, overrideCostumeSkill, nil)
+			legacyPool := legacyResult
 
 			var legacySolveResults []SolveResult
 			for _, r := range legacyPool.Results {
@@ -309,6 +359,10 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 				top1LSI = reranked[0].LiveScoreIndex
 			}
 
+	
+			if progressCallback != nil {
+				progressCallback(-1, -1)
+			}
 			var timelineResults []TimelineJSONResult
 			for i, r := range reranked {
 				spEff := make([]float64, 0)
@@ -329,6 +383,10 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 					s := r.CostumeOnlyLeaderID
 					costumePtr = &s
 				}
+				var boardOpt *BoardOptResult
+				if i < 10 {
+					boardOpt = boardOptForReranked(r, cardMap, timeline, scoreEvents)
+				}
 				timelineResults = append(timelineResults, TimelineJSONResult{
 					Rank:                i + 1,
 					UnitScore:           int(math.Round(r.UnitScore)),
@@ -337,9 +395,14 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 					SkillEfficiency:     fixedFloat2(skillEff),
 					Top1Pct:             fixedFloat2(top1Pct),
 					ActiveOverlapLoss:   fixedFloat(r.TimelineResult.ActiveOverlapLoss * 100),
+					ExpectedActive:      fixedFloat(r.TimelineResult.ExpectedActive),
+					CostumeSBPct:        fixedFloat(r.CostumeSBPct),
+					PassiveSBPct:        fixedFloat(r.PassiveSBPct),
+					SpecialPct:          fixedFloat(r.SpecialPct),
 					CostumeOnlyLeaderID: costumePtr,
 					MemberIDs:           r.TeamIDs[:],
 					SPEfficiency:        spEff,
+					BoardOptimization:   boardOpt,
 				})
 			}
 
@@ -375,14 +438,22 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 				}
 			}
 
+			legacyForDisplay := legacyResult.Results
+			if len(legacyForDisplay) > topN {
+				legacyForDisplay = legacyForDisplay[:topN]
+			}
 			return TimelineJSONOutput{
-				LegacyResults: legacyResult.Results,
+				LegacyResults: legacyForDisplay,
 				Timeline:      timelineResults,
 				CandidatePool: candidatePool,
 				Stability:     stability,
 			}, nil
 		}
 
+		// Non-timeline: truncate to topN
+		if len(legacyResult.Results) > topN {
+			legacyResult.Results = legacyResult.Results[:topN]
+		}
 		return legacyResult, nil
 
 	case "calibrate":

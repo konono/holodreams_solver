@@ -68,6 +68,7 @@ func solve(cards []*Card, topN int, statScale, baseline, songLength float64, fix
 
 	results := make([]SolveResult, 0, topN*10)
 	totalCombos := 0
+	charComboCount := 0
 
 	if fixedLeaderID != "" {
 		leaderCard, ok := cardMap[fixedLeaderID]
@@ -82,7 +83,7 @@ func solve(cards []*Card, topN int, statScale, baseline, songLength float64, fix
 			}
 		}
 		nOther := len(otherChars)
-		charComboCount := comb(nOther, 4)
+		charComboCount = comb(nOther, 4)
 		charCombosDone := 0
 		for a := 0; a < nOther-3; a++ {
 			for b := a + 1; b < nOther-2; b++ {
@@ -126,7 +127,7 @@ func solve(cards []*Card, topN int, statScale, baseline, songLength float64, fix
 			}
 		}
 	} else {
-		charComboCount := comb(nChars, 5)
+		charComboCount = comb(nChars, 5)
 		charCombosDone := 0
 		for a := 0; a < nChars-4; a++ {
 			for b := a + 1; b < nChars-3; b++ {
@@ -183,6 +184,10 @@ func solve(cards []*Card, topN int, statScale, baseline, songLength float64, fix
 				}
 			}
 		}
+	}
+
+	if progressCallback != nil {
+		progressCallback(charComboCount, charComboCount)
 	}
 
 	sort.Slice(results, func(i, j int) bool {
@@ -346,6 +351,10 @@ func solveSweepCostumes(cards []*Card, allRawCards []CardRaw, cardMap map[string
 				}
 			}
 		}
+	}
+
+	if progressCallback != nil {
+		progressCallback(charComboCount, charComboCount)
 	}
 
 	sort.Slice(sweepResults, func(i, j int) bool {

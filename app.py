@@ -5,11 +5,11 @@ from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, field_validator
 
 from solver import _load_card_data, load_cards, resolve_card
-from solver_go_bridge import calibrate, recommend, solve
+from solver_go_bridge import _build_cards_payload, _call_go_stream, calibrate, recommend, solve
 
 app = FastAPI(title="HoloSolve")
 
@@ -151,6 +151,51 @@ def post_solve(req: SolveRequest):
     if warnings:
         result["warnings"] = warnings
     return result
+
+
+@app.post("/api/solve/stream")
+def post_solve_stream(req: SolveRequest):
+    cm = _card_map()
+
+    if req.cards is not None:
+        if not req.cards:
+            actual = [{"id": cid, "potential": 0} for cid in cm.keys()]
+        else:
+            actual = [{"id": c.id, "potential": c.potential, "level": c.level} for c in req.cards if c.id in cm]
+    elif req.card_ids is not None:
+        if not req.card_ids:
+            actual = [{"id": cid, "potential": 0} for cid in cm.keys()]
+        else:
+            actual = [{"id": cid, "potential": 0} for cid in req.card_ids if cid in cm]
+    else:
+        actual = [{"id": cid, "potential": 0} for cid in cm.keys()]
+
+    payload = {
+        "action": "solve",
+        "cards": _build_cards_payload(actual),
+        "top_n": req.top_n,
+        "stat_scale": req.stat_scale,
+        "baseline": req.baseline,
+        "sweep_costumes": bool(req.sweep_costumes),
+    }
+    if req.fixed_leader_id:
+        payload["fixed_leader_id"] = req.fixed_leader_id
+    if req.costume_only_leader_id:
+        payload["costume_only_leader_id"] = req.costume_only_leader_id
+    if req.song_length is not None:
+        payload["song_length"] = req.song_length
+    if req.stability_lengths:
+        payload["stability_lengths"] = req.stability_lengths
+    if req.chart_score:
+        payload["chart_score"] = req.chart_score
+    if req.stability_charts:
+        payload["stability_charts"] = req.stability_charts
+
+    def event_stream():
+        for event in _call_go_stream(payload):
+            yield f"data: {json.dumps(event)}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 class RecommendRequest(BaseModel):
