@@ -1734,7 +1734,7 @@ function renderTimelineResults(data) {
         <span style="background:#0d1520;border:1px solid #2a3a4a;border-radius:4px;padding:2px 8px" title="衣装スキルによるスコアサポート効果">衣装SS <span style="color:#e0e6ed">${r.costume_sb_pct}%</span></span>
         <span style="background:#0d1520;border:1px solid #2a3a4a;border-radius:4px;padding:2px 8px" title="パッシブスキルによるスコアサポート効果">パッシブSB <span style="color:#e0e6ed">${r.passive_sb_pct}%</span></span>
         <span style="background:#0d1520;border:1px solid #2a3a4a;border-radius:4px;padding:2px 8px" title="スペシャルスキルの時間加重スコア効果">SP効果 <span style="color:#e0e6ed">${r.special_pct}%</span></span>
-        <span style="background:#0d1520;border:1px solid #3a2a1a;border-radius:4px;padding:2px 8px" title="複数メンバーのActiveが同時発動して無駄になる割合。周期の異なるメンバーで編成すると改善できます">重複ロス <span style="color:#f0a050">${r.active_overlap_loss}%</span></span>
+        <span style="background:#0d1520;border:1px solid #3a2a1a;border-radius:4px;padding:2px 8px" title="複数メンバーのActiveが同時発動して無駄になる割合。周期の異なるメンバーで編成すると改善できます">重複ロス <span style="color:#f0a050">${r.active_overlap_loss}%</span>${r.board_optimization ? ' <span style="color:#5a6e80">(ボード適用前)</span>' : ''}</span>
       </div>
 `;
 

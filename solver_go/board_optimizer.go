@@ -2,9 +2,13 @@ package main
 
 import "math"
 
+// HolodoriDB SkillTreeNode.json / SkillTreeEffect.json derived constants:
+//   cdReduce: 3 CARD-type nodes (B-013, B-020, B-031), each 40‰, grade 2
+//   activationUp: 10 CARD-type nodes (20‰×3 + 30‰×6 + 60‰×1 = 300‰), grade 1-2
+// All cards share the same board layout (tree-model-001~004).
 const (
-	cdReducePerNode       = 40
-	cdReduceMaxNodes      = 3
+	cdReducePerNode         = 40
+	cdReduceMaxNodes        = 3
 	activationUpTotalPermil = 300
 )
 
