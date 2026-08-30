@@ -63,27 +63,35 @@ self.onmessage = async function (e) {
       if (d.costumeOnlyLeaderId)
         payload.costume_only_leader_id = d.costumeOnlyLeaderId;
       if (d.stabilityLengths) payload.stability_lengths = d.stabilityLengths;
+      if (d.chartScore) payload.chart_score = d.chartScore;
 
       const result = callSolver(payload);
 
-      // Convert stability keys from string to number
-      if (result.results) {
-        for (const r of result.results) {
-          if (r.stability) {
-            const newStability = {};
-            for (const [k, v] of Object.entries(r.stability)) {
-              newStability[parseFloat(k)] = v;
+      if (result.timeline_results) {
+        self.postMessage({
+          type: "done",
+          timeline_results: result.timeline_results,
+          legacy_results: result.legacy_results || [],
+          candidate_pool: result.candidate_pool || 0,
+        });
+      } else {
+        if (result.results) {
+          for (const r of result.results) {
+            if (r.stability) {
+              const newStability = {};
+              for (const [k, v] of Object.entries(r.stability)) {
+                newStability[parseFloat(k)] = v;
+              }
+              r.stability = newStability;
             }
-            r.stability = newStability;
           }
         }
+        self.postMessage({
+          type: "done",
+          results: result.results || [],
+          totalCombinations: result.total_combinations || 0,
+        });
       }
-
-      self.postMessage({
-        type: "done",
-        results: result.results || [],
-        totalCombinations: result.total_combinations || 0,
-      });
     } catch (err) {
       self.postMessage({ type: "error", message: err.message });
     }

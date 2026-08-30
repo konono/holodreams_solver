@@ -58,6 +58,7 @@ def solve(
     song_length: float = 192,
     stability_lengths: list[float] | None = None,
     sweep_costumes: bool = False,
+    chart_score: dict | None = None,
 ) -> dict:
     payload = {
         "action": "solve",
@@ -75,6 +76,8 @@ def solve(
         payload["song_length"] = song_length
     if stability_lengths:
         payload["stability_lengths"] = stability_lengths
+    if chart_score:
+        payload["chart_score"] = chart_score
 
     result = _call_go(payload)
 
