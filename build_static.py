@@ -477,12 +477,27 @@ for (const btn of document.querySelectorAll(".btn-lv-global")) {{
 }}
 
 const songSel = document.getElementById("songSelect");
-for (const s of SONGS_LIST) {{
-  const opt = document.createElement("option");
-  opt.value = s.id;
-  opt.dataset.seconds = s.playing_seconds;
-  opt.textContent = `${{s.name}} (${{s.playing_seconds}}秒)`;
-  songSel.appendChild(opt);
+const songsByRange = {{}};
+const ranges = [[0,99,"~99秒"],[100,119,"100~119秒"],[120,139,"120~139秒"],[140,159,"140~159秒"],[160,999,"160秒~"]];
+const sortedSongs = SONGS_LIST.slice().sort((a,b) => a.playing_seconds - b.playing_seconds || a.name.localeCompare(b.name));
+for (const s of sortedSongs) {{
+  const range = ranges.find(r => s.playing_seconds >= r[0] && s.playing_seconds <= r[1]);
+  const label = range ? range[2] : "その他";
+  (songsByRange[label] = songsByRange[label] || []).push(s);
+}}
+for (const [,,label] of ranges) {{
+  const group = songsByRange[label];
+  if (!group) continue;
+  const optgroup = document.createElement("optgroup");
+  optgroup.label = `${{label}} (${{group.length}}曲)`;
+  for (const s of group) {{
+    const opt = document.createElement("option");
+    opt.value = s.id;
+    opt.dataset.seconds = s.playing_seconds;
+    opt.textContent = `${{s.name}} (${{s.playing_seconds}}秒)`;
+    optgroup.appendChild(opt);
+  }}
+  songSel.appendChild(optgroup);
 }}
 songSel.addEventListener("change", function() {{
   document.getElementById("diffSelect").style.display = this.value ? "" : "none";
@@ -674,7 +689,7 @@ function doSolve() {{
   const cardSpecs = owned.map(c => ({{ id: c.id, potential: getCardPotential(c.id), level: getCardLevel(c.id) }}));
 
   getWasmWorker().then(w => {{
-    w.postMessage({{ type: "solve", cards: cardSpecs, fixedLeaderId, costumeOnlyLeaderId, sweepCostumes: !costumeVal && selected.size > 0, topN: parseInt(document.getElementById("topN").value), songLength: getSelectedSongLength(), chartScore: getSelectedChartScore(), stabilityLengths: document.getElementById("chkStability").checked ? [90, 120, 135, 150, 166] : null }});
+    w.postMessage({{ type: "solve", cards: cardSpecs, fixedLeaderId, costumeOnlyLeaderId, sweepCostumes: !costumeVal && selected.size > 0, topN: parseInt(document.getElementById("topN").value), songLength: getSelectedSongLength(), chartScore: getSelectedChartScore(), stabilityLengths: document.getElementById("chkStability").checked ? [95, 110, 125, 140, 155] : null }});
 
   w.onerror = function() {{
     w.onmessage = null;
