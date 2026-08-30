@@ -1618,19 +1618,21 @@ function renderTimelineResults(data) {
 
     if (r.board_optimization) {
       const bo = r.board_optimization;
-      const lsiDelta = bo.optimized_lsi - bo.baseline_lsi;
+      const lsiPct = bo.baseline_lsi > 0 ? ((bo.optimized_lsi - bo.baseline_lsi) / bo.baseline_lsi * 100) : 0;
       const lossDelta = bo.optimized_loss - bo.baseline_loss;
-      const hasImprovement = lsiDelta > 0;
-      const lossColor = lossDelta < 0 ? '#40d080' : lossDelta > 0 ? '#f0a050' : '#e0e6ed';
-      html += `<div style="background:#0d1520;border:1px solid ${hasImprovement ? '#1a4a3a' : '#2a3a4a'};border-radius:6px;padding:8px 10px;margin:8px 0;font-size:0.72rem">
-        <div style="color:#8899aa;font-weight:600;margin-bottom:4px">ボード推奨 <span style="font-weight:400;font-size:0.6rem;color:#5a6e80">— スコア最大化</span></div>
-        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
-          <span>LSI: ${bo.baseline_lsi.toLocaleString()} → <span style="color:${hasImprovement ? '#40d080' : '#e0e6ed'}">${bo.optimized_lsi.toLocaleString()}</span>
-            ${lsiDelta > 0 ? `<span style="color:#40d080;font-size:0.65rem">(+${lsiDelta.toLocaleString()})</span>` : ''}</span>
-          <span>重複ロス: ${bo.baseline_loss}% → <span style="color:${lossColor}">${bo.optimized_loss}%</span>
-            <span style="color:${lossColor};font-size:0.65rem">(${lossDelta > 0 ? '+' : ''}${lossDelta.toFixed(1)}pt)</span></span>
-        </div>
-      </div>`;
+      const hasImprovement = lsiPct > 0.01;
+      const lossColor = lossDelta < -0.05 ? '#40d080' : lossDelta > 0.05 ? '#f0a050' : '#e0e6ed';
+      const anyBoardOn = bo.members.some(m => m.cd_reduce || m.activation_up);
+      if (anyBoardOn) {
+        html += `<div style="background:#0d1520;border:1px solid ${hasImprovement ? '#1a4a3a' : '#2a3a4a'};border-radius:6px;padding:8px 10px;margin:8px 0;font-size:0.72rem">
+          <div style="color:#8899aa;font-weight:600;margin-bottom:4px">ボード推奨</div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+            <span>スコア改善: <span style="color:${hasImprovement ? '#40d080' : '#e0e6ed'};font-weight:600">${lsiPct > 0 ? '+' : ''}${lsiPct.toFixed(2)}%</span></span>
+            <span style="color:#5a6e80">重複ロス: ${bo.baseline_loss}% → ${bo.optimized_loss}%
+              <span style="color:${lossColor}">(${lossDelta > 0 ? '+' : ''}${lossDelta.toFixed(1)}pt)</span></span>
+          </div>
+        </div>`;
+      }
     }
 
     html += `<div class="result-members">`;
