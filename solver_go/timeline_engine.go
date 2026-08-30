@@ -149,7 +149,7 @@ func rawActiveExposureAtTime(states []activeCardState, t float64) float64 {
 // Returns the average expected active score_up across all score events and the overlap loss.
 // If scoreEvents is nil or empty, it generates uniform events every 0.1s.
 func EvaluateActiveTimeline(team [5]*Card, songDuration float64, rateUpAvg float64, scoreEvents []ScoreEvent) (avgExpectedActive float64, overlapLoss float64) {
-	return evaluateTimeline(team, songDuration, rateUpAvg, nil, scoreEvents, 0)
+	return evaluateTimeline(team, songDuration, rateUpAvg, nil, scoreEvents)
 }
 
 // comboMultiplier returns the combo bonus multiplier for a given combo index.
@@ -267,7 +267,7 @@ func buildCardStates(team [5]*Card, songDuration, rateUpAvg float64, spWindows [
 	return cardStates
 }
 
-func evaluateTimeline(team [5]*Card, songDuration, rateUpAvg float64, spWindows []SpecialWindow, scoreEvents []ScoreEvent, alwaysOnSupport float64) (avgExpectedActive float64, overlapLoss float64) {
+func evaluateTimeline(team [5]*Card, songDuration, rateUpAvg float64, spWindows []SpecialWindow, scoreEvents []ScoreEvent) (avgExpectedActive float64, overlapLoss float64) {
 	cardStates := buildCardStates(team, songDuration, rateUpAvg, spWindows)
 
 	if len(scoreEvents) == 0 {

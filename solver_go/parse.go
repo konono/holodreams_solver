@@ -171,13 +171,12 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 				})
 			}
 
-			alwaysOnSupport := 0.0
 			scoreEvents := timeline.ScoreEvents
 			if len(scoreEvents) == 0 {
 				scoreEvents = BinsToScoreEvents(input.ChartScoreData.Bins)
 			}
 
-			reranked := RerankTopN(legacySolveResults, cardMap, timeline, scoreEvents, alwaysOnSupport, statScale, baseline, songLength, timelineTopN)
+			reranked := RerankTopN(legacySolveResults, cardMap, timeline, scoreEvents, statScale, baseline, songLength, timelineTopN)
 
 			var timelineResults []TimelineJSONResult
 			for i, r := range reranked {

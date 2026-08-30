@@ -30,6 +30,7 @@ jobs:
           GOOS=js GOARCH=wasm go build -o solver.wasm .
 
       - name: Build CLI
+        if: hashFiles('cli/go.mod') != ''
         working-directory: cli
         run: go build -o holosolve .
 

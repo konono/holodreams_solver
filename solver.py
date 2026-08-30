@@ -7,7 +7,8 @@
   スコアボーナス = アクティブ% + 衣装SS% + パッシブSB% + スペシャル%
     アクティブ%  = 52.89 + E[max(score_up × uptime)] / 12.82
                    uptime = min(1, duration / interval × boosted_prob)
-                   boosted_prob = base_prob + Σ(SP発動率UP × SP継続 / 曲長)
+                   boosted_prob = base_prob × (1 + rate_up_avg)
+                   rate_up_avg = Σ(SP発動率UP/100 × SP継続 / 曲長)
     衣装SS%      = 衣装スコアサポート × 0.68
     パッシブSB%  = サポートSS合計 × 0.20
     スペシャル%  = Σ(SP_score_support × SP_duration) / 曲長

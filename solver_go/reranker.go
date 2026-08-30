@@ -39,15 +39,14 @@ type TimelineRerankResult struct {
 
 // RerankTopN takes legacy top results, evaluates each with the Timeline Engine
 // across all 5! member orderings, and returns the top finalN sorted by LiveScoreIndex.
-// candidatePool is the number of legacy results to consider.
-// leaderIdx in legacy results determines the leader (costume source).
-// totalPower comes from the legacy EvalResult.
+//
+// For each team, it re-evaluates with evaluateTeam to obtain the always-on
+// Score Support (costume SS + passive SB) that feeds into the Timeline multiplier.
 func RerankTopN(
 	legacyResults []SolveResult,
 	cardMap map[string]*Card,
 	timeline *SongTimeline,
 	scoreEvents []ScoreEvent,
-	alwaysOnSupport float64,
 	statScale, baseline, songLength float64,
 	finalN int,
 ) []TimelineRerankResult {
@@ -60,13 +59,15 @@ func RerankTopN(
 	var allResults []TimelineRerankResult
 
 	for _, lr := range legacyResults {
-		// Collect 5 cards
 		var cards [5]*Card
 		for i, id := range lr.TeamIDs {
 			cards[i] = cardMap[id]
 		}
 
-		// Try all 120 permutations
+		// Compute always-on support once per team (order-independent components)
+		eval := evaluateTeam(cards, lr.LeaderIdx, statScale, baseline, songLength, nil)
+		alwaysOnSupport := eval.CostumeSSVal*100*costumeSSRate + eval.SupportSSVal*100*supportSSRate
+
 		for _, perm := range perms5 {
 			var team [5]*Card
 			var ids [5]string
@@ -75,12 +76,12 @@ func RerankTopN(
 				ids[i] = lr.TeamIDs[p]
 			}
 
-			result := EvaluateFullTimeline(team, lr.Score.TotalPower, songDuration, timeline, scoreEvents, alwaysOnSupport)
+			result := EvaluateFullTimeline(team, eval.TotalPower, songDuration, timeline, scoreEvents, alwaysOnSupport)
 
 			allResults = append(allResults, TimelineRerankResult{
 				TeamIDs:        ids,
 				LeaderIdx:      lr.LeaderIdx,
-				UnitScore:      lr.Score.UnitScore,
+				UnitScore:      eval.UnitScore,
 				LiveScoreIndex: result.LiveScoreIndex,
 				TimelineResult: result,
 			})
