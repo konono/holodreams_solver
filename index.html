@@ -1756,7 +1756,12 @@ function renderTimelineResults(data) {
       const lv = getCardLevel(mid);
       const s = getCardStats(card, pot, lv);
       const spEff = r.sp_efficiency?.[i];
-      const spLabel = spEff != null && spEff > 0 ? `<div style="color:#c0a040;font-size:0.6rem" title="このスロットのSP発動中に他のActive効果がどれだけ乗るかの指標">SP効率: ${spEff.toFixed(1)}</div>` : '';
+      let spLabel = '';
+      if (spEff != null && spEff > 0) {
+        const spRating = spEff >= 80 ? '◎' : spEff >= 50 ? '○' : spEff >= 20 ? '△' : '▽';
+        const spColor = spEff >= 80 ? '#40d080' : spEff >= 50 ? '#c0a040' : spEff >= 20 ? '#8899aa' : '#f06060';
+        spLabel = `<div style="font-size:0.6rem;color:${spColor}" title="SP相乗効果: このスロットのSP発動中に他メンバーのActiveがどれだけ乗るかの指標。高いほどSPのタイミングが良い">SP相乗 <span style="font-weight:600">${spRating} ${spEff.toFixed(1)}</span></div>`;
+      }
       let boardLabel = '';
       if (r.board_optimization) {
         const bm = r.board_optimization.members[i];
