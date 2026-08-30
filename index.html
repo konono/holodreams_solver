@@ -598,15 +598,8 @@ async function init() {
   document.getElementById("songSelect").addEventListener("change", function() {
     document.getElementById("diffSelect").style.display = this.value ? "" : "none";
   });
-  // デフォルト曲を設定（chart_scoresデータがある最初の曲）
-  if (window.CHART_SCORES && document.getElementById("songSelect").value === "") {
-    const defaultSong = "m0001";
-    const sel = document.getElementById("songSelect");
-    if (sel.querySelector(`option[value="${defaultSong}"]`)) {
-      sel.value = defaultSong;
-      document.getElementById("diffSelect").style.display = "";
-    }
-  }
+  // デフォルトは「汎用（192秒）」= Timeline無効
+  // ユーザーが曲を選択したときのみTimeline評価を実行
   renderHistory();
 }
 
