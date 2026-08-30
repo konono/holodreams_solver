@@ -724,10 +724,15 @@ function doSolve() {{
   w.onmessage = function(ev) {{
     if (ev.data.type === "error") {{ w.onerror(); return; }}
     if (ev.data.type === "progress") {{
-      const pct = Math.min(100, ev.data.current / ev.data.total * 100);
-      document.getElementById("progressFill").style.width = pct + "%";
-      document.getElementById("progressText").textContent =
-        `${{ev.data.current.toLocaleString()}} / ${{ev.data.total.toLocaleString()}} 組み合わせを評価中...`;
+      if (ev.data.current < 0) {{
+        document.getElementById("progressFill").style.width = "100%";
+        document.getElementById("progressText").textContent = "Timeline評価 + ボード最適化中...";
+      }} else {{
+        const pct = Math.min(100, ev.data.current / ev.data.total * 100);
+        document.getElementById("progressFill").style.width = pct + "%";
+        document.getElementById("progressText").textContent =
+          `${{ev.data.current.toLocaleString()}} / ${{ev.data.total.toLocaleString()}} 組み合わせを評価中...`;
+      }}
     }} else if (ev.data.type === "done") {{
       w.onmessage = null;
       isComputing = false;
