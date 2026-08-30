@@ -1771,7 +1771,7 @@ function renderTimelineResults(data) {
         const cs = pd[Math.min(pot, pd.length - 1)]?.center_skill;
         if (cs && cs.score_up > 0) {
           const prob = cs.activation_probability_permil != null ? (cs.activation_probability_permil / 10).toFixed(0) + '%' : '確定';
-          activeLabel = `<div style="font-size:0.6rem;color:#8899aa" title="Active: スコアアップ% / 発動周期 / 発動確率">Active: <span style="color:#40d080">+${cs.score_up}%</span> / ${cs.interval}秒 / ${prob}</div>`;
+          activeLabel = `<div style="font-size:0.6rem;color:#8899aa" title="Active: スコアアップ% / 発動周期 / 発動確率">Active: スコア<span style="color:#40d080">+${cs.score_up}%</span> / ${cs.interval}秒周期 / 確率${prob}</div>`;
         }
       }
       html += `<div class="member-card">
