@@ -1682,6 +1682,13 @@ function renderTimelineResults(data) {
   html += `<details style="margin-bottom:12px;font-size:0.7rem;color:#6b7f92">
     <summary style="cursor:pointer;color:#4f8cff;user-select:none">結果の見かた</summary>
     <div style="background:#0d1520;border:1px solid #2a3a4a;border-radius:6px;padding:10px 12px;margin-top:6px;line-height:1.7">
+      <div style="margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #2a3a4a">
+        <div style="color:#4f8cff;font-weight:600;margin-bottom:2px">スキルの種類</div>
+        <div><b style="color:#e0e6ed">Activeスキル</b> — 一定周期で自動発動し、スコアをアップさせるスキル。カードごとに周期（秒）・スコアアップ率・発動確率が異なります。5人のうち最も高いActiveのみが有効（最大値モデル）で、同時発動は無駄になります。</div>
+        <div><b style="color:#e0e6ed">SPスキル（スペシャル）</b> — 曲中の決まったタイミングで1回発動し、スコアサポートや他スキルの発動率UPを一定時間付与します。スロット順で発動タイミングが決まるため、配置が重要です。</div>
+        <div><b style="color:#e0e6ed">パッシブスキル</b> — 常時発動するステータスバフやスコアサポート効果。</div>
+        <div><b style="color:#e0e6ed">衣装スキル</b> — リーダーの衣装が全メンバーに付与するステータスバフやスコアサポート効果。</div>
+      </div>
       <div><b style="color:#e0e6ed">LSI（ライブ期待スコア指標）</b> — 総合力 × ノートごとのスキル倍率の合計。同じ曲での編成比較用の相対指標で、値が大きいほど高スコアが期待できます。</div>
       <div><b style="color:#e0e6ed">スキル効率</b> — スキルなし時と比べた倍率。2.0x ならスキルで2倍のスコア。Active・衣装SS・パッシブSB・SP効果の合計効果です。</div>
       <div><b style="color:#e0e6ed">Active期待値</b> — 5人のActiveスキルの期待スコアアップ値。発動タイミング・確率・重複を考慮した解析値（E[max]モデル）。</div>
