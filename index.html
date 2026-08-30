@@ -1760,7 +1760,7 @@ function renderTimelineResults(data) {
       if (spEff != null && spEff > 0) {
         const spRating = spEff >= 80 ? '◎' : spEff >= 50 ? '○' : spEff >= 20 ? '△' : '▽';
         const spColor = spEff >= 80 ? '#40d080' : spEff >= 50 ? '#c0a040' : spEff >= 20 ? '#8899aa' : '#f06060';
-        spLabel = `<div style="font-size:0.6rem;color:${spColor}" title="SP相乗効果: このスロットのSP発動中に他メンバーのActiveがどれだけ乗るかの指標。高いほどSPのタイミングが良い">SP相乗 <span style="font-weight:600">${spRating} ${spEff.toFixed(1)}</span></div>`;
+        spLabel = `<div style="font-size:0.6rem;color:${spColor}" title="SP配置効果: このスロットにSPを配置した時にActiveとどれだけ重なるかの指標。高いほどこのスロット配置が活きている">SP配置効果 <span style="font-weight:600">${spRating} ${spEff.toFixed(1)}</span></div>`;
       }
       let boardLabel = '';
       if (r.board_optimization) {
