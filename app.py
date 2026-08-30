@@ -255,6 +255,61 @@ def post_recommend(req: RecommendRequest):
     return result
 
 
+@app.post("/api/recommend/stream")
+def post_recommend_stream(req: RecommendRequest):
+    if not req.cards:
+        raise HTTPException(status_code=400, detail="レコメンドにはカードの選択が必要です")
+
+    cm = _card_map()
+    seen = set()
+    card_specs = []
+    for c in req.cards:
+        if c.id in cm and c.id not in seen:
+            seen.add(c.id)
+            card_specs.append({"id": c.id, "potential": c.potential, "level": c.level})
+
+    if len(card_specs) < 5:
+        raise HTTPException(status_code=400, detail="レコメンドには5枚以上のカードが必要です")
+
+    unique_chars = {cm[s["id"]]["character"] for s in card_specs}
+    if len(unique_chars) < 5:
+        raise HTTPException(status_code=400, detail="レコメンドには5キャラ以上のカードが必要です")
+
+    owned_ids = {s["id"] for s in card_specs}
+    if req.fixed_leader_id and req.fixed_leader_id not in owned_ids:
+        raise HTTPException(status_code=400, detail="リーダーは選択カードに含まれている必要があります")
+
+    top_n = max(1, min(req.top_n, 20))
+    acquire_count = max(1, min(req.acquire_count, 5))
+
+    payload = {
+        "action": "recommend",
+        "cards": _build_cards_payload(card_specs),
+        "top_n": top_n,
+        "acquire_count": acquire_count,
+        "stat_scale": req.stat_scale,
+        "baseline": req.baseline,
+    }
+    if req.fixed_leader_id:
+        payload["fixed_leader_id"] = req.fixed_leader_id
+    if req.costume_only_leader_id:
+        payload["costume_only_leader_id"] = req.costume_only_leader_id
+    if req.song_length is not None:
+        payload["song_length"] = req.song_length
+    if req.sweep_costumes:
+        payload["sweep_costumes"] = True
+
+    dropped = len(req.cards) - len(card_specs)
+
+    def event_stream():
+        for event in _call_go_stream(payload):
+            if event["type"] == "done" and dropped > 0:
+                event["result"].setdefault("warnings", []).append(f"{dropped}枚の不明または重複カードIDを除外しました")
+            yield f"data: {json.dumps(event)}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
 @app.post("/api/calibrate")
 def post_calibrate(req: CalibrateRequest):
     cm = _card_map()
