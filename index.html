@@ -1250,7 +1250,9 @@ async function doRecommend() {
   fabRec.classList.add("disabled");
   const ac = parseInt(document.getElementById("acquireCount").value);
   const timeNote = ac >= 4 ? '（候補が多い場合1〜2分かかることがあります）' : '（候補ごとに再計算するため時間がかかります）';
-  loading.innerHTML = `<span class="spinner"></span>強化レコメンドを分析中...${timeNote}`;
+  document.getElementById("progressText").textContent = `強化レコメンドを分析中...${timeNote}`;
+  document.getElementById("progressBarBg").style.display = "none";
+  document.getElementById("progressFill").style.width = "0%";
   loading.classList.add("visible");
   document.getElementById("resultsArea").innerHTML = "";
 
@@ -1258,24 +1260,59 @@ async function doRecommend() {
     const cardSpecs = [...selected].map(id => ({ id, potential: getCardPotential(id), level: getCardLevel(id) }));
     const recCostumeVal = document.getElementById("costumeSelect").value || null;
     const recMemberInclude = document.getElementById("chkMemberInclude").checked;
-    const res = await fetch("/api/recommend", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        cards: cardSpecs, stat_scale: statScale, baseline,
-        fixed_leader_id: recCostumeVal && recMemberInclude ? recCostumeVal : null,
-        costume_only_leader_id: recCostumeVal && !recMemberInclude ? recCostumeVal : null,
-        acquire_count: parseInt(document.getElementById("acquireCount").value),
-        top_n: parseInt(document.getElementById("recommendTopN").value),
-        song_length: getSelectedSongLength(),
-        sweep_costumes: !recCostumeVal && selected.size >= 5,
-      }),
+    const recBody = JSON.stringify({
+      cards: cardSpecs, stat_scale: statScale, baseline,
+      fixed_leader_id: recCostumeVal && recMemberInclude ? recCostumeVal : null,
+      costume_only_leader_id: recCostumeVal && !recMemberInclude ? recCostumeVal : null,
+      acquire_count: parseInt(document.getElementById("acquireCount").value),
+      top_n: parseInt(document.getElementById("recommendTopN").value),
+      song_length: getSelectedSongLength(),
+      sweep_costumes: !recCostumeVal && selected.size >= 5,
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || `サーバーエラー (${res.status})`);
-    }
-    const data = await res.json();
+
+    const data = await new Promise((resolve, reject) => {
+      const progressBar = document.getElementById("progressBarBg");
+      const progressFill = document.getElementById("progressFill");
+      const progressText = document.getElementById("progressText");
+
+      fetch("/api/recommend/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: recBody,
+      }).then(res => {
+        if (!res.ok) return res.json().then(e => { throw new Error(e.detail || `サーバーエラー (${res.status})`); });
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        function pump() {
+          return reader.read().then(({ done, value }) => {
+            if (done) { reject(new Error("ストリームが途中で終了しました")); return; }
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n\n");
+            buffer = lines.pop();
+            for (const chunk of lines) {
+              const line = chunk.replace(/^data: /, "").trim();
+              if (!line) continue;
+              try {
+                const ev = JSON.parse(line);
+                if (ev.type === "progress") {
+                  progressBar.style.display = "block";
+                  const pct = Math.min(100, ev.current / ev.total * 100);
+                  progressFill.style.width = pct + "%";
+                  progressText.textContent = `${ev.current.toLocaleString()} / ${ev.total.toLocaleString()} 候補を評価中...`;
+                } else if (ev.type === "done") {
+                  resolve(ev.result);
+                  return;
+                }
+              } catch (_) {}
+            }
+            return pump();
+          });
+        }
+        pump().catch(reject);
+      }).catch(reject);
+    });
+
     expandResults();
     renderRecommendations(data);
     document.getElementById("resultsWrapper").scrollIntoView({ behavior: "smooth" });
@@ -1288,7 +1325,9 @@ async function doRecommend() {
     btn.disabled = selected.size < 5;
     btnSolve.disabled = selected.size > 0 && selected.size < 5;
     btn.textContent = "強化レコメンド";
-    loading.innerHTML = '<span class="spinner"></span>最強編成を探索中...';
+    document.getElementById("progressText").textContent = "最強編成を探索中...";
+    document.getElementById("progressBarBg").style.display = "none";
+    document.getElementById("progressFill").style.width = "0%";
     loading.classList.remove("visible");
     setFabMode("back");
   }
@@ -1348,16 +1387,28 @@ function renderRecommendations(data) {
       if (hasCostume) {
         const costumeCard = cardMap[r.best_team.costume_only_leader_id];
         const costumeLabel = costumeCard ? `${costumeCard.character}(${costumeCard.card_name})` : r.best_team.costume_only_leader_id;
-        html += `<div style="font-size:0.72rem;color:#c0c060;margin-top:6px">👗 ${costumeLabel}</div>`;
+        html += `<div style="color:#c0c060;font-size:0.75rem;margin:8px 0 4px">👗 ${costumeLabel}</div>`;
       }
-      html += `<div style="font-size:0.72rem;color:#6b7f92;margin-top:${hasCostume ? '2' : '6'}px">${hasCostume ? 'メンバー' : 'ベストチーム'}: `;
-      for (let mi = 0; mi < r.best_team.member_ids.length; mi++) {
-        const mid = r.best_team.member_ids[mi];
+      html += `<div style="font-size:0.72rem;color:#6b7f92;margin:${hasCostume ? '0' : '8px'} 0 4px">${hasCostume ? 'メンバー' : 'ベストチーム'}:</div>`;
+      html += `<div class="result-members">`;
+      for (const mid of r.best_team.member_ids) {
         const mc = cardMap[mid];
+        if (!mc) continue;
         const isLeader = mid === r.best_team.leader_id && !hasCostume;
-        const label = mc ? `${mc.character}(${mc.card_name})` : mid;
-        if (mi > 0) html += ' / ';
-        html += isLeader ? `<span style="color:#ffd700">★${label}</span>` : label;
+        const pot = getCardPotential(mid);
+        const lv = getCardLevel(mid);
+        const s = getCardStats(mc, pot, lv);
+        html += `<div class="member-card${isLeader ? " is-leader" : ""}">
+          <span class="type-badge type-${mc.type}" style="float:right;margin-top:2px">${TYPE_LABELS[mc.type]}</span>
+          <div class="m-name">${mc.character}</div>
+          <div class="m-card-name">${mc.card_name}</div>
+          <div class="m-stats">
+            <span>P:${s.performance.toLocaleString()}</span>
+            <span>T:${s.technique.toLocaleString()}</span>
+            <span>S:${s.sense.toLocaleString()}</span>
+          </div>
+          <div class="m-pot-lv">${pot}凸${levelEnabled ? ` Lv${lv}` : ''}</div>
+        </div>`;
       }
       html += `</div>`;
     }
