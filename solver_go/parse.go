@@ -78,24 +78,12 @@ func parseOwnedSpecsFromJSON(raw json.RawMessage) map[string]CardSpec {
 	return specs
 }
 
-func boardOptForReranked(r TimelineRerankResult, cardMap map[string]*Card, timeline *SongTimeline, scoreEvents []ScoreEvent, cdPermil, actPermil int) *BoardOptResult {
+func boardOptForReranked(r TimelineRerankResult, cardMap map[string]*Card, timeline *SongTimeline, scoreEvents []ScoreEvent) *BoardOptResult {
 	var team [5]*Card
 	for i, id := range r.TeamIDs {
 		team[i] = cardMap[id]
 	}
-	return OptimizeBoardForTeam(team, r.TotalPower, timeline.Duration, timeline, scoreEvents, r.AlwaysOnSupport, cdPermil, actPermil)
-}
-
-func getBoardPermils(input CLIInput) (int, int) {
-	cd := defaultCdReducePermil
-	act := defaultActivationUpPermil
-	if input.BoardCdReducePermil != nil {
-		cd = *input.BoardCdReducePermil
-	}
-	if input.BoardActivationUpPermil != nil {
-		act = *input.BoardActivationUpPermil
-	}
-	return cd, act
+	return OptimizeBoardForTeam(team, r.TotalPower, timeline.Duration, timeline, scoreEvents, r.AlwaysOnSupport)
 }
 
 func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
@@ -213,7 +201,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 					top1LSI := 0.0
 					if len(reranked) > 0 { top1LSI = reranked[0].LiveScoreIndex }
 
-					cdPermilSweep, actPermilSweep := getBoardPermils(input)
+	
 					if progressCallback != nil {
 						progressCallback(-1, -1) // signal: entering timeline rerank phase
 					}
@@ -235,7 +223,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 						}
 						var boardOpt *BoardOptResult
 						if i < 10 {
-							boardOpt = boardOptForReranked(r, cardMap, timeline, scoreEvents, cdPermilSweep, actPermilSweep)
+							boardOpt = boardOptForReranked(r, cardMap, timeline, scoreEvents)
 						}
 						timelineResults = append(timelineResults, TimelineJSONResult{
 							Rank:                i + 1,
@@ -371,7 +359,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 				top1LSI = reranked[0].LiveScoreIndex
 			}
 
-			cdPermil, actPermil := getBoardPermils(input)
+	
 			if progressCallback != nil {
 				progressCallback(-1, -1)
 			}
@@ -397,7 +385,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 				}
 				var boardOpt *BoardOptResult
 				if i < 10 {
-					boardOpt = boardOptForReranked(r, cardMap, timeline, scoreEvents, cdPermil, actPermil)
+					boardOpt = boardOptForReranked(r, cardMap, timeline, scoreEvents)
 				}
 				timelineResults = append(timelineResults, TimelineJSONResult{
 					Rank:                i + 1,

@@ -224,10 +224,6 @@ type CLIInput struct {
 	StabilityLengths    []float64 `json:"stability_lengths"`
 	SweepCostumes       bool      `json:"sweep_costumes"`
 
-	// board optimization
-	BoardCdReducePermil    *int `json:"board_cd_reduce_permil"`
-	BoardActivationUpPermil *int `json:"board_activation_up_permil"`
-
 	// recommend
 	AcquireCount int `json:"acquire_count"`
 
@@ -302,9 +298,8 @@ type BoardConfig struct {
 }
 
 type BoardMemberResult struct {
-	CdReduce     bool    `json:"cd_reduce"`
-	ActivationUp bool    `json:"activation_up"`
-	CardID       string  `json:"card_id"`
+	CdReduceNodes int    `json:"cd_reduce_nodes"`
+	CardID        string `json:"card_id"`
 }
 
 type BoardOptResult struct {

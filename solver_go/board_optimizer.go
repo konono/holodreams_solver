@@ -3,68 +3,64 @@ package main
 import "math"
 
 const (
-	defaultCdReducePermil    = 40
-	defaultActivationUpPermil = 80
+	cdReducePerNode       = 40
+	cdReduceMaxNodes      = 3
+	activationUpTotalPermil = 300
 )
 
-// OptimizeBoardForTeam tries all 4^5 = 1024 combinations of cdReduce ON/OFF ×
-// activationUp ON/OFF per member and returns the combination that maximizes
-// LiveScoreIndex.
+// OptimizeBoardForTeam optimizes per-member cdReduce node counts (0-3) to
+// maximize LiveScoreIndex. activationUp is always fully unlocked (300‰).
+// Search space: 4^5 = 1024 combinations.
 func OptimizeBoardForTeam(
 	team [5]*Card,
 	totalPower, songDuration float64,
 	timeline *SongTimeline,
 	scoreEvents []ScoreEvent,
 	alwaysOnSupport float64,
-	cdReducePermil, activationUpPermil int,
 ) *BoardOptResult {
 	if len(scoreEvents) == 0 {
 		return nil
 	}
 
-	// Baseline: all board effects OFF
-	var noBoardConfigs [5]*BoardConfig
-	baseResult := EvaluateFullTimelineWithBoard(team, totalPower, songDuration, timeline, scoreEvents, alwaysOnSupport, noBoardConfigs)
+	// Baseline: activationUp only (cdReduce=0 for all)
+	var baseConfigs [5]*BoardConfig
+	for i := 0; i < 5; i++ {
+		baseConfigs[i] = &BoardConfig{
+			ActivationUpPermil: activationUpTotalPermil,
+		}
+	}
+	baseResult := EvaluateFullTimelineWithBoard(team, totalPower, songDuration, timeline, scoreEvents, alwaysOnSupport, baseConfigs)
 
 	bestLSI := baseResult.LiveScoreIndex
 	bestLoss := baseResult.ActiveOverlapLoss
-	var bestMask int
+	var bestLevels [5]int
 
-	// Enumerate all 4^5 = 1024 combinations.
-	// For each member, 2 bits: bit0 = cdReduce, bit1 = activationUp
-	for mask := 0; mask < 1024; mask++ {
+	// 4^5 = 1024 combinations of cdReduce levels (0-3 nodes per member)
+	for combo := 0; combo < 1024; combo++ {
 		var configs [5]*BoardConfig
+		var levels [5]int
 		for i := 0; i < 5; i++ {
-			bits := (mask >> (i * 2)) & 3
-			if bits == 0 {
-				continue
+			level := (combo >> (i * 2)) & 3
+			levels[i] = level
+			configs[i] = &BoardConfig{
+				CdReducePermil:    level * cdReducePerNode,
+				ActivationUpPermil: activationUpTotalPermil,
 			}
-			cfg := &BoardConfig{}
-			if bits&1 != 0 {
-				cfg.CdReducePermil = cdReducePermil
-			}
-			if bits&2 != 0 {
-				cfg.ActivationUpPermil = activationUpPermil
-			}
-			configs[i] = cfg
 		}
 
 		result := EvaluateFullTimelineWithBoard(team, totalPower, songDuration, timeline, scoreEvents, alwaysOnSupport, configs)
 		if result.LiveScoreIndex > bestLSI {
 			bestLSI = result.LiveScoreIndex
 			bestLoss = result.ActiveOverlapLoss
-			bestMask = mask
+			bestLevels = levels
 		}
 	}
 
-	// Build result
 	var members [5]BoardMemberResult
 	for i := 0; i < 5; i++ {
-		bits := (bestMask >> (i * 2)) & 3
 		members[i] = BoardMemberResult{
-			CdReduce:     bits&1 != 0,
-			ActivationUp: bits&2 != 0,
-			CardID:       team[i].ID,
+			CdReduceNodes: bestLevels[i],
+			CardID:        team[i].ID,
 		}
 	}
 

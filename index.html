@@ -1688,17 +1688,25 @@ function renderTimelineResults(data) {
       const lossDelta = bo.optimized_loss - bo.baseline_loss;
       const hasImprovement = lsiPct > 0.01;
       const lossColor = lossDelta < -0.05 ? '#40d080' : lossDelta > 0.05 ? '#f0a050' : '#e0e6ed';
-      const anyBoardOn = bo.members.some(m => m.cd_reduce || m.activation_up);
-      if (anyBoardOn) {
-        html += `<div style="background:#0d1520;border:1px solid ${hasImprovement ? '#1a4a3a' : '#2a3a4a'};border-radius:6px;padding:8px 10px;margin:8px 0;font-size:0.72rem">
-          <div style="color:#8899aa;font-weight:600;margin-bottom:4px">ボード推奨</div>
-          <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
-            <span>スコア改善: <span style="color:${hasImprovement ? '#40d080' : '#e0e6ed'};font-weight:600">${lsiPct > 0 ? '+' : ''}${lsiPct.toFixed(2)}%</span></span>
-            <span style="color:#5a6e80">重複ロス: ${bo.baseline_loss}% → ${bo.optimized_loss}%
-              <span style="color:${lossColor}">(${lossDelta > 0 ? '+' : ''}${lossDelta.toFixed(1)}pt)</span></span>
-          </div>
-        </div>`;
-      }
+      html += `<div style="background:#0d1520;border:1px solid ${hasImprovement ? '#1a4a3a' : '#2a3a4a'};border-radius:6px;padding:8px 10px;margin:8px 0;font-size:0.72rem">
+        <div style="color:#8899aa;font-weight:600;margin-bottom:4px" title="確率UPは全ノード開放推奨。頻度UPは周期の重複パターンに応じて最適なノード数を算出">ボード推奨</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
+          <span>スコア改善: <span style="color:${hasImprovement ? '#40d080' : '#e0e6ed'};font-weight:600">${lsiPct > 0 ? '+' : ''}${lsiPct.toFixed(2)}%</span></span>
+          <span style="color:#5a6e80">重複ロス: ${bo.baseline_loss}% → ${bo.optimized_loss}%
+            <span style="color:${lossColor}">(${lossDelta > 0 ? '+' : ''}${lossDelta.toFixed(1)}pt)</span></span>
+        </div>
+        <div style="font-size:0.65rem;color:#6b7f92;margin-bottom:4px">確率UP: 全ノード開放推奨 (全員共通)</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:0.65rem">
+          ${bo.members.map((m, idx) => {
+            const c = cardMap[r.member_ids[idx]];
+            const name = c ? c.character : r.member_ids[idx];
+            const cdLabel = m.cd_reduce_nodes > 0
+              ? `<span style="color:#60b0e0">頻度UP ×${m.cd_reduce_nodes}</span>`
+              : `<span style="color:#5a6e80">頻度UP 不要</span>`;
+            return `<span style="background:#0a1018;border:1px solid #2a3a4a;border-radius:4px;padding:3px 8px">${name}: ${cdLabel}</span>`;
+          }).join('')}
+        </div>
+      </div>`;
     }
 
     html += `<div class="result-members">`;
@@ -1715,11 +1723,8 @@ function renderTimelineResults(data) {
       let boardLabel = '';
       if (r.board_optimization) {
         const bm = r.board_optimization.members[i];
-        if (bm && (bm.cd_reduce || bm.activation_up)) {
-          const tags = [];
-          if (bm.cd_reduce) tags.push('頻度UP');
-          if (bm.activation_up) tags.push('確率UP');
-          boardLabel = `<div style="color:#60b0e0;font-size:0.6rem">${tags.join(' ')}</div>`;
+        if (bm && bm.cd_reduce_nodes > 0) {
+          boardLabel = `<div style="color:#60b0e0;font-size:0.6rem" title="頻度UPボードノードを${bm.cd_reduce_nodes}個開放推奨 (各4%周期短縮)">頻度UP ×${bm.cd_reduce_nodes}</div>`;
         }
       }
       // Active性能表示
