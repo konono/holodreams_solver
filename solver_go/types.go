@@ -286,6 +286,10 @@ type TimelineJSONResult struct {
 	ActiveOverlapLoss   fixedFloat  `json:"active_overlap_loss"`
 	CostumeOnlyLeaderID *string    `json:"costume_only_leader_id"`
 	MemberIDs           []string    `json:"member_ids"`
+	ExpectedActive      fixedFloat      `json:"expected_active"`
+	CostumeSBPct        fixedFloat      `json:"costume_sb_pct"`
+	PassiveSBPct        fixedFloat      `json:"passive_sb_pct"`
+	SpecialPct          fixedFloat      `json:"special_pct"`
 	SPEfficiency        []float64       `json:"sp_efficiency,omitempty"`
 	BoardOptimization   *BoardOptResult `json:"board_optimization,omitempty"`
 }

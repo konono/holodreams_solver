@@ -36,6 +36,9 @@ type TimelineRerankResult struct {
 	TotalPower          float64
 	LiveScoreIndex      float64
 	CostumeOnlyLeaderID string
+	CostumeSBPct        float64
+	PassiveSBPct        float64
+	SpecialPct          float64
 	AlwaysOnSupport     float64
 	TimelineResult      TimelineEvalResult
 	BoardOpt            *BoardOptResult
@@ -99,6 +102,9 @@ func RerankTopN(
 				TotalPower:          eval.TotalPower,
 				LiveScoreIndex:      result.LiveScoreIndex,
 				CostumeOnlyLeaderID: lr.CostumeOnlyLeaderID,
+				CostumeSBPct:        eval.CostumeSBPct,
+				PassiveSBPct:        eval.PassiveSBPct,
+				SpecialPct:          eval.SpecialPct,
 				AlwaysOnSupport:     alwaysOnSupport,
 				TimelineResult:      result,
 			})

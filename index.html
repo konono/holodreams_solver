@@ -1638,9 +1638,13 @@ function renderTimelineResults(data) {
   let html = `<div class="results-title">ライブ期待スコア Top ${tResults.length}（${songName} ${diff}）</div>`;
   html += `<div style="font-size:0.72rem;color:#6b7f92;margin-bottom:10px">候補プール: ${data.candidate_pool} 編成 × 120 順列 → Timeline評価</div>`;
 
+  const top1LSI = tResults[0]?.live_score_index || 1;
+  const fmtLSI = v => { const m = v / 1e6; return m >= 1000 ? `${(m/1000).toFixed(1)}B` : `${Math.round(m).toLocaleString()}M`; };
+
   for (const r of tResults) {
     const rankColors = { 1: "#ffd700", 2: "#c0c0c0", 3: "#cd7f32" };
-    const rankColor = rankColors[r.rank] || "";
+    const rankColor = rankColors[r.rank] || "#4f8cff";
+    const barPct = top1LSI > 0 ? (r.live_score_index / top1LSI * 100) : 100;
 
     let costumeLabel = "";
     if (r.costume_only_leader_id) {
@@ -1650,16 +1654,28 @@ function renderTimelineResults(data) {
 
     html += `<div class="result-card">
       ${costumeLabel ? `<div style="color:#c0c060;font-size:0.75rem;margin-bottom:6px">${costumeLabel}</div>` : ''}
-      <div class="result-header">
-        <span class="result-rank" ${rankColor ? `style="color:${rankColor}"` : ''}>#${r.rank}</span>
-        <div class="result-scores">
-          <span>スキル効率: <span class="main-score">${r.skill_efficiency}x</span></span>
-          <span>1位比: ${r.top1_pct}%</span>
-          <span>総合力: ${r.total_power.toLocaleString()}</span>
-          <span>ユニットスコア: ${r.unit_score.toLocaleString()}</span>
-          <span style="font-size:0.7rem;color:#5a6e80">Active重複ロス: ${r.active_overlap_loss}%</span>
-        </div>
-      </div>`;
+      <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:4px">
+        <span class="result-rank" style="color:${rankColor}">#${r.rank}</span>
+        <span style="font-size:0.75rem;color:#e0e6ed;font-weight:700">LSI: ${fmtLSI(r.live_score_index)}</span>
+        <span style="font-size:0.65rem;color:#5a6e80" title="ライブ期待スコア指標の実値">(${r.live_score_index.toLocaleString()})</span>
+        <span style="font-size:0.75rem;color:#8899aa;margin-left:auto">${r.top1_pct}%</span>
+      </div>
+      <div style="height:4px;background:#1a2735;border-radius:2px;margin-bottom:10px;overflow:hidden">
+        <div style="width:${barPct}%;height:100%;background:${rankColor};border-radius:2px;transition:width 0.3s"></div>
+      </div>
+      <div style="font-size:0.72rem;color:#8899aa;margin-bottom:6px" title="LSI = 総合力 × ノートごとのスキル倍率の合計。同じ曲での編成比較用の相対指標">
+        総合力 <span style="color:#e0e6ed;font-weight:600">${r.total_power.toLocaleString()}</span>
+        × スキル効率 <span style="color:#e0e6ed;font-weight:600">${r.skill_efficiency}x</span>
+        = LSI
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:0.65rem;margin-bottom:8px">
+        <span style="background:#0d1520;border:1px solid #2a3a4a;border-radius:4px;padding:2px 8px" title="5人のActiveスキルの期待スコアアップ値 (E[max]モデル)">Active期待値 <span style="color:#40d080">+${r.expected_active}%</span></span>
+        <span style="background:#0d1520;border:1px solid #2a3a4a;border-radius:4px;padding:2px 8px" title="衣装スキルによるスコアサポート効果">衣装SS <span style="color:#e0e6ed">${r.costume_sb_pct}%</span></span>
+        <span style="background:#0d1520;border:1px solid #2a3a4a;border-radius:4px;padding:2px 8px" title="パッシブスキルによるスコアサポート効果">パッシブSB <span style="color:#e0e6ed">${r.passive_sb_pct}%</span></span>
+        <span style="background:#0d1520;border:1px solid #2a3a4a;border-radius:4px;padding:2px 8px" title="スペシャルスキルの時間加重スコア効果">SP効果 <span style="color:#e0e6ed">${r.special_pct}%</span></span>
+        <span style="background:#0d1520;border:1px solid #3a2a1a;border-radius:4px;padding:2px 8px" title="複数メンバーのActiveが同時発動して無駄になる割合。周期の異なるメンバーで編成すると改善できます">重複ロス <span style="color:#f0a050">${r.active_overlap_loss}%</span></span>
+      </div>
+      <div style="font-size:0.65rem;color:#5a6e80;margin-bottom:10px">参考: ユニットスコア ${r.unit_score.toLocaleString()}</div>`;
 
     if (r.board_optimization) {
       const bo = r.board_optimization;
@@ -1690,7 +1706,7 @@ function renderTimelineResults(data) {
       const lv = getCardLevel(mid);
       const s = getCardStats(card, pot, lv);
       const spEff = r.sp_efficiency?.[i];
-      const spLabel = spEff != null && spEff > 0 ? `<div style="color:#c0a040;font-size:0.6rem">SP効率: ${spEff.toFixed(1)}</div>` : '';
+      const spLabel = spEff != null && spEff > 0 ? `<div style="color:#c0a040;font-size:0.6rem" title="このスロットのSP発動中に他のActive効果がどれだけ乗るかの指標">SP効率: ${spEff.toFixed(1)}</div>` : '';
       let boardLabel = '';
       if (r.board_optimization) {
         const bm = r.board_optimization.members[i];
@@ -1699,6 +1715,16 @@ function renderTimelineResults(data) {
           if (bm.cd_reduce) tags.push('頻度UP');
           if (bm.activation_up) tags.push('確率UP');
           boardLabel = `<div style="color:#60b0e0;font-size:0.6rem">${tags.join(' ')}</div>`;
+        }
+      }
+      // Active性能表示
+      let activeLabel = '';
+      const pd = card.potential_data;
+      if (pd) {
+        const cs = pd[Math.min(pot, pd.length - 1)]?.center_skill;
+        if (cs && cs.score_up > 0) {
+          const prob = cs.activation_probability_permil != null ? (cs.activation_probability_permil / 10).toFixed(0) + '%' : '確定';
+          activeLabel = `<div style="font-size:0.6rem;color:#8899aa" title="Active: スコアアップ% / 発動周期 / 発動確率">Active: <span style="color:#40d080">+${cs.score_up}%</span> / ${cs.interval}秒 / ${prob}</div>`;
         }
       }
       html += `<div class="member-card">
@@ -1712,6 +1738,7 @@ function renderTimelineResults(data) {
           <span>S:${s.sense.toLocaleString()}</span>
         </div>
         <div class="m-pot-lv">${pot}凸${levelEnabled ? ` Lv${lv}` : ''}</div>
+        ${activeLabel}
         ${spLabel}
         ${boardLabel}
       </div>`;
