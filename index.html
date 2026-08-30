@@ -1687,7 +1687,7 @@ function renderTimelineResults(data) {
       <div><b style="color:#e0e6ed">Active期待値</b> — 5人のActiveスキルの期待スコアアップ値。発動タイミング・確率・重複を考慮した解析値（E[max]モデル）。</div>
       <div><b style="color:#e0e6ed">重複ロス</b> — 複数メンバーのActiveが同時発動して無駄になる割合。発動周期の異なるメンバーで編成すると改善できます。</div>
       <div style="margin-top:4px;border-top:1px solid #2a3a4a;padding-top:4px"><b style="color:#e0e6ed">各メンバーの Active</b> — スコア: 発動時のスコアアップ% / 周期: 発動間隔（秒）/ 確率: 1回あたりの発動確率。同じ周期のメンバーが多いと重複ロスが増えます。</div>
-      <div><b style="color:#e0e6ed">SP配置効果</b> — このスロットにSPを配置した時にActiveとどれだけ重なるかの指標。ソルバーがこのスロット順を選んだ根拠です。◎(80+) ○(50+) △(20+) ▽(20未満)。</div>
+      <div><b style="color:#e0e6ed">SP配置効果</b> — このスロットのSP発動中に他メンバーのActiveがどれだけ乗るかの値。slot 1 は曲序盤でActive発動が少なく低くなりやすい。値が低くても高Activeやステータスなど別の強みで選ばれています。◎(80+) ○(50+) △(20+) ▽(20未満)。</div>
       <div><b style="color:#e0e6ed">ボード推奨</b> — 確率UPは全ノード開放推奨。頻度UPは周期の重複パターンに応じて最適なノード数（0〜3）を算出。各ノードで発動周期が4%短縮されます。</div>
     </div>
   </details>`;
@@ -1772,7 +1772,7 @@ function renderTimelineResults(data) {
       if (spEff != null && spEff > 0) {
         const spRating = spEff >= 80 ? '◎' : spEff >= 50 ? '○' : spEff >= 20 ? '△' : '▽';
         const spColor = spEff >= 80 ? '#40d080' : spEff >= 50 ? '#c0a040' : spEff >= 20 ? '#8899aa' : '#f06060';
-        spLabel = `<div style="font-size:0.6rem;color:${spColor}" title="SP配置効果: このスロットにSPを配置した時にActiveとどれだけ重なるかの指標。高いほどこのスロット配置が活きている">SP配置効果 <span style="font-weight:600">${spRating} ${spEff.toFixed(1)}</span></div>`;
+        spLabel = `<div style="font-size:0.6rem;color:${spColor}" title="SP発動中に他メンバーのActiveがどれだけ乗るか。低くても高Activeやステータスなど別の強みで選ばれています">SP配置効果 <span style="font-weight:600">${spRating} ${spEff.toFixed(1)}</span></div>`;
       }
       let boardLabel = '';
       if (r.board_optimization) {
