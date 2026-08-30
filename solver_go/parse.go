@@ -134,8 +134,8 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 						cardMap[c.ID] = c
 					}
 					candidatePool := topN * 10
-					if candidatePool < 200 {
-						candidatePool = 200
+					if candidatePool < 1000 {
+						candidatePool = 1000
 					}
 					sweepPool := solveSweepCostumes(cards, cf.Cards, rawCardMap, candidatePool, statScale, baseline, songLength, nil, cf)
 
