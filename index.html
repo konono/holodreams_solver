@@ -1417,10 +1417,18 @@ function saveToHistory(solveData) {
     })),
     isTimeline: !!solveData.timeline_results,
   };
+  const resultKey = `holodri_result_${entry.ts}`;
+  try { localStorage.setItem(resultKey, JSON.stringify(solveData)); } catch {}
+  entry.resultKey = resultKey;
   let history = [];
   try { history = JSON.parse(localStorage.getItem("holodri_solve_history") || "[]"); } catch {}
   history.unshift(entry);
-  if (history.length > 20) history = history.slice(0, 20);
+  if (history.length > 20) {
+    for (const old of history.slice(20)) {
+      if (old.resultKey) try { localStorage.removeItem(old.resultKey); } catch {}
+    }
+    history = history.slice(0, 20);
+  }
   localStorage.setItem("holodri_solve_history", JSON.stringify(history));
   renderHistory();
 }
@@ -1497,6 +1505,8 @@ function renderHistory() {
 function deleteHistory(idx) {
   let history = [];
   try { history = JSON.parse(localStorage.getItem("holodri_solve_history") || "[]"); } catch {}
+  const entry = history[idx];
+  if (entry?.resultKey) try { localStorage.removeItem(entry.resultKey); } catch {}
   history.splice(idx, 1);
   localStorage.setItem("holodri_solve_history", JSON.stringify(history));
   renderHistory();
@@ -1547,6 +1557,17 @@ function restoreFromHistory(idx) {
   updateBaselineDisplay();
   renderCards();
   updateCounter();
+
+  if (entry.resultKey) {
+    try {
+      const savedData = JSON.parse(localStorage.getItem(entry.resultKey));
+      if (savedData) {
+        expandResults();
+        renderResults(savedData);
+        document.getElementById("resultsWrapper").scrollIntoView({ behavior: "smooth" });
+      }
+    } catch {}
+  }
 }
 
 document.getElementById("historyToggle").addEventListener("click", () => {
