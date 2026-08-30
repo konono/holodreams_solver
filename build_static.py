@@ -523,8 +523,10 @@ for (const [,,label] of ranges) {{
 songSel.addEventListener("change", function() {{
   document.getElementById("diffSelect").style.display = this.value ? "" : "none";
 }});
-// デフォルトは「汎用（192秒）」= Timeline無効
-// ユーザーが曲を選択したときのみTimeline評価を実行
+if (Object.keys(CHART_SCORES).length > 0) {{
+  songSel.value = "m0001";
+  document.getElementById("diffSelect").style.display = songSel.value ? "" : "none";
+}}
 
 document.getElementById("btnCopyIds").addEventListener("click", () => {{
   const ids = selected.size > 0 ? [...selected] : CARDS.map(c => c.id);
