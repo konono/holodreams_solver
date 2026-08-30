@@ -234,7 +234,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 							costumePtr = &s
 						}
 						var boardOpt *BoardOptResult
-						if i < 3 {
+						if i < 10 {
 							boardOpt = boardOptForReranked(r, cardMap, timeline, scoreEvents, cdPermilSweep, actPermilSweep)
 						}
 						timelineResults = append(timelineResults, TimelineJSONResult{
@@ -396,7 +396,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 					costumePtr = &s
 				}
 				var boardOpt *BoardOptResult
-				if i < 3 {
+				if i < 10 {
 					boardOpt = boardOptForReranked(r, cardMap, timeline, scoreEvents, cdPermil, actPermil)
 				}
 				timelineResults = append(timelineResults, TimelineJSONResult{
