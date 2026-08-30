@@ -32,3 +32,4 @@ solver_go/solver.wasm
 # Workflow is managed via GitHub UI (workflow scope required)
 .github/workflows/
 .github/
+data/charts.json
