@@ -1086,7 +1086,14 @@ function renderTimelineResults(data) {{
   for (const r of tResults) {{
     const rankColors = {{ 1: "#ffd700", 2: "#c0c0c0", 3: "#cd7f32" }};
     const rc = rankColors[r.rank] || "";
+    let costumeLabel = "";
+    if (r.costume_only_leader_id) {{
+      const clCard = cardMap[r.costume_only_leader_id];
+      costumeLabel = clCard ? `👗 ${{clCard.character}}(${{clCard.card_name}})` : `👗 ${{r.costume_only_leader_id}}`;
+    }}
+
     html += `<div class="result-card">
+      ${{costumeLabel ? `<div style="color:#c0c060;font-size:0.75rem;margin-bottom:6px">${{costumeLabel}}</div>` : ''}}
       <div class="result-header">
         <span class="result-rank" ${{rc ? `style="color:${{rc}}"` : ''}}>#${{r.rank}}</span>
         <div class="result-scores">

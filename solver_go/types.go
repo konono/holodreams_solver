@@ -273,15 +273,16 @@ type RecommendBestTeam struct {
 }
 
 type TimelineJSONResult struct {
-	Rank              int         `json:"rank"`
-	UnitScore         int         `json:"unit_score"`
-	TotalPower        int         `json:"total_power"`
-	LiveScoreIndex    int         `json:"live_score_index"`
-	SkillEfficiency   fixedFloat2 `json:"skill_efficiency"`
-	Top1Pct           fixedFloat2 `json:"top1_pct"`
-	ActiveOverlapLoss fixedFloat  `json:"active_overlap_loss"`
-	MemberIDs         []string    `json:"member_ids"`
-	SPEfficiency      []float64   `json:"sp_efficiency,omitempty"`
+	Rank                int         `json:"rank"`
+	UnitScore           int         `json:"unit_score"`
+	TotalPower          int         `json:"total_power"`
+	LiveScoreIndex      int         `json:"live_score_index"`
+	SkillEfficiency     fixedFloat2 `json:"skill_efficiency"`
+	Top1Pct             fixedFloat2 `json:"top1_pct"`
+	ActiveOverlapLoss   fixedFloat  `json:"active_overlap_loss"`
+	CostumeOnlyLeaderID *string    `json:"costume_only_leader_id"`
+	MemberIDs           []string    `json:"member_ids"`
+	SPEfficiency        []float64   `json:"sp_efficiency,omitempty"`
 }
 
 type TimelineStabilityEntry struct {

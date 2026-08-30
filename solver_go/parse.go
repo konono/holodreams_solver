@@ -204,16 +204,22 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 						if baselineLSI > 0 { skillEff = r.LiveScoreIndex / baselineLSI }
 						top1Pct := 0.0
 						if top1LSI > 0 { top1Pct = r.LiveScoreIndex / top1LSI * 100 }
+						var costumePtr *string
+						if r.CostumeOnlyLeaderID != "" {
+							s := r.CostumeOnlyLeaderID
+							costumePtr = &s
+						}
 						timelineResults = append(timelineResults, TimelineJSONResult{
-							Rank:              i + 1,
-							UnitScore:         int(math.Round(r.UnitScore)),
-							TotalPower:        int(math.Round(r.TotalPower)),
-							LiveScoreIndex:    int(math.Round(r.LiveScoreIndex)),
-							SkillEfficiency:   fixedFloat2(skillEff),
-							Top1Pct:           fixedFloat2(top1Pct),
-							ActiveOverlapLoss: fixedFloat(r.TimelineResult.ActiveOverlapLoss * 100),
-							MemberIDs:         r.TeamIDs[:],
-							SPEfficiency:      spEff,
+							Rank:                i + 1,
+							UnitScore:           int(math.Round(r.UnitScore)),
+							TotalPower:          int(math.Round(r.TotalPower)),
+							LiveScoreIndex:      int(math.Round(r.LiveScoreIndex)),
+							SkillEfficiency:     fixedFloat2(skillEff),
+							Top1Pct:             fixedFloat2(top1Pct),
+							ActiveOverlapLoss:   fixedFloat(r.TimelineResult.ActiveOverlapLoss * 100),
+							CostumeOnlyLeaderID: costumePtr,
+							MemberIDs:           r.TeamIDs[:],
+							SPEfficiency:        spEff,
 						})
 					}
 					return TimelineJSONOutput{
@@ -337,16 +343,22 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 				if top1LSI > 0 {
 					top1Pct = r.LiveScoreIndex / top1LSI * 100
 				}
+				var costumePtr *string
+				if r.CostumeOnlyLeaderID != "" {
+					s := r.CostumeOnlyLeaderID
+					costumePtr = &s
+				}
 				timelineResults = append(timelineResults, TimelineJSONResult{
-					Rank:              i + 1,
-					UnitScore:         int(math.Round(r.UnitScore)),
-					TotalPower:        int(math.Round(r.TotalPower)),
-					LiveScoreIndex:    int(math.Round(r.LiveScoreIndex)),
-					SkillEfficiency:   fixedFloat2(skillEff),
-					Top1Pct:           fixedFloat2(top1Pct),
-					ActiveOverlapLoss: fixedFloat(r.TimelineResult.ActiveOverlapLoss * 100),
-					MemberIDs:         r.TeamIDs[:],
-					SPEfficiency:      spEff,
+					Rank:                i + 1,
+					UnitScore:           int(math.Round(r.UnitScore)),
+					TotalPower:          int(math.Round(r.TotalPower)),
+					LiveScoreIndex:      int(math.Round(r.LiveScoreIndex)),
+					SkillEfficiency:     fixedFloat2(skillEff),
+					Top1Pct:             fixedFloat2(top1Pct),
+					ActiveOverlapLoss:   fixedFloat(r.TimelineResult.ActiveOverlapLoss * 100),
+					CostumeOnlyLeaderID: costumePtr,
+					MemberIDs:           r.TeamIDs[:],
+					SPEfficiency:        spEff,
 				})
 			}
 

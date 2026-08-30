@@ -30,12 +30,13 @@ func init() {
 
 // TimelineRerankResult holds one reranked team result.
 type TimelineRerankResult struct {
-	TeamIDs        [5]string
-	LeaderIdx      int
-	UnitScore      float64
-	TotalPower     float64
-	LiveScoreIndex float64
-	TimelineResult TimelineEvalResult
+	TeamIDs             [5]string
+	LeaderIdx           int
+	UnitScore           float64
+	TotalPower          float64
+	LiveScoreIndex      float64
+	CostumeOnlyLeaderID string
+	TimelineResult      TimelineEvalResult
 }
 
 // RerankTopN takes legacy top results, evaluates each with the Timeline Engine
@@ -90,12 +91,13 @@ func RerankTopN(
 			result := EvaluateFullTimeline(team, eval.TotalPower, songDuration, timeline, scoreEvents, alwaysOnSupport)
 
 			allResults = append(allResults, TimelineRerankResult{
-				TeamIDs:        ids,
-				LeaderIdx:      lr.LeaderIdx,
-				UnitScore:      eval.UnitScore,
-				TotalPower:     eval.TotalPower,
-				LiveScoreIndex: result.LiveScoreIndex,
-				TimelineResult: result,
+				TeamIDs:             ids,
+				LeaderIdx:           lr.LeaderIdx,
+				UnitScore:           eval.UnitScore,
+				TotalPower:          eval.TotalPower,
+				LiveScoreIndex:      result.LiveScoreIndex,
+				CostumeOnlyLeaderID: lr.CostumeOnlyLeaderID,
+				TimelineResult:      result,
 			})
 		}
 	}
