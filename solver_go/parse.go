@@ -161,8 +161,24 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 					}
 					sweepPool := sweepResult
 
+					timelineTopN := topN
+					if input.TimelineTopN > 0 {
+						timelineTopN = input.TimelineTopN
+					}
+
+					// Limit candidates for RerankTopN: each candidate generates 120 permutations,
+					// so 100 candidates = 12,000 timeline evaluations (reasonable for WASM).
+					rerankPool := sweepPool.Results
+					rerankLimit := timelineTopN * 10
+					if rerankLimit < 100 {
+						rerankLimit = 100
+					}
+					if len(rerankPool) > rerankLimit {
+						rerankPool = rerankPool[:rerankLimit]
+					}
+
 					var legacySolveResults []SolveResult
-					for _, r := range sweepPool.Results {
+					for _, r := range rerankPool {
 						team := [5]string{}
 						for i, id := range r.MemberIDs {
 							team[i] = id
@@ -185,10 +201,6 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 						})
 					}
 
-					timelineTopN := topN
-					if input.TimelineTopN > 0 {
-						timelineTopN = input.TimelineTopN
-					}
 					reranked := RerankTopN(legacySolveResults, cardMap, timeline, scoreEvents, statScale, baseline, songLength, nil, timelineTopN)
 
 					rawComboSumSweep := 0.0
