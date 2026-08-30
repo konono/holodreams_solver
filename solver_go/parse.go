@@ -6,6 +6,15 @@ import (
 	"math"
 )
 
+// timelineRerankMultiplier controls how many Legacy top-N results are fed
+// into RerankTopN for Timeline re-evaluation. Each candidate generates 5!=120
+// permutations, so the total Timeline evaluations = rerankLimit × 120.
+const timelineRerankMultiplier = 10
+
+// timelineRerankMinCandidates is the floor for the rerank candidate pool.
+// Ensures enough diversity even when top_n is small (e.g. top_n=5 → 50 < 100).
+const timelineRerankMinCandidates = 100
+
 func derefStr(p *string) string {
 	if p == nil {
 		return ""
@@ -169,9 +178,9 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 					// Limit candidates for RerankTopN: each candidate generates 120 permutations,
 					// so 100 candidates = 12,000 timeline evaluations (reasonable for WASM).
 					rerankPool := sweepPool.Results
-					rerankLimit := timelineTopN * 10
-					if rerankLimit < 100 {
-						rerankLimit = 100
+					rerankLimit := timelineTopN * timelineRerankMultiplier
+					if rerankLimit < timelineRerankMinCandidates {
+						rerankLimit = timelineRerankMinCandidates
 					}
 					if len(rerankPool) > rerankLimit {
 						rerankPool = rerankPool[:rerankLimit]
@@ -322,10 +331,17 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 				timelineTopN = input.TimelineTopN
 			}
 
-			legacyPool := legacyResult
+			rerankPool := legacyResult.Results
+			rerankLimit := timelineTopN * timelineRerankMultiplier
+			if rerankLimit < timelineRerankMinCandidates {
+				rerankLimit = timelineRerankMinCandidates
+			}
+			if len(rerankPool) > rerankLimit {
+				rerankPool = rerankPool[:rerankLimit]
+			}
 
 			var legacySolveResults []SolveResult
-			for _, r := range legacyPool.Results {
+			for _, r := range rerankPool {
 				team := [5]string{}
 				for i, id := range r.MemberIDs {
 					team[i] = id
