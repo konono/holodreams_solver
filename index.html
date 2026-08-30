@@ -1679,6 +1679,18 @@ function renderTimelineResults(data) {
 
   let html = `<div class="results-title">ライブ期待スコア Top ${tResults.length}（${songName} ${diff}）</div>`;
   html += `<div style="font-size:0.72rem;color:#6b7f92;margin-bottom:10px">候補プール: ${data.candidate_pool} 編成 × 120 順列 → Timeline評価</div>`;
+  html += `<details style="margin-bottom:12px;font-size:0.7rem;color:#6b7f92">
+    <summary style="cursor:pointer;color:#4f8cff;user-select:none">結果の見かた</summary>
+    <div style="background:#0d1520;border:1px solid #2a3a4a;border-radius:6px;padding:10px 12px;margin-top:6px;line-height:1.7">
+      <div><b style="color:#e0e6ed">LSI（ライブ期待スコア指標）</b> — 総合力 × ノートごとのスキル倍率の合計。同じ曲での編成比較用の相対指標で、値が大きいほど高スコアが期待できます。</div>
+      <div><b style="color:#e0e6ed">スキル効率</b> — スキルなし時と比べた倍率。2.0x ならスキルで2倍のスコア。Active・衣装SS・パッシブSB・SP効果の合計効果です。</div>
+      <div><b style="color:#e0e6ed">Active期待値</b> — 5人のActiveスキルの期待スコアアップ値。発動タイミング・確率・重複を考慮した解析値（E[max]モデル）。</div>
+      <div><b style="color:#e0e6ed">重複ロス</b> — 複数メンバーのActiveが同時発動して無駄になる割合。発動周期の異なるメンバーで編成すると改善できます。</div>
+      <div style="margin-top:4px;border-top:1px solid #2a3a4a;padding-top:4px"><b style="color:#e0e6ed">各メンバーの Active</b> — スコア: 発動時のスコアアップ% / 周期: 発動間隔（秒）/ 確率: 1回あたりの発動確率。同じ周期のメンバーが多いと重複ロスが増えます。</div>
+      <div><b style="color:#e0e6ed">SP配置効果</b> — このスロットにSPを配置した時にActiveとどれだけ重なるかの指標。ソルバーがこのスロット順を選んだ根拠です。◎(80+) ○(50+) △(20+) ▽(20未満)。</div>
+      <div><b style="color:#e0e6ed">ボード推奨</b> — 確率UPは全ノード開放推奨。頻度UPは周期の重複パターンに応じて最適なノード数（0〜3）を算出。各ノードで発動周期が4%短縮されます。</div>
+    </div>
+  </details>`;
 
   const top1LSI = tResults[0]?.live_score_index || 1;
   const fmtLSI = v => { const m = v / 1e6; return m >= 1000 ? `${(m/1000).toFixed(1)}B` : `${Math.round(m).toLocaleString()}M`; };
