@@ -1410,10 +1410,12 @@ function saveToHistory(solveData) {
       statScale, baseline,
     },
     snapshot: { ids: [...selected], allCards: selected.size === 0, potentials: pots, levels: lvs, defaultPotential, defaultLevel, levelEnabled },
-    results: (solveData.results || []).slice(0, 3).map(r => ({
+    results: (solveData.timeline_results || solveData.results || []).slice(0, 3).map(r => ({
       rank: r.rank, unit_score: r.unit_score, total_power: r.total_power,
-      score_bonus: r.score_bonus, leader_id: r.leader_id, member_ids: r.member_ids,
+      score_bonus: r.score_bonus, live_score_index: r.live_score_index,
+      leader_id: r.leader_id, member_ids: r.member_ids,
     })),
+    isTimeline: !!solveData.timeline_results,
   };
   let history = [];
   try { history = JSON.parse(localStorage.getItem("holodri_solve_history") || "[]"); } catch {}
@@ -1438,20 +1440,34 @@ function renderHistory() {
     const dt = new Date(h.ts);
     const timeStr = `${dt.getMonth()+1}/${dt.getDate()} ${dt.getHours()}:${String(dt.getMinutes()).padStart(2,"0")}`;
     const top1 = h.results[0];
-    const leaderCard = top1 ? cardMap[top1.leader_id] : null;
-    const leaderName = leaderCard ? leaderCard.character : "?";
     const nCards = (h.snapshot?.ids || []).length;
     const labelVal = (h.label || "").replace(/"/g, "&quot;");
+    let scoreText = "-";
+    let detailText = "";
+    if (top1) {
+      if (h.isTimeline && top1.live_score_index) {
+        const lsi = top1.live_score_index;
+        const m = lsi / 1e6;
+        scoreText = m >= 1000 ? `LSI ${(m/1000).toFixed(1)}B` : `LSI ${Math.round(m).toLocaleString()}M`;
+        const members = (top1.member_ids || []).map(id => cardMap[id]?.character || "?").slice(0, 3).join(", ");
+        detailText = `#1 ${members} / ${nCards || "全"}枚`;
+      } else {
+        scoreText = top1.unit_score.toLocaleString();
+        const leaderCard = top1.leader_id ? cardMap[top1.leader_id] : null;
+        const leaderName = leaderCard ? leaderCard.character : "?";
+        detailText = `#1 ${leaderName}リーダー / ${nCards || "全"}枚 / SB ${top1.score_bonus ?? "-"}%`;
+      }
+    }
     html += `<div class="history-entry">
       <div class="h-header">
         <span>
           <span class="h-time">${timeStr}</span>
           <input class="h-label-input" placeholder="メモ" value="${labelVal}" data-idx="${i}">
         </span>
-        <span class="h-score">${top1 ? top1.unit_score.toLocaleString() : "-"}</span>
+        <span class="h-score">${scoreText}</span>
       </div>
       <div style="color:#8899aa;font-size:0.72rem">
-        #1 ${leaderName}リーダー / ${nCards || "全"}枚 / SB ${top1 ? top1.score_bonus : "-"}%
+        ${detailText}
       </div>
       <div style="display:flex;gap:4px;margin-top:6px">
         <button class="h-btn" data-action="restore" data-idx="${i}">復元</button>
