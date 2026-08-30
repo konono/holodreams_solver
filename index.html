@@ -1724,10 +1724,10 @@ function renderTimelineResults(data) {
       <div style="height:4px;background:#1a2735;border-radius:2px;margin-bottom:10px;overflow:hidden">
         <div style="width:${barPct}%;height:100%;background:${rankColor};border-radius:2px;transition:width 0.3s"></div>
       </div>
-      <div style="font-size:0.72rem;color:#8899aa;margin-bottom:6px" title="LSI = 総合力 × ノートごとのスキル倍率の合計。同じ曲での編成比較用の相対指標">
-        総合力 <span style="color:#e0e6ed;font-weight:600">${r.total_power.toLocaleString()}</span>
-        × スキル効率 <span style="color:#e0e6ed;font-weight:600">${r.skill_efficiency}x</span>
-        = LSI
+      <div style="display:flex;gap:16px;font-size:0.72rem;color:#8899aa;margin-bottom:6px;flex-wrap:wrap">
+        <span>総合力: <span style="color:#e0e6ed;font-weight:600">${r.total_power.toLocaleString()}</span></span>
+        <span title="スキルなし時と比べた倍率（Active・衣装SS・パッシブSB・SP効果の合計）">スキル効率: <span style="color:#e0e6ed;font-weight:600">${r.skill_efficiency}x</span></span>
+        <span style="color:#5a6e80">ユニットスコア: ${r.unit_score.toLocaleString()}</span>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:0.65rem;margin-bottom:8px">
         <span style="background:#0d1520;border:1px solid #2a3a4a;border-radius:4px;padding:2px 8px" title="5人のActiveスキルの期待スコアアップ値 (E[max]モデル)">Active期待値 <span style="color:#40d080">+${r.expected_active}%</span></span>
@@ -1736,7 +1736,7 @@ function renderTimelineResults(data) {
         <span style="background:#0d1520;border:1px solid #2a3a4a;border-radius:4px;padding:2px 8px" title="スペシャルスキルの時間加重スコア効果">SP効果 <span style="color:#e0e6ed">${r.special_pct}%</span></span>
         <span style="background:#0d1520;border:1px solid #3a2a1a;border-radius:4px;padding:2px 8px" title="複数メンバーのActiveが同時発動して無駄になる割合。周期の異なるメンバーで編成すると改善できます">重複ロス <span style="color:#f0a050">${r.active_overlap_loss}%</span></span>
       </div>
-      <div style="font-size:0.65rem;color:#5a6e80;margin-bottom:10px">参考: ユニットスコア ${r.unit_score.toLocaleString()}</div>`;
+`;
 
     if (r.board_optimization) {
       const bo = r.board_optimization;
