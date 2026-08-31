@@ -3,9 +3,13 @@
 build_static.py で生成した HTML が WASM ソルバーで正しく動作するか確認する。
 WASM の読み込みに HTTP サーバーが必要。
 
+注意: test_e2e.py と同一 pytest セッションでは実行不可
+（pytest-playwright の async ループと sync_playwright() が競合するため）。
+CI では pytest を分離実行している。
+
 実行前提:
     uv run playwright install chromium
-    cd solver_go && GOOS=js GOARCH=wasm go build -o ../dist/solver.wasm .
+    cd solver_go && GOOS=js GOARCH=wasm go build -o solver.wasm .
 
 実行:
     uv run python build_static.py
@@ -204,11 +208,10 @@ class TestStaticTimelineSolve:
         page.click("#btnSolve")
         page.wait_for_selector(".result-card", timeout=60000)
         area_text = page.eval_on_selector("#resultsArea", "el => el.textContent")
-        assert "ライブ期待スコア" in area_text or "最強編成" in area_text, \
-            f"Should show timeline or legacy results, got: {area_text[:100]}"
-        if "ライブ期待スコア" in area_text:
-            assert "スキル効率" in area_text, "Timeline results should display skill efficiency"
-            assert "Active重複ロス" in area_text, "Timeline results should display overlap loss"
+        assert "ライブ期待スコア" in area_text, \
+            f"Song selected → timeline results expected, got: {area_text[:100]}"
+        assert "スキル効率" in area_text, "Timeline results should display skill efficiency"
+        assert "Active重複ロス" in area_text, "Timeline results should display overlap loss"
         member_cards = page.eval_on_selector_all(".member-card", "els => els.length")
         assert member_cards >= 5, f"Expected >=5 member cards, got {member_cards}"
         page.close()
@@ -263,10 +266,10 @@ class TestStaticErrorHandling:
 
 
 class TestStaticWasmResultParity:
-    """WASM版の計算結果がネイティブと一致することを検証する（共通テストデータ使用）"""
+    """WASM版の計算結果が期待値（Go CLIスナップショット）と一致することを検証する"""
 
     def test_solve_result_matches_expected(self, browser_context):
-        """共通カードセットでsolve → unit_score Top1がネイティブと一致"""
+        """共通カードセットでsolve → unit_score Top1がスナップショット値と一致"""
         from test_shared_fixtures import SHARED_CARD_SPECS, EXPECTED_SOLVE_TOP1_UNIT_SCORE
 
         page = browser_context.new_page()

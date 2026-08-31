@@ -213,10 +213,10 @@ class TestPersistenceReload:
 
 
 class TestServerResultParity:
-    """サーバー版の計算結果がネイティブCLIと一致することを検証する（共通テストデータ使用）"""
+    """サーバー版の計算結果が期待値（Go CLIスナップショット）と一致することを検証する"""
 
     def test_solve_result_matches_expected(self, server):
-        """共通カードセットでsolve API（非ストリーム） → unit_score Top1がCLIと一致"""
+        """共通カードセットでsolve API → unit_score Top1がスナップショット値と一致"""
         import urllib.request
         from test_shared_fixtures import SHARED_CARD_SPECS, EXPECTED_SOLVE_TOP1_UNIT_SCORE
 
