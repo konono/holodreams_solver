@@ -134,7 +134,7 @@ function renderTimelineResults(data) {
         <div><b style="color:#e0e6ed">パッシブスキル</b> — 常時発動するステータスバフやスコアサポート効果。</div>
         <div><b style="color:#e0e6ed">衣装スキル</b> — リーダーの衣装が全メンバーに付与するステータスバフやスコアサポート効果。</div>
       </div>
-      <div style="margin-bottom:6px;padding:4px 8px;background:#1a2a3a;border-left:3px solid #4a9eff;border-radius:2px;font-size:0.75rem;color:#8899aa">※ スコア計算は<b style="color:#c8d6e0">All Perfect前提</b>です。ライフ条件・コンボ条件付きスキルは常に発動するものとして計算しています。コンボ条件は曲序盤で未達となるため実際のスコアよりわずかに高く算出されますが、編成比較やランキング用途では許容誤差です。</div>
+      <div style="margin-bottom:6px;padding:4px 8px;background:#1a2a3a;border-left:3px solid #4a9eff;border-radius:2px;font-size:0.75rem;color:#8899aa">※ スコア計算は<b style="color:#c8d6e0">All Perfect前提</b>です。ライフ条件・コンボ条件付きスキルは常に発動するものとして計算しています。コンボ条件は曲序盤で未達となるため実際のスコアよりわずかに高く算出されますが、最悪ケースでもunit_scoreへの影響は約0.07%であり、編成比較やランキング用途では許容誤差です。</div>
       <div><b style="color:#e0e6ed">LSI（ライブ期待スコア指標）</b> — 総合力 × ノートごとのスキル倍率の合計。同じ曲での編成比較用の相対指標で、値が大きいほど高スコアが期待できます。</div>
       <div><b style="color:#e0e6ed">スキル効率</b> — スキルなし時と比べた倍率。2.0x ならスキルで2倍のスコア。Active・衣装SS・パッシブSB・SP効果の合計効果です。</div>
       <div><b style="color:#e0e6ed">Active期待値</b> — 5人のActiveスキルの期待スコアアップ値。発動タイミング・確率・重複を考慮した解析値（E[max]モデル）。</div>
