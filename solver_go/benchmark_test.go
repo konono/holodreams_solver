@@ -224,7 +224,7 @@ func BenchmarkOptimizeResults(b *testing.B) {
 			results, cardMap := benchSolveResultsFrom(b, cards)
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				optimizeResults(results, cardMap, 1.0, 0.0, defaultSongLength, nil)
+				optimizeResults(results, cardMap, 1.0, 0.0, defaultSongLength, nil, "")
 			}
 		})
 	}
