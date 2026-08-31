@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 )
 
 const (
@@ -35,8 +36,8 @@ func checkCenterTypeCondition(cond *string, typeCounts map[string]int) bool {
 		return false
 	}
 	c := *cond
-	if c == "life_600" || c == "combo_40" {
-		return false
+	if strings.HasPrefix(c, "life_") || strings.HasPrefix(c, "combo_") {
+		return true
 	}
 	if len(c) > 2 && c[len(c)-2:] == "_2" {
 		typeName := c[:len(c)-2]

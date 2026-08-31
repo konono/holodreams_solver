@@ -127,8 +127,8 @@ func TestRecommendGolden(t *testing.T) {
 
 	result := recommend(owned, cf.Cards, 10, 1, 1.0, 0.0, 192.0, "", "", false, cf)
 
-	if result.BaseScore != 804624 {
-		t.Fatalf("BaseScore = %d, want 804624", result.BaseScore)
+	if result.BaseScore != 806046 {
+		t.Fatalf("BaseScore = %d, want 806046", result.BaseScore)
 	}
 
 	type golden struct {
@@ -137,16 +137,16 @@ func TestRecommendGolden(t *testing.T) {
 		score  int
 	}
 	expected := []golden{
-		{"otonose_kanade_swim_5", 18903, 823527},
-		{"ookami_mio_swim_5", 17950, 822574},
-		{"nekomata_okayu_swim_5", 13991, 818615},
-		{"airani_iofifteen_5", 12578, 817202},
-		{"shirogane_noel_swim_5", 11262, 815886},
-		{"sakura_miko_swim_5", 11009, 815633},
-		{"himemori_luna_swim_5", 8416, 813040},
-		{"kobo_kanaeru_5", 6365, 810989},
-		{"kureiji_ollie_swim_5", 2677, 807301},
-		{"hakos_baelz_5", 2423, 807047},
+		{"ookami_mio_swim_5", 21975, 828021},
+		{"otonose_kanade_swim_5", 18955, 825001},
+		{"airani_iofifteen_5", 16618, 822664},
+		{"shirogane_noel_swim_5", 12946, 818992},
+		{"nekomata_okayu_swim_5", 12569, 818615},
+		{"sakura_miko_swim_5", 9587, 815633},
+		{"himemori_luna_swim_5", 8533, 814579},
+		{"kobo_kanaeru_5", 4943, 810989},
+		{"kureiji_ollie_swim_5", 2729, 808775},
+		{"hakos_baelz_5", 2506, 808552},
 	}
 
 	if len(result.Recommendations) != len(expected) {
@@ -175,11 +175,11 @@ func TestRecommendMultiAcquire(t *testing.T) {
 		score int
 	}
 	expected := []goldenCombo{
-		{32819, 837443},
-		{28193, 832817},
-		{27409, 832033},
-		{25748, 830372},
-		{24248, 828872},
+		{31397, 837443},
+		{29301, 835347},
+		{26771, 832817},
+		{24280, 830326},
+		{22716, 828762},
 	}
 	if len(result.Recommendations) != len(expected) {
 		t.Fatalf("got %d recommendations, want %d", len(result.Recommendations), len(expected))

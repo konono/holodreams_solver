@@ -41,9 +41,9 @@ func TestTimelineRegressionGolden(t *testing.T) {
 
 	tOutput := runSolveTimeline(t, input, cf)
 	assertGoldenTimeline(t, tOutput, []goldenEntry{
-		{lsi: 253731214980, power: 199494, unit: 908598, overlap: 29.7},
-		{lsi: 251793121695, power: 200519, unit: 919010, overlap: 21.2},
-		{lsi: 250970726345, power: 205456, unit: 934027, overlap: 32.6},
+		{lsi: 265944367781, power: 200519, unit: 921893, overlap: 25.0},
+		{lsi: 265259368620, power: 205456, unit: 936917, overlap: 34.7},
+		{lsi: 265192636783, power: 205243, unit: 934613},
 	})
 }
 
@@ -76,9 +76,9 @@ func TestTimelineRegressionGolden_M0005(t *testing.T) {
 
 	tOutput := runSolveTimeline(t, input, cf)
 	assertGoldenTimeline(t, tOutput, []goldenEntry{
-		{lsi: 273689433682, power: 199494, unit: 908598, overlap: 30.7},
-		{lsi: 272730112313, power: 200519, unit: 919010, overlap: 22.8},
-		{lsi: 271522467368, power: 205456, unit: 934027, overlap: 32.3},
+		{lsi: 291282678137, power: 200519, unit: 921893, overlap: 27.0},
+		{lsi: 289992718539, power: 205456, unit: 936917, overlap: 34.0},
+		{lsi: 288862810022, power: 204539, unit: 932286, overlap: 26.7},
 	})
 }
 
@@ -111,9 +111,9 @@ func TestTimelineRegressionSweep10Cards(t *testing.T) {
 
 	tOutput := runSolveTimeline(t, input, cf)
 	assertGoldenTimeline(t, tOutput, []goldenEntry{
-		{lsi: 275174569904},
-		{lsi: 275174569904},
-		{lsi: 272379592400},
+		{lsi: 292235942215},
+		{lsi: 290740791296},
+		{lsi: 290740791296},
 	})
 	assertBoardOptPresent(t, tOutput, 3)
 }
@@ -159,11 +159,11 @@ func TestTimelineRegressionSweep34Cards(t *testing.T) {
 
 	tOutput := runSolveTimeline(t, input, cf)
 	assertGoldenTimeline(t, tOutput, []goldenEntry{
-		{lsi: 313138008991, power: 220040, unit: 875332},
-		{lsi: 311828483796, power: 216414, unit: 862577},
-		{lsi: 311828483796, power: 216414, unit: 862577},
-		{lsi: 311529427336, power: 213811, unit: 859888},
-		{lsi: 309686712878, power: 212404, unit: 854232},
+		{lsi: 326449317402, power: 219336, unit: 884800},
+		{lsi: 326449317402, power: 219336, unit: 884800},
+		{lsi: 322264082710, power: 216414, unit: 864487},
+		{lsi: 322264082710, power: 216414, unit: 864487},
+		{lsi: 321995200545, power: 217435, unit: 868349},
 	})
 	assertBoardOptPresent(t, tOutput, 5)
 }
@@ -206,7 +206,7 @@ func TestSolveRegressionNonSweepTimeline(t *testing.T) {
 
 	tOutput := runSolveTimeline(t, input, cf)
 	assertGoldenTimeline(t, tOutput, []goldenEntry{
-		{lsi: 313138008991},
+		{lsi: 326449317402},
 	})
 	assertBoardOptPresent(t, tOutput, 5)
 }

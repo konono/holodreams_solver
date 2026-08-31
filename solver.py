@@ -163,8 +163,8 @@ def _check_center_type_condition(condition, type_counts, group_counts):
     """センタースキルの条件チェック。タイプ条件のみ適用、ゲーム状態条件(ライフ/コンボ)は不適用"""
     if condition is None:
         return False
-    if condition in ("life_600", "combo_40"):
-        return False
+    if condition.startswith("life_") or condition.startswith("combo_"):
+        return True
     if condition.endswith("_2"):
         type_name = condition[:-2]
         return type_counts.get(type_name, 0) >= 2
