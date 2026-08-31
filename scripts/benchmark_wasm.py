@@ -9,6 +9,8 @@ Playwright で WASM 版の solve を実行し、ネイティブ Go CLI と実行
 
 実行:
     uv run python scripts/benchmark_wasm.py
+
+注意: 70枚 sweep 込みのフル実行は 10分以上かかることがあります。
 """
 
 import http.server
@@ -61,18 +63,26 @@ def bench_native(card_ids, runs):
 
     # warmup
     for _ in range(WARMUP_RUNS):
-        subprocess.run(
-            [str(SOLVER_BIN)],
-            input=payload, capture_output=True, text=True, cwd=str(ROOT),
-        )
+        try:
+            subprocess.run(
+                [str(SOLVER_BIN)],
+                input=payload, capture_output=True, text=True, cwd=str(ROOT),
+            )
+        except OSError as e:
+            print(f"  SKIP: cannot execute {SOLVER_BIN} ({e})")
+            return None
 
     times = []
     for _ in range(runs):
         start = time.perf_counter()
-        result = subprocess.run(
-            [str(SOLVER_BIN)],
-            input=payload, capture_output=True, text=True, cwd=str(ROOT),
-        )
+        try:
+            result = subprocess.run(
+                [str(SOLVER_BIN)],
+                input=payload, capture_output=True, text=True, cwd=str(ROOT),
+            )
+        except OSError as e:
+            print(f"  SKIP: cannot execute {SOLVER_BIN} ({e})")
+            return None
         elapsed = time.perf_counter() - start
         if result.returncode != 0:
             print(f"  Native error: {result.stderr[:200]}")
