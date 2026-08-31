@@ -85,28 +85,26 @@ func RerankTopN(
 		eval := evaluateTeam(cards, lr.LeaderIdx, statScale, baseline, songLength, costumeSkill)
 		alwaysOnSupport := eval.CostumeSSVal*100*costumeSSRate + eval.SupportSSVal*100*supportSSRate
 
-		for _, perm := range perms5 {
-			var team [5]*Card
+		permResults := rerankTeamAllPerms(cards, eval.TotalPower, songDuration, timeline, scoreEvents, alwaysOnSupport)
+
+		for pi, perm := range perms5 {
 			var ids [5]string
 			for i, p := range perm {
-				team[i] = cards[p]
 				ids[i] = lr.TeamIDs[p]
 			}
-
-			result := EvaluateFullTimeline(team, eval.TotalPower, songDuration, timeline, scoreEvents, alwaysOnSupport)
 
 			allResults = append(allResults, TimelineRerankResult{
 				TeamIDs:             ids,
 				LeaderIdx:           lr.LeaderIdx,
 				UnitScore:           eval.UnitScore,
 				TotalPower:          eval.TotalPower,
-				LiveScoreIndex:      result.LiveScoreIndex,
+				LiveScoreIndex:      permResults[pi].LiveScoreIndex,
 				CostumeOnlyLeaderID: lr.CostumeOnlyLeaderID,
 				CostumeSBPct:        eval.CostumeSBPct,
 				PassiveSBPct:        eval.PassiveSBPct,
 				SpecialPct:          eval.SpecialPct,
 				AlwaysOnSupport:     alwaysOnSupport,
-				TimelineResult:      result,
+				TimelineResult:      permResults[pi],
 			})
 		}
 	}

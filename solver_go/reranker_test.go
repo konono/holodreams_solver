@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"testing"
 )
 
@@ -169,5 +170,51 @@ func TestRerankTopN_DedupKeepsDifferentCostumes(t *testing.T) {
 	}
 	if !costumes["a"] || !costumes["b"] {
 		t.Errorf("both costume 'a' and 'b' should be present, got %v", costumes)
+	}
+}
+
+func TestRerankTeamAllPerms_MatchesEvaluateFullTimeline(t *testing.T) {
+	cards, tl, events := benchRerankCards()
+	fast := rerankTeamAllPerms(cards, 100000, 100, tl, events, 5.0)
+	for pi, perm := range perms5 {
+		var team [5]*Card
+		for i, p := range perm {
+			team[i] = cards[p]
+		}
+		slow := EvaluateFullTimeline(team, 100000, 100, tl, events, 5.0)
+		if math.Abs(fast[pi].LiveScoreIndex-slow.LiveScoreIndex) > 1e-6 {
+			t.Fatalf("perm %d %v: LSI mismatch fast=%.6f slow=%.6f", pi, perm, fast[pi].LiveScoreIndex, slow.LiveScoreIndex)
+		}
+		if math.Abs(fast[pi].ActiveOverlapLoss-slow.ActiveOverlapLoss) > 1e-6 {
+			t.Fatalf("perm %d %v: OverlapLoss mismatch fast=%.6f slow=%.6f", pi, perm, fast[pi].ActiveOverlapLoss, slow.ActiveOverlapLoss)
+		}
+	}
+}
+
+func benchRerankCards() ([5]*Card, *SongTimeline, []ScoreEvent) {
+	prob := 550
+	cards := [5]*Card{
+		{ID: "a", Type: "vocal", CenterSkill: CenterSkill{Interval: 25, Duration: 5, ScoreUp: 100, ActivationProbabilityPermil: &prob},
+			SpecialSkill: &SpecialSkill{Duration: 10, ScoreSupport: 20}},
+		{ID: "b", Type: "dance", CenterSkill: CenterSkill{Interval: 30, Duration: 5, ScoreUp: 80, ActivationProbabilityPermil: &prob},
+			SpecialSkill: &SpecialSkill{Duration: 8, SkillRateUp: 50}},
+		{ID: "c", Type: "visual", CenterSkill: CenterSkill{Interval: 20, Duration: 5, ScoreUp: 60, ActivationProbabilityPermil: &prob},
+			SpecialSkill: &SpecialSkill{Duration: 12, ScoreSupport: 15}},
+		{ID: "d", Type: "vocal", CenterSkill: CenterSkill{Interval: 35, Duration: 5, ScoreUp: 50, ActivationProbabilityPermil: &prob}},
+		{ID: "e", Type: "dance", CenterSkill: CenterSkill{Interval: 22, Duration: 5, ScoreUp: 40, ActivationProbabilityPermil: &prob},
+			SpecialSkill: &SpecialSkill{Duration: 6, SkillRateUp: 30}},
+	}
+	events := make([]ScoreEvent, 200)
+	for i := range events {
+		events[i] = ScoreEvent{Time: float64(i) * 0.5, ComboIndex: i * 3, Weight: 1.0}
+	}
+	return cards, &SongTimeline{Duration: 100, SpecialPoints: [5]float64{10, 30, 50, 70, 90}}, events
+}
+
+func BenchmarkRerankFast(b *testing.B) {
+	cards, tl, events := benchRerankCards()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		rerankTeamAllPerms(cards, 100000, 100, tl, events, 5.0)
 	}
 }
