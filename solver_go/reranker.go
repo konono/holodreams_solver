@@ -85,7 +85,7 @@ func RerankTopN(
 		eval := evaluateTeam(cards, lr.LeaderIdx, statScale, baseline, songLength, costumeSkill)
 		alwaysOnSupport := eval.CostumeSSVal*100*costumeSSRate + eval.SupportSSVal*100*supportSSRate
 
-		permResults := rerankTeamAllPerms(cards, eval.TotalPower, eval.UnitScore, songDuration, timeline, scoreEvents, alwaysOnSupport)
+		permResults := rerankTeamAllPerms(cards, eval.TotalPower, songDuration, timeline, scoreEvents, alwaysOnSupport)
 
 		for pi, perm := range perms5 {
 			var ids [5]string

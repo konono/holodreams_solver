@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"testing"
 )
 
@@ -172,6 +173,24 @@ func TestRerankTopN_DedupKeepsDifferentCostumes(t *testing.T) {
 	}
 }
 
+func TestRerankTeamAllPerms_MatchesEvaluateFullTimeline(t *testing.T) {
+	cards, tl, events := benchRerankCards()
+	fast := rerankTeamAllPerms(cards, 100000, 100, tl, events, 5.0)
+	for pi, perm := range perms5 {
+		var team [5]*Card
+		for i, p := range perm {
+			team[i] = cards[p]
+		}
+		slow := EvaluateFullTimeline(team, 100000, 100, tl, events, 5.0)
+		if math.Abs(fast[pi].LiveScoreIndex-slow.LiveScoreIndex) > 1e-6 {
+			t.Fatalf("perm %d %v: LSI mismatch fast=%.6f slow=%.6f", pi, perm, fast[pi].LiveScoreIndex, slow.LiveScoreIndex)
+		}
+		if math.Abs(fast[pi].ActiveOverlapLoss-slow.ActiveOverlapLoss) > 1e-6 {
+			t.Fatalf("perm %d %v: OverlapLoss mismatch fast=%.6f slow=%.6f", pi, perm, fast[pi].ActiveOverlapLoss, slow.ActiveOverlapLoss)
+		}
+	}
+}
+
 func benchRerankCards() ([5]*Card, *SongTimeline, []ScoreEvent) {
 	prob := 550
 	cards := [5]*Card{
@@ -196,6 +215,6 @@ func BenchmarkRerankFast(b *testing.B) {
 	cards, tl, events := benchRerankCards()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		rerankTeamAllPerms(cards, 100000, 900000, 100, tl, events, 5.0)
+		rerankTeamAllPerms(cards, 100000, 100, tl, events, 5.0)
 	}
 }

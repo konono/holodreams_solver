@@ -32,7 +32,6 @@ type precomputedCard struct {
 func rerankTeamAllPerms(
 	cards [5]*Card,
 	totalPower float64,
-	unitScore float64,
 	songDuration float64,
 	timeline *SongTimeline,
 	scoreEvents []ScoreEvent,

@@ -336,6 +336,8 @@ func solveSweepCostumes(cards []*Card, allRawCards []CardRaw, cardMap map[string
 											team := [5]*Card{c0, c1, c2, c3, c4}
 											totalCombos++
 
+											// leaderIdx=0 is arbitrary: computeBaseScores uses emptyCostume,
+											// so the result is identical for all leaders.
 											base := computeBaseScores(team, 0, statScale, baseline, songLength)
 											bestLeaderIdx := 0
 
