@@ -1,3 +1,5 @@
+// Globals expected from host: cardMap, levelTables, cardPotentials, defaultPotential,
+// cardLevels, defaultLevel, levelEnabled, window.SONGS
 const TYPE_LABELS = { happy: "Happy", pure: "Pure", cute: "Cute" };
 const MAX_LEVEL = 80;
 
@@ -321,7 +323,7 @@ function renderResults(data) {
     return;
   }
 
-  html += `<div class="results-title">最強編成 Top ${results.length}（${data.total_combinations.toLocaleString()} 通り${bLabel}）</div>`;
+  html += `<div class="results-title">最強編成 Top ${results.length}（${(data.total_combinations ?? 0).toLocaleString()} 通り${bLabel}）</div>`;
 
   for (const r of results) {
     const rankColors = { 1: "#ffd700", 2: "#c0c0c0", 3: "#cd7f32" };
