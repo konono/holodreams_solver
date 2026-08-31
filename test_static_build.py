@@ -169,6 +169,29 @@ class TestStaticSolve:
         page.close()
 
 
+class TestStaticTimelineSolve:
+    def test_solve_with_timeline_shows_results(self, browser_context):
+        """曲選択 + Timeline + sweep → .result-card が表示される"""
+        page = open_page(browser_context)
+        ids = page.eval_on_selector_all(".card", f"els => els.slice(0, 8).map(e => e.dataset.id)")
+        for cid in ids:
+            page.click(f'.card[data-id="{cid}"] .char-name')
+        # Select first available song
+        page.evaluate("""(() => {
+            const sel = document.getElementById('songSelect');
+            const opts = Array.from(sel.options).filter(o => o.value);
+            if (opts.length) { sel.value = opts[0].value; sel.dispatchEvent(new Event('change')); }
+        })()""")
+        page.click("#btnSolve")
+        page.wait_for_selector(".result-card", timeout=60000)
+        results = page.eval_on_selector_all(".result-card", "els => els.length")
+        assert results > 0, "Timeline solve should produce results"
+        # Verify no JS errors prevented rendering
+        progress_text = page.eval_on_selector("#progressText", "el => el.textContent")
+        assert "完了" in progress_text, f"Progress should show completion, got: {progress_text}"
+        page.close()
+
+
 class TestStaticRecommendDisplay:
     def test_recommend_best_team_shows_card_name(self, browser_context):
         """8枚選択+レコメンド → ベストチームにカード名(括弧内)が表示される"""

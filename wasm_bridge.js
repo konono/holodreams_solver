@@ -74,6 +74,7 @@ self.onmessage = async function (e) {
           timeline_results: result.timeline_results,
           legacy_results: result.legacy_results || [],
           candidate_pool: result.candidate_pool || 0,
+          totalCombinations: result.candidate_pool || 0,
           stability: result.stability || null,
         });
       } else {
