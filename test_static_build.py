@@ -204,13 +204,11 @@ class TestStaticTimelineSolve:
         page.click("#btnSolve")
         page.wait_for_selector(".result-card", timeout=60000)
         area_text = page.eval_on_selector("#resultsArea", "el => el.textContent")
-        is_timeline = "ライブ期待スコア" in area_text
-        if is_timeline:
+        assert "ライブ期待スコア" in area_text or "最強編成" in area_text, \
+            f"Should show timeline or legacy results, got: {area_text[:100]}"
+        if "ライブ期待スコア" in area_text:
             assert "スキル効率" in area_text, "Timeline results should display skill efficiency"
             assert "Active重複ロス" in area_text, "Timeline results should display overlap loss"
-        else:
-            # Non-timeline (legacy) — verify standard results rendered
-            assert "最強編成" in area_text, "Should show legacy results title"
         member_cards = page.eval_on_selector_all(".member-card", "els => els.length")
         assert member_cards >= 5, f"Expected >=5 member cards, got {member_cards}"
         page.close()
@@ -234,7 +232,7 @@ class TestStaticTimelineSolve:
 
 class TestStaticErrorHandling:
     def test_solve_button_disabled_with_insufficient_cards(self, browser_context):
-        """3枚選択（5キャラ未満）→ solveボタンが無効化されている"""
+        """3枚選択（5枚未満）→ solveボタンが無効化されている"""
         page = open_page(browser_context)
         ids = page.eval_on_selector_all(".card", "els => els.slice(0, 3).map(e => e.dataset.id)")
         for cid in ids:

@@ -34,7 +34,10 @@ jobs:
         working-directory: cli
         run: go build -o holosolve .
 
-      - name: Run tests
+      - name: Run unit & E2E tests
+        run: uv run pytest test_solver.py test_e2e.py -v
+
+      - name: Run WASM Playwright tests
         run: |
           uv run python build_static.py
-          uv run pytest test_solver.py test_e2e.py test_static_build.py -v
+          uv run pytest test_static_build.py -v
