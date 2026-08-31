@@ -3,9 +3,12 @@
 build_static.py で生成した HTML が WASM ソルバーで正しく動作するか確認する。
 WASM の読み込みに HTTP サーバーが必要。
 
+pytest-playwright の browser フィクスチャを使用するため、
+test_e2e.py と同一 pytest セッションで実行可能。
+
 実行前提:
     uv run playwright install chromium
-    cd solver_go && GOOS=js GOARCH=wasm go build -o ../dist/solver.wasm .
+    cd solver_go && GOOS=js GOARCH=wasm go build -o solver.wasm .
 
 実行:
     uv run python build_static.py
@@ -13,12 +16,13 @@ WASM の読み込みに HTTP サーバーが必要。
 """
 
 import http.server
+import json
 import subprocess
 import threading
 from pathlib import Path
 
 import pytest
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import BrowserContext
 
 ROOT = Path(__file__).parent
 DIST_DIR = ROOT / "dist"
@@ -35,7 +39,7 @@ def build_and_serve():
     )
     assert result.returncode == 0, f"build failed: {result.stderr}"
     assert STATIC_HTML.exists()
-    assert WASM_FILE.exists(), "solver.wasm not found in dist/ — run: cd solver_go && GOOS=js GOARCH=wasm go build -o ../dist/solver.wasm ."
+    assert WASM_FILE.exists(), "solver.wasm not found in dist/ — run: cd solver_go && GOOS=js GOARCH=wasm go build -o solver.wasm ."
 
     class QuietHandler(http.server.SimpleHTTPRequestHandler):
         def __init__(self, *args, **kwargs):
@@ -52,16 +56,10 @@ def build_and_serve():
 
 
 @pytest.fixture(scope="module")
-def browser_context():
-    with sync_playwright() as p:
-        browser = p.chromium.launch(
-            headless=True,
-            args=["--no-sandbox", "--disable-dev-shm-usage"],
-        )
-        context = browser.new_context()
-        yield context
-        context.close()
-        browser.close()
+def browser_context(browser) -> BrowserContext:
+    context = browser.new_context()
+    yield context
+    context.close()
 
 
 def open_page(browser_context):
@@ -75,11 +73,24 @@ def open_page(browser_context):
 
 
 def select_cards(page, count=6):
-    # Reset song selection to avoid Timeline reranking in tests
     page.select_option("#songSelect", value="")
     ids = page.eval_on_selector_all(".card", f"els => els.slice(0, {count}).map(e => e.dataset.id)")
     for cid in ids:
         page.click(f'.card[data-id="{cid}"] .char-name')
+    return ids
+
+
+def select_cards_and_song(page, count=8):
+    """カードを選択し、最初の曲を選択する共通ヘルパー"""
+    page.select_option("#songSelect", value="")
+    ids = page.eval_on_selector_all(".card", f"els => els.slice(0, {count}).map(e => e.dataset.id)")
+    for cid in ids:
+        page.click(f'.card[data-id="{cid}"] .char-name')
+    page.evaluate("""(() => {
+        const sel = document.getElementById('songSelect');
+        const opts = Array.from(sel.options).filter(o => o.value);
+        if (opts.length) { sel.value = opts[0].value; sel.dispatchEvent(new Event('change')); }
+    })()""")
     return ids
 
 
@@ -173,26 +184,127 @@ class TestStaticTimelineSolve:
     def test_solve_with_timeline_shows_results(self, browser_context):
         """曲選択 + Timeline + sweep → .result-card が表示される"""
         page = open_page(browser_context)
-        ids = page.eval_on_selector_all(".card", f"els => els.slice(0, 8).map(e => e.dataset.id)")
-        for cid in ids:
-            page.click(f'.card[data-id="{cid}"] .char-name')
-        # Select first available song
-        page.evaluate("""(() => {
-            const sel = document.getElementById('songSelect');
-            const opts = Array.from(sel.options).filter(o => o.value);
-            if (opts.length) { sel.value = opts[0].value; sel.dispatchEvent(new Event('change')); }
-        })()""")
+        select_cards_and_song(page, 8)
         page.click("#btnSolve")
         page.wait_for_selector(".result-card", timeout=60000)
         results = page.eval_on_selector_all(".result-card", "els => els.length")
         assert results > 0, "Timeline solve should produce results"
-        # Verify no JS errors prevented rendering
         progress_text = page.eval_on_selector("#progressText", "el => el.textContent")
         assert "完了" in progress_text, f"Progress should show completion, got: {progress_text}"
         page.close()
 
+    def test_timeline_results_show_lsi_and_board(self, browser_context):
+        """Timeline結果にスキル効率・Active重複ロス・メンバーカードが表示されている"""
+        page = open_page(browser_context)
+        select_cards_and_song(page, 8)
+        page.click("#btnSolve")
+        page.wait_for_selector(".result-card", timeout=60000)
+        area_text = page.eval_on_selector("#resultsArea", "el => el.textContent")
+        assert "ライブ期待スコア" in area_text, \
+            f"Song selected → timeline results expected, got: {area_text[:100]}"
+        assert "スキル効率" in area_text, "Timeline results should display skill efficiency"
+        assert "Active重複ロス" in area_text, "Timeline results should display overlap loss"
+        member_cards = page.eval_on_selector_all(".member-card", "els => els.length")
+        assert member_cards >= 5, f"Expected >=5 member cards, got {member_cards}"
+        page.close()
 
-class TestStaticRecommendDisplay:
+    def test_timeline_no_js_errors(self, browser_context):
+        """Timeline solve中にJSエラーが発生しない"""
+        errors = []
+        page = browser_context.new_page()
+        page.on("pageerror", lambda err: errors.append(err.message))
+        page.goto(f"http://127.0.0.1:{SERVER_PORT}/index.html")
+        page.wait_for_selector(".card", timeout=10000)
+        page.evaluate("localStorage.clear()")
+        page.reload()
+        page.wait_for_selector(".card", timeout=10000)
+        select_cards_and_song(page, 8)
+        page.click("#btnSolve")
+        page.wait_for_selector(".result-card", timeout=60000)
+        assert len(errors) == 0, f"JS errors during timeline solve: {errors}"
+        page.close()
+
+
+class TestStaticErrorHandling:
+    def test_solve_button_disabled_with_insufficient_cards(self, browser_context):
+        """3枚選択（5枚未満）→ solveボタンが無効化されている"""
+        page = open_page(browser_context)
+        ids = page.eval_on_selector_all(".card", "els => els.slice(0, 3).map(e => e.dataset.id)")
+        for cid in ids:
+            page.click(f'.card[data-id="{cid}"] .char-name')
+        solve_disabled = page.evaluate("document.getElementById('btnSolve').disabled")
+        assert solve_disabled, "Solve button should be disabled with <5 cards"
+        page.close()
+
+    def test_recommend_button_disabled_with_insufficient_cards(self, browser_context):
+        """3枚選択 → レコメンドボタンが無効化されている"""
+        page = open_page(browser_context)
+        ids = page.eval_on_selector_all(".card", "els => els.slice(0, 3).map(e => e.dataset.id)")
+        for cid in ids:
+            page.click(f'.card[data-id="{cid}"] .char-name')
+        rec_disabled = page.evaluate("document.getElementById('btnRecommend').disabled")
+        assert rec_disabled, "Recommend button should be disabled with <5 cards"
+        page.close()
+
+    def test_done_handler_has_try_catch(self):
+        """build_static.pyのdoneハンドラにtry-catchが存在する（ソース検証のみ、動作検証はしない）"""
+        html = (DIST_DIR / "index.html").read_text()
+        assert "catch (renderErr)" in html or "catch(renderErr)" in html, \
+            "Solve done handler should have try-catch for render errors"
+        assert "結果の表示中にエラーが発生しました" in html, \
+            "Error message should be present in the HTML"
+
+
+class TestStaticWasmResultParity:
+    """WASM版の計算結果が期待値（Go CLIスナップショット）と一致することを検証する"""
+
+    def test_solve_result_matches_expected(self, browser_context):
+        """共通カードセットでsolve → unit_score Top1がスナップショット値と一致"""
+        from test_shared_fixtures import SHARED_CARD_SPECS, EXPECTED_SOLVE_TOP1_UNIT_SCORE
+
+        page = browser_context.new_page()
+        page.goto(f"http://127.0.0.1:{SERVER_PORT}/index.html")
+        page.wait_for_selector(".card", timeout=10000)
+        for _ in range(30):
+            if page.evaluate("typeof _wasmWorker !== 'undefined' && _wasmWorker !== null"):
+                break
+            page.wait_for_timeout(1000)
+        assert page.evaluate("typeof _wasmWorker !== 'undefined' && _wasmWorker !== null"), \
+            "WASM worker not ready after 30s"
+
+        page.evaluate(f"""(() => {{
+            window._testDone = false;
+            window._testResult = null;
+            _wasmWorker.addEventListener('message', function handler(ev) {{
+                if (ev.data.type === 'done' || ev.data.type === 'error') {{
+                    window._testResult = ev.data;
+                    window._testDone = true;
+                    _wasmWorker.removeEventListener('message', handler);
+                }}
+            }});
+            _wasmWorker.postMessage({{
+                type: 'solve',
+                cards: {json.dumps(SHARED_CARD_SPECS)},
+                topN: 3,
+                sweepCostumes: true
+            }});
+        }})()""")
+
+        page.wait_for_function("window._testDone === true", timeout=60000)
+        result = page.evaluate("window._testResult")
+
+        assert result.get("type") != "error", f"WASM solve error: {result.get('message')}"
+
+        results = result.get("results", [])
+        assert len(results) >= 1, "Should produce at least 1 result"
+
+        top1_unit_score = results[0].get("unit_score", 0)
+        assert top1_unit_score == EXPECTED_SOLVE_TOP1_UNIT_SCORE, \
+            f"WASM unit_score {top1_unit_score} != expected {EXPECTED_SOLVE_TOP1_UNIT_SCORE}"
+        page.close()
+
+
+class TestStaticRecommendWasm:
     def test_recommend_best_team_shows_card_name(self, browser_context):
         """8枚選択+レコメンド → ベストチームにカード名(括弧内)が表示される"""
         page = open_page(browser_context)
@@ -201,8 +313,6 @@ class TestStaticRecommendDisplay:
             page.click(f'.card[data-id="{cid}"] .char-name')
         selected_count = page.evaluate("() => document.querySelectorAll('.card.selected').length")
         assert selected_count >= 5, f"Expected >=5 selected, got {selected_count}"
-        recommend_disabled = page.evaluate("() => document.getElementById('btnRecommend').disabled")
-        assert not recommend_disabled, "Recommend button should be enabled with 5+ cards selected"
         page.click("#btnRecommend")
         page.wait_for_selector(".result-card", timeout=120000)
         best_team_text = page.eval_on_selector_all(
@@ -211,4 +321,39 @@ class TestStaticRecommendDisplay:
         )
         has_card_name = any(("メンバー" in t or "ベストチーム" in t) and "(" in t for t in best_team_text)
         assert has_card_name, "Best team display should include card names in parentheses"
+        page.close()
+
+    def test_recommend_shows_progress(self, browser_context):
+        """レコメンド実行中にプログレス表示が出る"""
+        page = open_page(browser_context)
+        ids = page.eval_on_selector_all(".card", "els => els.slice(0, 8).map(e => e.dataset.id)")
+        for cid in ids:
+            page.click(f'.card[data-id="{cid}"] .char-name')
+        page.click("#btnRecommend")
+        page.wait_for_function(
+            "document.getElementById('progressArea')?.classList.contains('visible') || "
+            "document.querySelectorAll('.result-card').length > 0",
+            timeout=10000,
+        )
+        page.wait_for_selector(".result-card", timeout=120000)
+        progress_text = page.eval_on_selector("#progressText", "el => el.textContent")
+        assert "完了" in progress_text, f"Should show completion, got: {progress_text}"
+        page.close()
+
+    def test_recommend_no_js_errors(self, browser_context):
+        """レコメンド実行中にJSエラーが発生しない"""
+        errors = []
+        page = browser_context.new_page()
+        page.on("pageerror", lambda err: errors.append(err.message))
+        page.goto(f"http://127.0.0.1:{SERVER_PORT}/index.html")
+        page.wait_for_selector(".card", timeout=10000)
+        page.evaluate("localStorage.clear()")
+        page.reload()
+        page.wait_for_selector(".card", timeout=10000)
+        ids = page.eval_on_selector_all(".card", "els => els.slice(0, 8).map(e => e.dataset.id)")
+        for cid in ids:
+            page.click(f'.card[data-id="{cid}"] .char-name')
+        page.click("#btnRecommend")
+        page.wait_for_selector(".result-card", timeout=120000)
+        assert len(errors) == 0, f"JS errors during recommend: {errors}"
         page.close()
