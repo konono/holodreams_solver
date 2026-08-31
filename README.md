@@ -268,6 +268,16 @@ mise run build
 
 WASM 版は HTTP サーバー経由で配信する必要がある（`file://` では動作しない）。GitHub Pages にデプロイするか、ローカルで `python -m http.server -d dist` で確認できる。
 
+## ベンチマーク
+
+```bash
+# Go ベンチマーク実行（結果を benchmarks/ に保存、benchstat で比較可能）
+mise run bench
+
+# ネイティブ vs WASM パフォーマンス比較（10分以上かかることがあります）
+mise run bench:wasm
+```
+
 ## 技術資料
 
 スコア計算モデルの解明過程と数式の詳細は [docs/scoring-model.md](docs/scoring-model.md) を参照。
