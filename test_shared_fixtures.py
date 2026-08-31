@@ -18,5 +18,5 @@ SHARED_CARD_SPECS = [
 
 # Sweep solve (曲なし) の期待値
 # unit_score の Top 1 をスナップショットとして固定
-EXPECTED_SOLVE_TOP1_UNIT_SCORE = 798845
+EXPECTED_SOLVE_TOP1_UNIT_SCORE = 801751
 

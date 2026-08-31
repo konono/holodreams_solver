@@ -1,4 +1,8 @@
-"""HoloSolve — ホロライブドリームス編成オプティマイザ
+"""HoloSolve — ホロライブドリームス編成オプティマイザ（Python参照実装）
+
+本番計算はGo版ソルバー (solver_go/) を使用。
+本ファイルはスコア計算モデルの参照実装であり、順列最適化等の
+探索効率化はGo版のみに実装されている。
 
 スコア計算モデル:
   ユニットスコア = 総合力 × (1 + スコアボーナス%) × 2.037
@@ -160,11 +164,11 @@ def check_condition(condition, type_counts, group_counts, leader=None):
 
 
 def _check_center_type_condition(condition, type_counts, group_counts):
-    """センタースキルの条件チェック。タイプ条件のみ適用、ゲーム状態条件(ライフ/コンボ)は不適用"""
+    """センタースキルの条件チェック。AP前提で全条件（タイプ・ライフ・コンボ）を成立として扱う"""
     if condition is None:
         return False
-    if condition in ("life_600", "combo_40"):
-        return False
+    if condition.startswith("life_") or condition.startswith("combo_"):
+        return True
     if condition.endswith("_2"):
         type_name = condition[:-2]
         return type_counts.get(type_name, 0) >= 2
