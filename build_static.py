@@ -737,13 +737,20 @@ function doSolve() {{
       w.onmessage = null;
       isComputing = false;
       btn.disabled = false; btnRec.disabled = selected.size < 5; btn.textContent = "最強編成を探す";
-      document.getElementById("progressFill").style.width = "100%";
-      document.getElementById("progressText").textContent =
-        `完了！ ${{(ev.data.totalCombinations || ev.data.candidate_pool || 0).toLocaleString()}} 通りを評価`;
-      expandResults();
-      renderResults(ev.data);
-      saveToHistory(ev.data);
-      document.getElementById("resultsWrapper").scrollIntoView({{ behavior: "smooth" }});
+      try {{
+        document.getElementById("progressFill").style.width = "100%";
+        document.getElementById("progressText").textContent =
+          `完了！ ${{(ev.data.totalCombinations || ev.data.candidate_pool || 0).toLocaleString()}} 通りを評価`;
+        expandResults();
+        renderResults(ev.data);
+        saveToHistory(ev.data);
+        document.getElementById("resultsWrapper").scrollIntoView({{ behavior: "smooth" }});
+      }} catch (renderErr) {{
+        console.error("renderResults error:", renderErr);
+        expandResults();
+        document.getElementById("resultsArea").innerHTML =
+          `<div class="empty-msg">結果の表示中にエラーが発生しました: ${{renderErr.message}}</div>`;
+      }}
       setFabMode("back");
     }}
   }};
@@ -823,12 +830,19 @@ function doRecommend() {{
       w.onmessage = null;
       isComputing = false;
       btn.disabled = selected.size < 5; btnSolve.disabled = selected.size > 0 && selected.size < 5; btn.textContent = "強化レコメンド";
-      document.getElementById("progressFill").style.width = "100%";
-      document.getElementById("progressText").textContent = "完了！";
-      expandResults();
-      renderRecommendations(ev.data);
+      try {{
+        document.getElementById("progressFill").style.width = "100%";
+        document.getElementById("progressText").textContent = "完了！";
+        expandResults();
+        renderRecommendations(ev.data);
+        document.getElementById("resultsWrapper").scrollIntoView({{ behavior: "smooth" }});
+      }} catch (renderErr) {{
+        console.error("renderRecommendations error:", renderErr);
+        expandResults();
+        document.getElementById("resultsArea").innerHTML =
+          `<div class="empty-msg">結果の表示中にエラーが発生しました: ${{renderErr.message}}</div>`;
+      }}
       setFabMode("back");
-      document.getElementById("resultsWrapper").scrollIntoView({{ behavior: "smooth" }});
     }}
   }};
   }}).catch(() => {{
@@ -856,7 +870,7 @@ function renderRecommendations(data) {{
     html += `<div style="background:#3d2a0f;color:#f0a040;padding:8px 12px;border-radius:6px;margin-bottom:8px;font-size:0.85rem">${{data.warnings.join("<br>")}}</div>`;
   }}
   const ac = data.acquire_count || 1;
-  html += `<div class="results-title">強化レコメンド Top ${{recs.length}}（+${{ac}}枚 / ベーススコア: <span style="color:#4f8cff">${{data.base_score.toLocaleString()}}</span>）</div>`;
+  html += `<div class="results-title">強化レコメンド Top ${{recs.length}}（+${{ac}}枚 / ベーススコア: <span style="color:#4f8cff">${{(data.base_score || 0).toLocaleString()}}</span>）</div>`;
   html += `<div style="font-size:0.78rem;color:#6b7f92;margin-bottom:12px">${{ac === 1 ? '各カードを取得/凸した場合' : `単体で効果のある候補（最大20件）から${{ac}}枚の組み合わせを探索した結果`}}のスコア上昇幅を比較しています</div>`;
 
   for (const r of recs) {{
@@ -1166,7 +1180,7 @@ function renderResults(data) {{
   const results = data.results;
   if (!results || !results.length) {{ area.innerHTML = '<div class="empty-msg">結果が見つかりませんでした。</div>'; return; }}
   let html = "";
-  html += `<div class="results-title">最強編成 Top ${{results.length}}（${{data.totalCombinations.toLocaleString()}} 通り）</div>`;
+  html += `<div class="results-title">最強編成 Top ${{results.length}}（${{(data.totalCombinations || 0).toLocaleString()}} 通り）</div>`;
   for (const r of results) {{
     const rankColors = {{ 1: "#ffd700", 2: "#c0c0c0", 3: "#cd7f32" }};
     const rc = rankColors[r.rank] || "";
