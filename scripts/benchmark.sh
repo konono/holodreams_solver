@@ -14,7 +14,7 @@ echo "Output: $OUTFILE"
 echo ""
 
 cd "$ROOT_DIR/solver_go"
-go test -bench . -benchmem -count="${COUNT:-3}" -run='^$' -timeout 600s 2>&1 | tee "$OUTFILE"
+go test -bench 'Benchmark(EvaluateTeam|ComputeBaseScores|ApplyCostume|Solve|PruneCostumes|SolveSweepCostumes|PrecomputeOwnedBases|SolveForcedCostume|OptimizeResults|RerankTopN|BoardOpt|ResolveCard|Recommend_)' -benchmem -count="${COUNT:-3}" -run='^$' -timeout 600s 2>&1 | tee "$OUTFILE"
 
 echo ""
 echo "Saved to: $OUTFILE"

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"sort"
 	"testing"
 )
@@ -86,6 +87,24 @@ func benchLegacyResults(cards []*Card, n int) ([]SolveResult, map[string]*Card) 
 	return results, cardMap
 }
 
+func benchSolveResultsFrom(b *testing.B, cards []*Card) ([]SolveResult, map[string]*Card) {
+	b.Helper()
+	out := solve(cards, 5, 1.0, 0.0, defaultSongLength, "", "", nil, nil)
+	cardMap := make(map[string]*Card, len(cards))
+	for _, c := range cards {
+		cardMap[c.ID] = c
+	}
+	results := make([]SolveResult, len(out.Results))
+	for i, r := range out.Results {
+		results[i] = SolveResult{
+			Score:     EvalResult{UnitScore: float64(r.UnitScore), TotalPower: float64(r.TotalPower)},
+			LeaderIdx: 0,
+			TeamIDs:   [5]string{r.MemberIDs[0], r.MemberIDs[1], r.MemberIDs[2], r.MemberIDs[3], r.MemberIDs[4]},
+		}
+	}
+	return results, cardMap
+}
+
 // === Phase 1: 単体評価 (innermost hot path) ===
 
 func BenchmarkEvaluateTeam(b *testing.B) {
@@ -119,93 +138,66 @@ func BenchmarkApplyCostume(b *testing.B) {
 
 // === Phase 2: 組み合わせ探索 ===
 
-func BenchmarkSolve_25cards(b *testing.B) {
-	_, cards := loadBenchCards(b, 25)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		solve(cards, 5, 1.0, 0.0, defaultSongLength, "", "", nil, nil)
-	}
-}
-
-func BenchmarkSolve_70cards(b *testing.B) {
-	_, cards := loadBenchCards(b, 70)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		solve(cards, 5, 1.0, 0.0, defaultSongLength, "", "", nil, nil)
+func BenchmarkSolve(b *testing.B) {
+	for _, n := range []int{25, 70} {
+		b.Run(fmt.Sprintf("%dcards", n), func(b *testing.B) {
+			_, cards := loadBenchCards(b, n)
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				solve(cards, 5, 1.0, 0.0, defaultSongLength, "", "", nil, nil)
+			}
+		})
 	}
 }
 
 // === Phase 3: 衣装スイープ ===
 
-func BenchmarkPruneCostumes_25cards(b *testing.B) {
-	cf, cards := loadBenchCards(b, 25)
-	ownedIDs := map[string]bool{}
-	for _, c := range cards {
-		ownedIDs[c.ID] = true
-	}
-	var rawCostumes []CostumeEntry
-	for i := range cf.Cards {
-		raw := &cf.Cards[i]
-		if !ownedIDs[raw.ID] {
-			continue
-		}
-		if len(raw.PotentialData) > 0 {
-			rawCostumes = append(rawCostumes, CostumeEntry{raw.ID, raw.PotentialData[0].CostumeSkill})
-		}
-	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		pruneCostumes(rawCostumes)
-	}
-}
-
-func BenchmarkPruneCostumes_70cards(b *testing.B) {
-	cf, cards := loadBenchCards(b, 70)
-	ownedIDs := map[string]bool{}
-	for _, c := range cards {
-		ownedIDs[c.ID] = true
-	}
-	var rawCostumes []CostumeEntry
-	for i := range cf.Cards {
-		raw := &cf.Cards[i]
-		if !ownedIDs[raw.ID] {
-			continue
-		}
-		if len(raw.PotentialData) > 0 {
-			rawCostumes = append(rawCostumes, CostumeEntry{raw.ID, raw.PotentialData[0].CostumeSkill})
-		}
-	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		pruneCostumes(rawCostumes)
+func BenchmarkPruneCostumes(b *testing.B) {
+	for _, n := range []int{25, 70} {
+		b.Run(fmt.Sprintf("%dcards", n), func(b *testing.B) {
+			cf, cards := loadBenchCards(b, n)
+			ownedIDs := map[string]bool{}
+			for _, c := range cards {
+				ownedIDs[c.ID] = true
+			}
+			var rawCostumes []CostumeEntry
+			for i := range cf.Cards {
+				raw := &cf.Cards[i]
+				if !ownedIDs[raw.ID] {
+					continue
+				}
+				if len(raw.PotentialData) > 0 {
+					rawCostumes = append(rawCostumes, CostumeEntry{raw.ID, raw.PotentialData[0].CostumeSkill})
+				}
+			}
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				pruneCostumes(rawCostumes)
+			}
+		})
 	}
 }
 
-func BenchmarkSolveSweepCostumes_25cards(b *testing.B) {
-	cf, cards := loadBenchCards(b, 25)
-	cardMap := make(map[string]*CardRaw, len(cf.Cards))
-	for i := range cf.Cards {
-		cardMap[cf.Cards[i].ID] = &cf.Cards[i]
-	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		solveSweepCostumes(cards, cf.Cards, cardMap, 5, 1.0, 0.0, defaultSongLength, nil, cf)
-	}
-}
-
-func BenchmarkSolveSweepCostumes_70cards(b *testing.B) {
-	cf, cards := loadBenchCards(b, 70)
-	cardMap := make(map[string]*CardRaw, len(cf.Cards))
-	for i := range cf.Cards {
-		cardMap[cf.Cards[i].ID] = &cf.Cards[i]
-	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		solveSweepCostumes(cards, cf.Cards, cardMap, 5, 1.0, 0.0, defaultSongLength, nil, cf)
+func BenchmarkSolveSweepCostumes(b *testing.B) {
+	for _, n := range []int{25, 70} {
+		b.Run(fmt.Sprintf("%dcards", n), func(b *testing.B) {
+			cf, cards := loadBenchCards(b, n)
+			cardMap := make(map[string]*CardRaw, len(cf.Cards))
+			for i := range cf.Cards {
+				cardMap[cf.Cards[i].ID] = &cf.Cards[i]
+			}
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				solveSweepCostumes(cards, cf.Cards, cardMap, 5, 1.0, 0.0, defaultSongLength, nil, cf)
+			}
+		})
 	}
 }
 
-func BenchmarkPrecomputeOwnedBases_25cards(b *testing.B) {
+// PrecomputeOwnedBases / SolveForcedCostume は recommend 内部関数のため 25枚のみ。
+// 70枚では C(70,5)×5 = 60M 回の computeBaseScores で非現実的に遅い。
+
+func BenchmarkPrecomputeOwnedBases(b *testing.B) {
 	_, cards := loadBenchCards(b, 25)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -213,7 +205,7 @@ func BenchmarkPrecomputeOwnedBases_25cards(b *testing.B) {
 	}
 }
 
-func BenchmarkSolveForcedCostume_25cards(b *testing.B) {
+func BenchmarkSolveForcedCostume(b *testing.B) {
 	_, cards := loadBenchCards(b, 25)
 	bases := precomputeOwnedBases(cards, 1.0, 0.0, defaultSongLength)
 	costume := &cards[0].CostumeSkill
@@ -225,103 +217,55 @@ func BenchmarkSolveForcedCostume_25cards(b *testing.B) {
 
 // === Phase 4: 順列最適化 (post-solve) ===
 
-func BenchmarkOptimizeResults_25cards(b *testing.B) {
-	_, cards := loadBenchCards(b, 25)
-	out := solve(cards, 5, 1.0, 0.0, defaultSongLength, "", "", nil, nil)
-	cardMap := make(map[string]*Card, len(cards))
-	for _, c := range cards {
-		cardMap[c.ID] = c
-	}
-	results := make([]SolveResult, len(out.Results))
-	for i, r := range out.Results {
-		results[i] = SolveResult{
-			Score:     EvalResult{UnitScore: float64(r.UnitScore), TotalPower: float64(r.TotalPower)},
-			LeaderIdx: 0,
-			TeamIDs:   [5]string{r.MemberIDs[0], r.MemberIDs[1], r.MemberIDs[2], r.MemberIDs[3], r.MemberIDs[4]},
-		}
-	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		optimizeResults(results, cardMap, 1.0, 0.0, defaultSongLength, nil)
-	}
-}
-
-func BenchmarkOptimizeResults_70cards(b *testing.B) {
-	_, cards := loadBenchCards(b, 70)
-	out := solve(cards, 5, 1.0, 0.0, defaultSongLength, "", "", nil, nil)
-	cardMap := make(map[string]*Card, len(cards))
-	for _, c := range cards {
-		cardMap[c.ID] = c
-	}
-	results := make([]SolveResult, len(out.Results))
-	for i, r := range out.Results {
-		results[i] = SolveResult{
-			Score:     EvalResult{UnitScore: float64(r.UnitScore), TotalPower: float64(r.TotalPower)},
-			LeaderIdx: 0,
-			TeamIDs:   [5]string{r.MemberIDs[0], r.MemberIDs[1], r.MemberIDs[2], r.MemberIDs[3], r.MemberIDs[4]},
-		}
-	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		optimizeResults(results, cardMap, 1.0, 0.0, defaultSongLength, nil)
+func BenchmarkOptimizeResults(b *testing.B) {
+	for _, n := range []int{25, 70} {
+		b.Run(fmt.Sprintf("%dcards", n), func(b *testing.B) {
+			_, cards := loadBenchCards(b, n)
+			results, cardMap := benchSolveResultsFrom(b, cards)
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				optimizeResults(results, cardMap, 1.0, 0.0, defaultSongLength, nil)
+			}
+		})
 	}
 }
 
 // === Phase 5: タイムライン再評価 ===
 
-func BenchmarkRerankTopN_25cards(b *testing.B) {
-	_, cards := loadBenchCards(b, 25)
-	results, cardMap := benchLegacyResults(cards, 100)
-	timeline, events := benchTimeline()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		RerankTopN(results, cardMap, timeline, events, 1.0, 0.0, 100, nil, 10)
-	}
-}
-
-func BenchmarkRerankTopN_70cards(b *testing.B) {
-	_, cards := loadBenchCards(b, 70)
-	results, cardMap := benchLegacyResults(cards, 100)
-	timeline, events := benchTimeline()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		RerankTopN(results, cardMap, timeline, events, 1.0, 0.0, 100, nil, 10)
+func BenchmarkRerankTopN(b *testing.B) {
+	for _, n := range []int{25, 70} {
+		b.Run(fmt.Sprintf("%dcards", n), func(b *testing.B) {
+			_, cards := loadBenchCards(b, n)
+			results, cardMap := benchLegacyResults(cards, 100)
+			timeline, events := benchTimeline()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				RerankTopN(results, cardMap, timeline, events, 1.0, 0.0, 100, nil, 10)
+			}
+		})
 	}
 }
 
 // === Phase 6: ボード最適化 ===
 
-func BenchmarkBoardOpt_25cards(b *testing.B) {
-	_, cards := loadBenchCards(b, 25)
-	teams := make([][5]*Card, 10)
-	for t := 0; t < 10; t++ {
-		for i := 0; i < 5; i++ {
-			teams[t][i] = cards[(t*5+i)%len(cards)]
-		}
-	}
-	timeline, events := benchTimeline()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		for _, team := range teams {
-			OptimizeBoardForTeam(team, 100000, 100, timeline, events, 5.0)
-		}
-	}
-}
-
-func BenchmarkBoardOpt_70cards(b *testing.B) {
-	_, cards := loadBenchCards(b, 70)
-	teams := make([][5]*Card, 10)
-	for t := 0; t < 10; t++ {
-		for i := 0; i < 5; i++ {
-			teams[t][i] = cards[(t*5+i)%len(cards)]
-		}
-	}
-	timeline, events := benchTimeline()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		for _, team := range teams {
-			OptimizeBoardForTeam(team, 100000, 100, timeline, events, 5.0)
-		}
+func BenchmarkBoardOpt(b *testing.B) {
+	for _, n := range []int{25, 70} {
+		b.Run(fmt.Sprintf("%dcards", n), func(b *testing.B) {
+			_, cards := loadBenchCards(b, n)
+			teams := make([][5]*Card, 10)
+			for t := 0; t < 10; t++ {
+				for i := 0; i < 5; i++ {
+					teams[t][i] = cards[(t*5+i)%len(cards)]
+				}
+			}
+			timeline, events := benchTimeline()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				for _, team := range teams {
+					OptimizeBoardForTeam(team, 100000, 100, timeline, events, 5.0)
+				}
+			}
+		})
 	}
 }
 

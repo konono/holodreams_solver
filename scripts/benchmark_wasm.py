@@ -145,7 +145,7 @@ def main():
             sys.exit(1)
 
     scenarios = [
-        ("solve (34 cards, sweep)", 34),
+        ("solve (25 cards, sweep)", 25),
         ("solve (70 cards, sweep)", 70),
     ]
 
