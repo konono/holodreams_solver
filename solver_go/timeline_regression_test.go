@@ -211,6 +211,95 @@ func TestSolveRegressionNonSweepTimeline(t *testing.T) {
 	assertBoardOptPresent(t, tOutput, 5)
 }
 
+// TestCostumeOnlyVsSweepParity verifies that a costume_only_leader_id result
+// matches the same team+costume in sweep_costumes output.
+func TestCostumeOnlyVsSweepParity(t *testing.T) {
+	cf, err := loadCardsFile("../data/cards.json")
+	if err != nil {
+		t.Skip("cards.json not available")
+	}
+
+	cardSpecs := []CardSpec{
+		{ID: "aki_rosenthal_5"}, {ID: "natsuiro_matsuri_5"},
+		{ID: "nakiri_ayame_5", Potential: 1}, {ID: "oozora_subaru_5"},
+		{ID: "yuzuki_choco_5"}, {ID: "nekomata_okayu_5", Potential: 4},
+		{ID: "shiranui_flare_5", Potential: 2}, {ID: "shirogane_noel_5"},
+		{ID: "houshou_marine_5"}, {ID: "tokoyami_towa_5", Potential: 1},
+		{ID: "yukihana_lamy_5"}, {ID: "momosuzu_nene_5"},
+		{ID: "omaru_polka_5", Potential: 1}, {ID: "la_darknesss_5", Potential: 1},
+		{ID: "takane_lui_5", Potential: 3}, {ID: "hakui_koyori_5", Potential: 2},
+		{ID: "kazama_iroha_5", Potential: 2}, {ID: "anya_melfissa_5"},
+		{ID: "kobo_kanaeru_5"}, {ID: "irys_5"},
+		{ID: "ouro_kronii_5"}, {ID: "hakos_baelz_5"},
+		{ID: "fuwawa_abyssgard_5"}, {ID: "nerissa_ravencroft_5"},
+		{ID: "ichijou_ririka_5"}, {ID: "otonose_kanade_5"},
+		{ID: "shirogane_noel_swim_5", Potential: 3}, {ID: "ookami_mio_5"},
+		{ID: "inugami_korone_swim_5"}, {ID: "nekomata_okayu_swim_5", Potential: 2},
+		{ID: "ookami_mio_swim_5"}, {ID: "pavolia_reine_5"},
+		{ID: "mori_calliope_swim_5"}, {ID: "takanashi_kiara_5"},
+		{ID: "shirakami_fubuki_swim_5"}, {ID: "tokino_sora_5"},
+	}
+	cardsJSON, _ := json.Marshal(cardSpecs)
+
+	costumeID := "nekomata_okayu_5"
+	costumeInput := CLIInput{
+		Action:             "solve",
+		Cards:              json.RawMessage(cardsJSON),
+		TopN:               5,
+		CostumeOnlyLeaderID: &costumeID,
+	}
+	costumeResult, err := dispatchAction(costumeInput, cf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	costumeOutput := costumeResult.(JSONOutput)
+	if len(costumeOutput.Results) == 0 {
+		t.Fatal("costume_only_leader_id returned no results")
+	}
+	top1 := costumeOutput.Results[0]
+
+	sweepInput := CLIInput{
+		Action:        "solve",
+		Cards:         json.RawMessage(cardsJSON),
+		TopN:          1000,
+		SweepCostumes: true,
+	}
+	sweepResult, err := dispatchAction(sweepInput, cf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sweepOutput := sweepResult.(JSONOutput)
+
+	top1Members := map[string]bool{}
+	for _, id := range top1.MemberIDs {
+		top1Members[id] = true
+	}
+
+	found := false
+	for _, r := range sweepOutput.Results {
+		if r.CostumeOnlyLeaderID == nil || *r.CostumeOnlyLeaderID != costumeID {
+			continue
+		}
+		match := true
+		for _, id := range r.MemberIDs {
+			if !top1Members[id] {
+				match = false
+				break
+			}
+		}
+		if match {
+			found = true
+			if r.UnitScore != top1.UnitScore {
+				t.Errorf("same team+costume but different unit_score: sweep=%d, costume_only=%d", r.UnitScore, top1.UnitScore)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Errorf("costume_only top1 (unit_score=%d, members=%v) not found in sweep top1000", top1.UnitScore, top1.MemberIDs)
+	}
+}
+
 // --- rerankTeamAllPerms equivalence tests (7 patterns × 120 permutations) ---
 
 func TestRerankAllPerms_NoActive(t *testing.T) {

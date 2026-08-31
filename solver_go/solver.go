@@ -8,6 +8,14 @@ import (
 
 const defaultSongLength = 192.0
 
+// sweepPruneTrigger: プルーニング発動の倍率。バッファが topN*sweepPruneTrigger を超えたらソート＆刈り込み。
+// sweepPruneKeep: 刈り込み後の保持倍率。topN*sweepPruneKeep 件を残す。
+// unitScore基準のプルーニングでLSI上位候補を取りこぼさないよう余裕を持たせている。
+const (
+	sweepPruneTrigger = 50
+	sweepPruneKeep    = 25
+)
+
 var progressCallback func(current, total int)
 
 func comb(n, k int) int {
@@ -309,7 +317,7 @@ func solveSweepCostumes(cards []*Card, allRawCards []CardRaw, cardMap map[string
 		costumeOnlyLeaderID string
 	}
 
-	sweepResults := make([]sweepResult, 0, topN*50)
+	sweepResults := make([]sweepResult, 0, topN*sweepPruneTrigger)
 	totalCombos := 0
 	charComboCount := comb(nChars, 5)
 	charCombosDone := 0
@@ -365,11 +373,11 @@ func solveSweepCostumes(cards []*Card, allRawCards []CardRaw, cardMap map[string
 													costumeOnlyLeaderID: ce.CardID,
 												})
 											}
-											if len(sweepResults) > topN*50 {
+											if len(sweepResults) > topN*sweepPruneTrigger {
 												sort.Slice(sweepResults, func(i, j int) bool {
 													return sweepResults[i].unitScore > sweepResults[j].unitScore
 												})
-												sweepResults = sweepResults[:topN*25]
+												sweepResults = sweepResults[:topN*sweepPruneKeep]
 											}
 										}
 									}
