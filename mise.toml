@@ -31,9 +31,10 @@ run = "uv run python build_static.py"
 
 [tasks."build:solver"]
 description = "Goソルバービルド（CLI + WASM）"
+dir = "solver_go"
 run = """
-cd solver_go && go build -o solver .
-cd solver_go && GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o solver.wasm .
+go build -o solver .
+GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o solver.wasm .
 """
 
 [tasks.dev]
