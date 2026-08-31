@@ -34,3 +34,6 @@ cli/holosolve
 # Workflow is managed via GitHub UI (workflow scope required)
 # .github/ is now tracked for CI fixes
 data/charts.json
+
+# Benchmark results
+benchmarks/

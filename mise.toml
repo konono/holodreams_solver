@@ -52,6 +52,14 @@ python3 -m holodori_asset_tools download /tmp/holodori_assets --filter 'chart_m'
 python3 scripts/generate_charts.py /tmp/holodori_assets/resources/ --output data/chart_scores.json --bin-size 0.5
 """
 
+[tasks.bench]
+description = "Goベンチマーク実行（結果をbenchmarks/に保存）"
+run = "bash scripts/benchmark.sh"
+
+[tasks."bench:wasm"]
+description = "ネイティブ vs WASM パフォーマンス比較"
+run = "uv run python scripts/benchmark_wasm.py"
+
 [tasks."build:cli"]
 description = "API Client CLIビルド"
 run = "cd cli && go build -o holosolve ."
