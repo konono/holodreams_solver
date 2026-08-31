@@ -8,7 +8,9 @@ import (
 	"testing"
 )
 
-// --- Golden snapshot tests (update values only when scoring model changes intentionally) ---
+// --- Golden snapshot tests ---
+// Update golden values when: scoring model changes, cards.json syncs new data,
+// or chart_scores.json updates. Run `go test -run Golden -v` to check.
 
 func TestTimelineRegressionGolden(t *testing.T) {
 	cf, err := loadCardsFile("../data/cards.json")
