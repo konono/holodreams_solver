@@ -423,18 +423,8 @@ func pruneCostumes(costumes []CostumeEntry) []CostumeEntry {
 
 	kept := make([]bool, len(items))
 	for _, indices := range groups {
-		// Deduplicate identical vectors first
-		type vecKey struct {
-			p, t, s, ss float64
-		}
-		seen := map[vecKey]bool{}
 		for _, i := range indices {
 			v := items[i].vec
-			k := vecKey{v.perf, v.tech, v.sense, v.scoreSupport}
-			if seen[k] {
-				continue
-			}
-			seen[k] = true
 
 			// Check if dominated by any other in the group
 			dominated := false

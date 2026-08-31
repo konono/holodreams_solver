@@ -162,8 +162,8 @@ func TestTimelineRegressionSweep34Cards(t *testing.T) {
 		{lsi: 313138008991, power: 220040, unit: 875332},
 		{lsi: 311828483796, power: 216414, unit: 862577},
 		{lsi: 311828483796, power: 216414, unit: 862577},
-		{lsi: 311529427336, power: 213617, unit: 859108},
-		{lsi: 309686712878, power: 217615, unit: 865684},
+		{lsi: 311529427336, power: 213811, unit: 859888},
+		{lsi: 309686712878, power: 212404, unit: 854232},
 	})
 	assertBoardOptPresent(t, tOutput, 5)
 }

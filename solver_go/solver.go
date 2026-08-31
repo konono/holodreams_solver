@@ -161,29 +161,35 @@ func solve(cards []*Card, topN int, statScale, baseline, songLength float64, fix
 												team := [5]*Card{c0, c1, c2, c3, c4}
 												totalCombos++
 
-												base := computeBaseScores(team, 0, statScale, baseline, songLength)
 												var bestScore float64
 												bestLeader := 0
 												var bestResult EvalResult
-												for li := 0; li < 5; li++ {
-													cs := &team[li].CostumeSkill
-													us, tp, sb, csbp, csv, cc := applyCostume(&base, cs)
-													if us > bestScore {
-														bestScore = us
-														bestLeader = li
-														bestResult = EvalResult{
-															UnitScore:      us,
-															TotalPower:     tp,
-															MemberParams:   base.MemberParams,
-															CostumeContrib: cc,
-															SupportContrib: base.SupportContrib,
-															ActivePct:      base.ActivePct,
-															CostumeSBPct:   csbp,
-															PassiveSBPct:   base.PassiveSBPct,
-															SpecialPct:     base.SpecialPct,
-															ScoreBonus:     sb,
-															CostumeSSVal:   csv,
-															SupportSSVal:   base.SupportSS,
+												if overrideCostumeSkill != nil {
+													score := evaluateTeam(team, 0, statScale, baseline, songLength, overrideCostumeSkill)
+													bestScore = score.UnitScore
+													bestResult = score
+												} else {
+													base := computeBaseScores(team, 0, statScale, baseline, songLength)
+													for li := 0; li < 5; li++ {
+														cs := &team[li].CostumeSkill
+														us, tp, sb, csbp, csv, cc := applyCostume(&base, cs)
+														if us > bestScore {
+															bestScore = us
+															bestLeader = li
+															bestResult = EvalResult{
+																UnitScore:      us,
+																TotalPower:     tp,
+																MemberParams:   base.MemberParams,
+																CostumeContrib: cc,
+																SupportContrib: base.SupportContrib,
+																ActivePct:      base.ActivePct,
+																CostumeSBPct:   csbp,
+																PassiveSBPct:   base.PassiveSBPct,
+																SpecialPct:     base.SpecialPct,
+																ScoreBonus:     sb,
+																CostumeSSVal:   csv,
+																SupportSSVal:   base.SupportSS,
+															}
 														}
 													}
 												}
@@ -303,7 +309,7 @@ func solveSweepCostumes(cards []*Card, allRawCards []CardRaw, cardMap map[string
 		costumeOnlyLeaderID string
 	}
 
-	sweepResults := make([]sweepResult, 0, topN*10)
+	sweepResults := make([]sweepResult, 0, topN*50)
 	totalCombos := 0
 	charComboCount := comb(nChars, 5)
 	charCombosDone := 0
@@ -359,11 +365,11 @@ func solveSweepCostumes(cards []*Card, allRawCards []CardRaw, cardMap map[string
 													costumeOnlyLeaderID: ce.CardID,
 												})
 											}
-											if len(sweepResults) > topN*10 {
+											if len(sweepResults) > topN*50 {
 												sort.Slice(sweepResults, func(i, j int) bool {
 													return sweepResults[i].unitScore > sweepResults[j].unitScore
 												})
-												sweepResults = sweepResults[:topN]
+												sweepResults = sweepResults[:topN*25]
 											}
 										}
 									}
@@ -387,7 +393,7 @@ func solveSweepCostumes(cards []*Card, allRawCards []CardRaw, cardMap map[string
 		sweepResults = sweepResults[:topN]
 	}
 
-	// Post-optimize: try all 24 permutations for each result
+	// Post-optimize: try all 120 permutations (5 leaders × 24 orderings) for each result
 	for ri := range sweepResults {
 		r := &sweepResults[ri]
 		costumeID := r.costumeOnlyLeaderID
@@ -398,33 +404,39 @@ func solveSweepCostumes(cards []*Card, allRawCards []CardRaw, cardMap map[string
 				break
 			}
 		}
-		leaderCard := resolvedMap[r.teamIDs[r.leaderIdx]]
-		var others [4]*Card
-		var otherIDs [4]string
-		oi := 0
-		for _, id := range r.teamIDs {
-			if id != leaderCard.ID {
-				others[oi] = resolvedMap[id]
-				otherIDs[oi] = id
-				oi++
-			}
+		cards5 := [5]*Card{}
+		ids5 := r.teamIDs
+		for ti, id := range ids5 {
+			cards5[ti] = resolvedMap[id]
 		}
-
-		for _, perm := range perms4 {
-			team := [5]*Card{leaderCard, others[perm[0]], others[perm[1]], others[perm[2]], others[perm[3]]}
-			score := evaluateTeam(team, 0, statScale, baseline, songLength, cs)
-			if score.UnitScore > r.unitScore {
-				r.unitScore = score.UnitScore
-				r.totalPower = score.TotalPower
-				r.scoreBonus = score.ScoreBonus
-				r.activePct = score.ActivePct
-				r.costumeSBPct = score.CostumeSBPct
-				r.passiveSBPct = score.PassiveSBPct
-				r.specialPct = score.SpecialPct
-				r.costumeSSVal = score.CostumeSSVal
-				r.supportSS = score.SupportSSVal
-				r.leaderIdx = 0
-				r.teamIDs = [5]string{leaderCard.ID, otherIDs[perm[0]], otherIDs[perm[1]], otherIDs[perm[2]], otherIDs[perm[3]]}
+		for li := 0; li < 5; li++ {
+			leaderCard := cards5[li]
+			var others [4]*Card
+			var otherIDs [4]string
+			oi := 0
+			for ti := 0; ti < 5; ti++ {
+				if ti != li {
+					others[oi] = cards5[ti]
+					otherIDs[oi] = ids5[ti]
+					oi++
+				}
+			}
+			for _, perm := range perms4 {
+				team := [5]*Card{leaderCard, others[perm[0]], others[perm[1]], others[perm[2]], others[perm[3]]}
+				score := evaluateTeam(team, 0, statScale, baseline, songLength, cs)
+				if score.UnitScore > r.unitScore {
+					r.unitScore = score.UnitScore
+					r.totalPower = score.TotalPower
+					r.scoreBonus = score.ScoreBonus
+					r.activePct = score.ActivePct
+					r.costumeSBPct = score.CostumeSBPct
+					r.passiveSBPct = score.PassiveSBPct
+					r.specialPct = score.SpecialPct
+					r.costumeSSVal = score.CostumeSSVal
+					r.supportSS = score.SupportSSVal
+					r.leaderIdx = 0
+					r.teamIDs = [5]string{leaderCard.ID, otherIDs[perm[0]], otherIDs[perm[1]], otherIDs[perm[2]], otherIDs[perm[3]]}
+				}
 			}
 		}
 	}
