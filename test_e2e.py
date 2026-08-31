@@ -212,6 +212,45 @@ class TestPersistenceReload:
         assert active_pot == 3
 
 
+class TestServerResultParity:
+    """サーバー版の計算結果がネイティブCLIと一致することを検証する（共通テストデータ使用）"""
+
+    def test_solve_result_matches_expected(self, server):
+        """共通カードセットでsolve API → unit_score Top1がCLIと一致"""
+        import urllib.request
+        from test_shared_fixtures import SHARED_CARD_SPECS, EXPECTED_SOLVE_TOP1_UNIT_SCORE
+
+        payload = json.dumps({
+            "cards": SHARED_CARD_SPECS,
+            "top_n": 3,
+            "sweep_costumes": True,
+        }).encode()
+        req = urllib.request.Request(
+            f"{server}/api/solve/stream",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            body = resp.read().decode()
+
+        # Parse SSE: find the "done" event
+        result = None
+        for line in body.split("\n"):
+            if line.startswith("data: "):
+                event = json.loads(line[6:])
+                if event.get("type") == "done":
+                    result = event.get("result", {})
+                    break
+
+        assert result is not None, "No 'done' event in SSE stream"
+        results = result.get("results", [])
+        assert len(results) >= 1, "Should produce at least 1 result"
+
+        top1_unit_score = results[0].get("unit_score", 0)
+        assert top1_unit_score == EXPECTED_SOLVE_TOP1_UNIT_SCORE, \
+            f"Server unit_score {top1_unit_score} != expected {EXPECTED_SOLVE_TOP1_UNIT_SCORE}"
+
+
 class TestStaticBuild:
     def test_build_produces_html(self):
         """build_static.py → dist/index.html が生成される"""

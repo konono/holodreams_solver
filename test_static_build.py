@@ -13,6 +13,7 @@ WASM の読み込みに HTTP サーバーが必要。
 """
 
 import http.server
+import json
 import subprocess
 import threading
 from pathlib import Path
@@ -261,6 +262,54 @@ class TestStaticErrorHandling:
         # The error message pattern
         assert "結果の表示中にエラーが発生しました" in html, \
             "Error message should be present in the HTML"
+
+
+class TestStaticWasmResultParity:
+    """WASM版の計算結果がネイティブと一致することを検証する（共通テストデータ使用）"""
+
+    def test_solve_result_matches_expected(self, browser_context):
+        """共通カードセットでsolve → unit_score Top1がネイティブと一致"""
+        from test_shared_fixtures import SHARED_CARD_SPECS, EXPECTED_SOLVE_TOP1_UNIT_SCORE
+
+        page = browser_context.new_page()
+        page.goto(f"http://127.0.0.1:{SERVER_PORT}/index.html")
+        page.wait_for_selector(".card", timeout=10000)
+        # Wait for WASM ready
+        for _ in range(30):
+            if page.evaluate("typeof _wasmWorker !== 'undefined' && _wasmWorker !== null"):
+                break
+            page.wait_for_timeout(1000)
+
+        page.evaluate(f"""(() => {{
+            window._testDone = false;
+            window._testResult = null;
+            _wasmWorker.addEventListener('message', function handler(ev) {{
+                if (ev.data.type === 'done' || ev.data.type === 'error') {{
+                    window._testResult = ev.data;
+                    window._testDone = true;
+                    _wasmWorker.removeEventListener('message', handler);
+                }}
+            }});
+            _wasmWorker.postMessage({{
+                type: 'solve',
+                cards: {json.dumps(SHARED_CARD_SPECS)},
+                topN: 3,
+                sweepCostumes: true
+            }});
+        }})()""")
+
+        page.wait_for_function("window._testDone === true", timeout=60000)
+        result = page.evaluate("window._testResult")
+
+        assert result.get("type") != "error", f"WASM solve error: {result.get('message')}"
+
+        results = result.get("results", [])
+        assert len(results) >= 1, "Should produce at least 1 result"
+
+        top1_unit_score = results[0].get("unit_score", 0)
+        assert top1_unit_score == EXPECTED_SOLVE_TOP1_UNIT_SCORE, \
+            f"WASM unit_score {top1_unit_score} != expected {EXPECTED_SOLVE_TOP1_UNIT_SCORE}"
+        page.close()
 
 
 class TestStaticRecommendWasm:
