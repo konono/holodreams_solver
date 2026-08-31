@@ -1260,10 +1260,14 @@ renderHistory();
         if src.exists():
             shutil.copy2(src, dist / name)
     wasm_src = ROOT / "solver_go" / "solver.wasm"
+    wasm_fallback = ROOT / "solver.wasm"
     if wasm_src.exists():
         shutil.copy2(wasm_src, dist / "solver.wasm")
+    elif wasm_fallback.exists():
+        print(f"WARNING: solver_go/solver.wasm not found, using {wasm_fallback} instead. Prefer: cd solver_go && GOOS=js GOARCH=wasm go build -o solver.wasm .")
+        shutil.copy2(wasm_fallback, dist / "solver.wasm")
     else:
-        print("WARNING: solver_go/solver.wasm not found. Run: cd solver_go && GOOS=js GOARCH=wasm go build -o solver.wasm .")
+        print("WARNING: solver.wasm not found. Run: cd solver_go && GOOS=js GOARCH=wasm go build -o solver.wasm .")
     print(f"Built: {out} ({out.stat().st_size / 1024:.0f} KB)")
 
 
