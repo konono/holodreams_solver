@@ -3,9 +3,8 @@
 build_static.py で生成した HTML が WASM ソルバーで正しく動作するか確認する。
 WASM の読み込みに HTTP サーバーが必要。
 
-注意: test_e2e.py と同一 pytest セッションでは実行不可
-（pytest-playwright の async ループと sync_playwright() が競合するため）。
-CI では pytest を分離実行している。
+pytest-playwright の browser フィクスチャを使用するため、
+test_e2e.py と同一 pytest セッションで実行可能。
 
 実行前提:
     uv run playwright install chromium
@@ -23,7 +22,7 @@ import threading
 from pathlib import Path
 
 import pytest
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import BrowserContext
 
 ROOT = Path(__file__).parent
 DIST_DIR = ROOT / "dist"
@@ -40,7 +39,7 @@ def build_and_serve():
     )
     assert result.returncode == 0, f"build failed: {result.stderr}"
     assert STATIC_HTML.exists()
-    assert WASM_FILE.exists(), "solver.wasm not found in dist/ — run: cd solver_go && GOOS=js GOARCH=wasm go build -o ../dist/solver.wasm ."
+    assert WASM_FILE.exists(), "solver.wasm not found in dist/ — run: cd solver_go && GOOS=js GOARCH=wasm go build -o solver.wasm ."
 
     class QuietHandler(http.server.SimpleHTTPRequestHandler):
         def __init__(self, *args, **kwargs):
@@ -57,16 +56,10 @@ def build_and_serve():
 
 
 @pytest.fixture(scope="module")
-def browser_context():
-    with sync_playwright() as p:
-        browser = p.chromium.launch(
-            headless=True,
-            args=["--no-sandbox", "--disable-dev-shm-usage"],
-        )
-        context = browser.new_context()
-        yield context
-        context.close()
-        browser.close()
+def browser_context(browser) -> BrowserContext:
+    context = browser.new_context()
+    yield context
+    context.close()
 
 
 def open_page(browser_context):
@@ -80,11 +73,24 @@ def open_page(browser_context):
 
 
 def select_cards(page, count=6):
-    # Reset song selection to avoid Timeline reranking in tests
     page.select_option("#songSelect", value="")
     ids = page.eval_on_selector_all(".card", f"els => els.slice(0, {count}).map(e => e.dataset.id)")
     for cid in ids:
         page.click(f'.card[data-id="{cid}"] .char-name')
+    return ids
+
+
+def select_cards_and_song(page, count=8):
+    """カードを選択し、最初の曲を選択する共通ヘルパー"""
+    page.select_option("#songSelect", value="")
+    ids = page.eval_on_selector_all(".card", f"els => els.slice(0, {count}).map(e => e.dataset.id)")
+    for cid in ids:
+        page.click(f'.card[data-id="{cid}"] .char-name')
+    page.evaluate("""(() => {
+        const sel = document.getElementById('songSelect');
+        const opts = Array.from(sel.options).filter(o => o.value);
+        if (opts.length) { sel.value = opts[0].value; sel.dispatchEvent(new Event('change')); }
+    })()""")
     return ids
 
 
@@ -174,20 +180,6 @@ class TestStaticSolve:
         page.close()
 
 
-def select_cards_and_song(page, count=8):
-    """カードを選択し、最初の曲を選択する共通ヘルパー"""
-    page.select_option("#songSelect", value="")
-    ids = page.eval_on_selector_all(".card", f"els => els.slice(0, {count}).map(e => e.dataset.id)")
-    for cid in ids:
-        page.click(f'.card[data-id="{cid}"] .char-name')
-    page.evaluate("""(() => {
-        const sel = document.getElementById('songSelect');
-        const opts = Array.from(sel.options).filter(o => o.value);
-        if (opts.length) { sel.value = opts[0].value; sel.dispatchEvent(new Event('change')); }
-    })()""")
-    return ids
-
-
 class TestStaticTimelineSolve:
     def test_solve_with_timeline_shows_results(self, browser_context):
         """曲選択 + Timeline + sweep → .result-card が表示される"""
@@ -218,8 +210,8 @@ class TestStaticTimelineSolve:
 
     def test_timeline_no_js_errors(self, browser_context):
         """Timeline solve中にJSエラーが発生しない"""
-        page = browser_context.new_page()
         errors = []
+        page = browser_context.new_page()
         page.on("pageerror", lambda err: errors.append(err.message))
         page.goto(f"http://127.0.0.1:{SERVER_PORT}/index.html")
         page.wait_for_selector(".card", timeout=10000)
@@ -257,10 +249,8 @@ class TestStaticErrorHandling:
     def test_done_handler_has_try_catch(self):
         """build_static.pyのdoneハンドラにtry-catchが存在する（ソース検証のみ、動作検証はしない）"""
         html = (DIST_DIR / "index.html").read_text()
-        # solve done handler
         assert "catch (renderErr)" in html or "catch(renderErr)" in html, \
             "Solve done handler should have try-catch for render errors"
-        # The error message pattern
         assert "結果の表示中にエラーが発生しました" in html, \
             "Error message should be present in the HTML"
 
@@ -275,7 +265,6 @@ class TestStaticWasmResultParity:
         page = browser_context.new_page()
         page.goto(f"http://127.0.0.1:{SERVER_PORT}/index.html")
         page.wait_for_selector(".card", timeout=10000)
-        # Wait for WASM ready
         for _ in range(30):
             if page.evaluate("typeof _wasmWorker !== 'undefined' && _wasmWorker !== null"):
                 break
@@ -340,7 +329,6 @@ class TestStaticRecommendWasm:
         ids = page.eval_on_selector_all(".card", "els => els.slice(0, 8).map(e => e.dataset.id)")
         for cid in ids:
             page.click(f'.card[data-id="{cid}"] .char-name')
-        # Watch for progress area becoming visible
         page.click("#btnRecommend")
         page.wait_for_function(
             "document.getElementById('progressArea')?.classList.contains('visible') || "
@@ -354,8 +342,8 @@ class TestStaticRecommendWasm:
 
     def test_recommend_no_js_errors(self, browser_context):
         """レコメンド実行中にJSエラーが発生しない"""
-        page = browser_context.new_page()
         errors = []
+        page = browser_context.new_page()
         page.on("pageerror", lambda err: errors.append(err.message))
         page.goto(f"http://127.0.0.1:{SERVER_PORT}/index.html")
         page.wait_for_selector(".card", timeout=10000)
