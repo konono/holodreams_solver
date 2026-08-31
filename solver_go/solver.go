@@ -85,12 +85,16 @@ func solve(cards []*Card, topN int, statScale, baseline, songLength float64, fix
 		nOther := len(otherChars)
 		charComboCount = comb(nOther, 4)
 		charCombosDone := 0
+		progressStep := charComboCount / 200
+		if progressStep < 1 {
+			progressStep = 1
+		}
 		for a := 0; a < nOther-3; a++ {
 			for b := a + 1; b < nOther-2; b++ {
 				for c := b + 1; c < nOther-1; c++ {
 					for d := c + 1; d < nOther; d++ {
 						charCombosDone++
-						if progressCallback != nil && charCombosDone%20 == 0 {
+						if progressCallback != nil && charCombosDone%progressStep == 0 {
 							progressCallback(charCombosDone, charComboCount)
 						}
 						lists := [4][]*Card{
@@ -129,13 +133,17 @@ func solve(cards []*Card, topN int, statScale, baseline, songLength float64, fix
 	} else {
 		charComboCount = comb(nChars, 5)
 		charCombosDone := 0
+		progressStep := charComboCount / 200
+		if progressStep < 1 {
+			progressStep = 1
+		}
 		for a := 0; a < nChars-4; a++ {
 			for b := a + 1; b < nChars-3; b++ {
 				for ci := b + 1; ci < nChars-2; ci++ {
 					for d := ci + 1; d < nChars-1; d++ {
 						for e := d + 1; e < nChars; e++ {
 							charCombosDone++
-							if progressCallback != nil && charCombosDone%20 == 0 {
+							if progressCallback != nil && charCombosDone%progressStep == 0 {
 								progressCallback(charCombosDone, charComboCount)
 							}
 							lists := [5][]*Card{
@@ -153,17 +161,34 @@ func solve(cards []*Card, topN int, statScale, baseline, songLength float64, fix
 												team := [5]*Card{c0, c1, c2, c3, c4}
 												totalCombos++
 
-												var best EvalResult
+												base := computeBaseScores(team, 0, statScale, baseline, songLength)
+												var bestScore float64
 												bestLeader := 0
+												var bestResult EvalResult
 												for li := 0; li < 5; li++ {
-													score := evaluateTeam(team, li, statScale, baseline, songLength, overrideCostumeSkill)
-													if score.UnitScore > best.UnitScore {
-														best = score
+													cs := &team[li].CostumeSkill
+													us, tp, sb, csbp, csv, cc := applyCostume(&base, cs)
+													if us > bestScore {
+														bestScore = us
 														bestLeader = li
+														bestResult = EvalResult{
+															UnitScore:      us,
+															TotalPower:     tp,
+															MemberParams:   base.MemberParams,
+															CostumeContrib: cc,
+															SupportContrib: base.SupportContrib,
+															ActivePct:      base.ActivePct,
+															CostumeSBPct:   csbp,
+															PassiveSBPct:   base.PassiveSBPct,
+															SpecialPct:     base.SpecialPct,
+															ScoreBonus:     sb,
+															CostumeSSVal:   csv,
+															SupportSSVal:   base.SupportSS,
+														}
 													}
 												}
 												results = append(results, SolveResult{
-													Score:               best,
+													Score:               bestResult,
 													LeaderIdx:           bestLeader,
 													TeamIDs:             [5]string{c0.ID, c1.ID, c2.ID, c3.ID, c4.ID},
 													CostumeOnlyLeaderID: costumeOnlyLeaderID,
@@ -282,6 +307,10 @@ func solveSweepCostumes(cards []*Card, allRawCards []CardRaw, cardMap map[string
 	totalCombos := 0
 	charComboCount := comb(nChars, 5)
 	charCombosDone := 0
+	progressStep := charComboCount / 200
+	if progressStep < 1 {
+		progressStep = 1
+	}
 
 	for a := 0; a < nChars-4; a++ {
 		for b := a + 1; b < nChars-3; b++ {
@@ -289,7 +318,7 @@ func solveSweepCostumes(cards []*Card, allRawCards []CardRaw, cardMap map[string
 				for d := ci + 1; d < nChars-1; d++ {
 					for e := d + 1; e < nChars; e++ {
 						charCombosDone++
-						if progressCallback != nil && charCombosDone%20 == 0 {
+						if progressCallback != nil && charCombosDone%progressStep == 0 {
 							progressCallback(charCombosDone, charComboCount)
 						}
 						lists := [5][]*Card{
@@ -307,30 +336,22 @@ func solveSweepCostumes(cards []*Card, allRawCards []CardRaw, cardMap map[string
 											team := [5]*Card{c0, c1, c2, c3, c4}
 											totalCombos++
 
-											var bestBase *BaseScores
+											base := computeBaseScores(team, 0, statScale, baseline, songLength)
 											bestLeaderIdx := 0
-											for li := 0; li < 5; li++ {
-												base := computeBaseScores(team, li, statScale, baseline, songLength)
-												if bestBase == nil || base.BasePower > bestBase.BasePower {
-													b := base
-													bestBase = &b
-													bestLeaderIdx = li
-												}
-											}
 
 											teamIDs := [5]string{c0.ID, c1.ID, c2.ID, c3.ID, c4.ID}
 											for _, ce := range costumeSkills {
-												us, tp, sb, csbp, csv, _ := applyCostume(bestBase, &ce.Skill)
+												us, tp, sb, csbp, csv, _ := applyCostume(&base, &ce.Skill)
 												sweepResults = append(sweepResults, sweepResult{
 													unitScore:           us,
 													totalPower:          tp,
 													scoreBonus:          sb,
-													activePct:           bestBase.ActivePct,
+													activePct:           base.ActivePct,
 													costumeSBPct:        csbp,
-													passiveSBPct:        bestBase.PassiveSBPct,
-													specialPct:          bestBase.SpecialPct,
+													passiveSBPct:        base.PassiveSBPct,
+													specialPct:          base.SpecialPct,
 													costumeSSVal:        csv,
-													supportSS:           bestBase.SupportSS,
+													supportSS:           base.SupportSS,
 													leaderIdx:           bestLeaderIdx,
 													teamIDs:             teamIDs,
 													costumeOnlyLeaderID: ce.CardID,
