@@ -282,29 +282,33 @@ func TestCostumeOnlyVsSweepParity(t *testing.T) {
 				if r.CostumeOnlyLeaderID == nil || *r.CostumeOnlyLeaderID != cid {
 					continue
 				}
-				match := true
+				memberMatch := true
 				for _, id := range r.MemberIDs {
 					if !top1Members[id] {
-						match = false
+						memberMatch = false
 						break
 					}
 				}
-				if match {
-					found = true
-					if r.UnitScore != top1.UnitScore {
-						t.Errorf("unit_score mismatch: sweep=%d, costume_only=%d", r.UnitScore, top1.UnitScore)
-					}
-					if r.LeaderID != top1.LeaderID {
-						t.Errorf("leader_id mismatch: sweep=%s, costume_only=%s", r.LeaderID, top1.LeaderID)
-					}
+				if !memberMatch {
+					continue
+				}
+				orderMatch := r.UnitScore == top1.UnitScore &&
+					r.LeaderID == top1.LeaderID
+				if orderMatch {
 					for mi := range r.MemberIDs {
 						if r.MemberIDs[mi] != top1.MemberIDs[mi] {
-							t.Errorf("member_ids order mismatch at [%d]: sweep=%v, costume_only=%v", mi, r.MemberIDs, top1.MemberIDs)
+							orderMatch = false
 							break
 						}
 					}
+				}
+				if orderMatch {
+					found = true
 					break
 				}
+				t.Errorf("same team+costume but mismatch: sweep(unit=%d, leader=%s, members=%v) vs costume_only(unit=%d, leader=%s, members=%v)",
+					r.UnitScore, r.LeaderID, r.MemberIDs,
+					top1.UnitScore, top1.LeaderID, top1.MemberIDs)
 			}
 			if !found {
 				t.Errorf("costume_only top1 (unit_score=%d, members=%v) not found in sweep top1000", top1.UnitScore, top1.MemberIDs)
