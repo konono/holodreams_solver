@@ -292,7 +292,16 @@ func TestCostumeOnlyVsSweepParity(t *testing.T) {
 				if match {
 					found = true
 					if r.UnitScore != top1.UnitScore {
-						t.Errorf("same team+costume but different unit_score: sweep=%d, costume_only=%d", r.UnitScore, top1.UnitScore)
+						t.Errorf("unit_score mismatch: sweep=%d, costume_only=%d", r.UnitScore, top1.UnitScore)
+					}
+					if r.LeaderID != top1.LeaderID {
+						t.Errorf("leader_id mismatch: sweep=%s, costume_only=%s", r.LeaderID, top1.LeaderID)
+					}
+					for mi := range r.MemberIDs {
+						if r.MemberIDs[mi] != top1.MemberIDs[mi] {
+							t.Errorf("member_ids order mismatch at [%d]: sweep=%v, costume_only=%v", mi, r.MemberIDs, top1.MemberIDs)
+							break
+						}
 					}
 					break
 				}
