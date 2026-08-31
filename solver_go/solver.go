@@ -228,7 +228,7 @@ func solve(cards []*Card, topN int, statScale, baseline, songLength float64, fix
 		results = results[:topN]
 	}
 
-	results = optimizeResults(results, cardMap, statScale, baseline, songLength, overrideCostumeSkill)
+	results = optimizeResults(results, cardMap, statScale, baseline, songLength, overrideCostumeSkill, fixedLeaderID)
 
 	return formatOutput(results, totalCombos, statScale, baseline, costumeOnlyLeaderID, stabilityLengths, cardMap, songLength, overrideCostumeSkill)
 }

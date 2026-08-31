@@ -223,12 +223,12 @@ def test_center_type_condition_applied(card_map):
     assert s["active_pct"] > 50
 
 
-def test_center_life_combo_condition_ignored(card_map):
-    """ライフ/コンボ条件はbase score_upを使用"""
+def test_center_life_combo_condition_applied_ap(card_map):
+    """AP前提: ライフ/コンボ条件は常に成立"""
     from solver import _check_center_type_condition
     type_counts = {"happy": 3, "pure": 1, "cute": 1}
-    assert _check_center_type_condition("life_600", type_counts, {}) is False
-    assert _check_center_type_condition("combo_40", type_counts, {}) is False
+    assert _check_center_type_condition("life_600", type_counts, {}) is True
+    assert _check_center_type_condition("combo_40", type_counts, {}) is True
     assert _check_center_type_condition("happy_2", type_counts, {}) is True
 
 

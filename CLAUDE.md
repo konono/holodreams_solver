@@ -101,7 +101,7 @@ active_pct = 52.89 + E[max(score_up × uptime)] / 12.82
 
 ### center_skill の条件
 
-タイプ条件のみ計算に反映。ライフ/コンボ条件は基本値を使用。
+All Perfect前提で計算。タイプ条件・ライフ条件・コンボ条件はすべて常に成立するものとして conditional 値を使用。
 
 ## Go ソルバー CLI
 

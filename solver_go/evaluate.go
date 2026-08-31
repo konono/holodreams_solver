@@ -403,7 +403,6 @@ type CostumeEntry struct {
 
 // pruneCostumes removes Pareto-dominated costumes within the same condition group.
 // A costume B is dominated by A if all stat bonuses of A >= B.
-// Also deduplicates costumes with identical effects.
 func pruneCostumes(costumes []CostumeEntry) []CostumeEntry {
 	type keyed struct {
 		entry CostumeEntry
@@ -492,7 +491,7 @@ func init() {
 	}
 }
 
-func optimizeResults(results []SolveResult, cardMap map[string]*Card, statScale, baseline, songLength float64, overrideCostumeSkill *CostumeSkill) []SolveResult {
+func optimizeResults(results []SolveResult, cardMap map[string]*Card, statScale, baseline, songLength float64, overrideCostumeSkill *CostumeSkill, fixedLeaderID string) []SolveResult {
 	optimized := make([]SolveResult, len(results))
 	for ri, r := range results {
 		cards5 := [5]*Card{}
@@ -505,6 +504,9 @@ func optimizeResults(results []SolveResult, cardMap map[string]*Card, statScale,
 		for li := 0; li < 5; li++ {
 			leaderCard := cards5[li]
 			leaderID := ids5[li]
+			if fixedLeaderID != "" && leaderID != fixedLeaderID {
+				continue
+			}
 			var others [4]*Card
 			var otherIDs [4]string
 			oi := 0
