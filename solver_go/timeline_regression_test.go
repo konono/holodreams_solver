@@ -241,23 +241,6 @@ func TestCostumeOnlyVsSweepParity(t *testing.T) {
 	}
 	cardsJSON, _ := json.Marshal(cardSpecs)
 
-	costumeID := "nekomata_okayu_5"
-	costumeInput := CLIInput{
-		Action:             "solve",
-		Cards:              json.RawMessage(cardsJSON),
-		TopN:               5,
-		CostumeOnlyLeaderID: &costumeID,
-	}
-	costumeResult, err := dispatchAction(costumeInput, cf)
-	if err != nil {
-		t.Fatal(err)
-	}
-	costumeOutput := costumeResult.(JSONOutput)
-	if len(costumeOutput.Results) == 0 {
-		t.Fatal("costume_only_leader_id returned no results")
-	}
-	top1 := costumeOutput.Results[0]
-
 	sweepInput := CLIInput{
 		Action:        "solve",
 		Cards:         json.RawMessage(cardsJSON),
@@ -270,33 +253,54 @@ func TestCostumeOnlyVsSweepParity(t *testing.T) {
 	}
 	sweepOutput := sweepResult.(JSONOutput)
 
-	top1Members := map[string]bool{}
-	for _, id := range top1.MemberIDs {
-		top1Members[id] = true
-	}
+	for _, costumeID := range []string{"nekomata_okayu_5", "nekomata_okayu_swim_5"} {
+		t.Run(costumeID, func(t *testing.T) {
+			cid := costumeID
+			costumeInput := CLIInput{
+				Action:              "solve",
+				Cards:               json.RawMessage(cardsJSON),
+				TopN:                5,
+				CostumeOnlyLeaderID: &cid,
+			}
+			costumeResult, err := dispatchAction(costumeInput, cf)
+			if err != nil {
+				t.Fatal(err)
+			}
+			costumeOutput := costumeResult.(JSONOutput)
+			if len(costumeOutput.Results) == 0 {
+				t.Fatal("costume_only_leader_id returned no results")
+			}
+			top1 := costumeOutput.Results[0]
 
-	found := false
-	for _, r := range sweepOutput.Results {
-		if r.CostumeOnlyLeaderID == nil || *r.CostumeOnlyLeaderID != costumeID {
-			continue
-		}
-		match := true
-		for _, id := range r.MemberIDs {
-			if !top1Members[id] {
-				match = false
-				break
+			top1Members := map[string]bool{}
+			for _, id := range top1.MemberIDs {
+				top1Members[id] = true
 			}
-		}
-		if match {
-			found = true
-			if r.UnitScore != top1.UnitScore {
-				t.Errorf("same team+costume but different unit_score: sweep=%d, costume_only=%d", r.UnitScore, top1.UnitScore)
+
+			found := false
+			for _, r := range sweepOutput.Results {
+				if r.CostumeOnlyLeaderID == nil || *r.CostumeOnlyLeaderID != cid {
+					continue
+				}
+				match := true
+				for _, id := range r.MemberIDs {
+					if !top1Members[id] {
+						match = false
+						break
+					}
+				}
+				if match {
+					found = true
+					if r.UnitScore != top1.UnitScore {
+						t.Errorf("same team+costume but different unit_score: sweep=%d, costume_only=%d", r.UnitScore, top1.UnitScore)
+					}
+					break
+				}
 			}
-			break
-		}
-	}
-	if !found {
-		t.Errorf("costume_only top1 (unit_score=%d, members=%v) not found in sweep top1000", top1.UnitScore, top1.MemberIDs)
+			if !found {
+				t.Errorf("costume_only top1 (unit_score=%d, members=%v) not found in sweep top1000", top1.UnitScore, top1.MemberIDs)
+			}
+		})
 	}
 }
 
