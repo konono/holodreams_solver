@@ -194,7 +194,7 @@ class TestStaticTimelineSolve:
         page.close()
 
     def test_timeline_results_show_lsi_and_board(self, browser_context):
-        """Timeline結果にスキル効率・Active重複ロス・メンバーカードが表示されている"""
+        """Timeline結果にスキル効率・重複ロス・メンバーカードが表示されている"""
         page = open_page(browser_context)
         select_cards_and_song(page, 8)
         page.click("#btnSolve")
@@ -203,7 +203,7 @@ class TestStaticTimelineSolve:
         assert "ライブ期待スコア" in area_text, \
             f"Song selected → timeline results expected, got: {area_text[:100]}"
         assert "スキル効率" in area_text, "Timeline results should display skill efficiency"
-        assert "Active重複ロス" in area_text, "Timeline results should display overlap loss"
+        assert "重複ロス" in area_text, "Timeline results should display overlap loss"
         member_cards = page.eval_on_selector_all(".member-card", "els => els.length")
         assert member_cards >= 5, f"Expected >=5 member cards, got {member_cards}"
         page.close()
