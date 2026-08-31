@@ -29,6 +29,7 @@ dist/
 solver_go/solver
 solver_go/solver_go
 solver_go/solver.wasm
+solver.wasm
 cli/holosolve
 
 # Workflow is managed via GitHub UI (workflow scope required)
