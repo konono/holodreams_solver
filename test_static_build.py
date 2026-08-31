@@ -198,7 +198,7 @@ class TestStaticTimelineSolve:
         page.close()
 
     def test_timeline_results_show_lsi_and_board(self, browser_context):
-        """Timeline結果にLSI値とボード推奨が表示されている"""
+        """Timeline結果にスキル効率・Active重複ロス・メンバーカードが表示されている"""
         page = open_page(browser_context)
         select_cards_and_song(page, 8)
         page.click("#btnSolve")
@@ -233,8 +233,8 @@ class TestStaticTimelineSolve:
 
 
 class TestStaticErrorHandling:
-    def test_solve_with_insufficient_cards_no_crash(self, browser_context):
-        """3枚選択（5キャラ未満）でsolveボタンが無効化される"""
+    def test_solve_button_disabled_with_insufficient_cards(self, browser_context):
+        """3枚選択（5キャラ未満）→ solveボタンが無効化されている"""
         page = open_page(browser_context)
         ids = page.eval_on_selector_all(".card", "els => els.slice(0, 3).map(e => e.dataset.id)")
         for cid in ids:
@@ -243,8 +243,8 @@ class TestStaticErrorHandling:
         assert solve_disabled, "Solve button should be disabled with <5 cards"
         page.close()
 
-    def test_recommend_with_insufficient_cards_no_crash(self, browser_context):
-        """3枚選択でレコメンドボタンが無効化される"""
+    def test_recommend_button_disabled_with_insufficient_cards(self, browser_context):
+        """3枚選択 → レコメンドボタンが無効化されている"""
         page = open_page(browser_context)
         ids = page.eval_on_selector_all(".card", "els => els.slice(0, 3).map(e => e.dataset.id)")
         for cid in ids:
@@ -254,7 +254,7 @@ class TestStaticErrorHandling:
         page.close()
 
     def test_done_handler_has_try_catch(self):
-        """build_static.pyのdoneハンドラにtry-catchが含まれている（PR#30で追加）"""
+        """build_static.pyのdoneハンドラにtry-catchが存在する（ソース検証のみ、動作検証はしない）"""
         html = (DIST_DIR / "index.html").read_text()
         # solve done handler
         assert "catch (renderErr)" in html or "catch(renderErr)" in html, \
@@ -279,6 +279,8 @@ class TestStaticWasmResultParity:
             if page.evaluate("typeof _wasmWorker !== 'undefined' && _wasmWorker !== null"):
                 break
             page.wait_for_timeout(1000)
+        assert page.evaluate("typeof _wasmWorker !== 'undefined' && _wasmWorker !== null"), \
+            "WASM worker not ready after 30s"
 
         page.evaluate(f"""(() => {{
             window._testDone = false;

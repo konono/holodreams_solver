@@ -20,5 +20,3 @@ SHARED_CARD_SPECS = [
 # unit_score の Top 1 をスナップショットとして固定
 EXPECTED_SOLVE_TOP1_UNIT_SCORE = 798845
 
-# カードID一覧（API呼び出し用）
-SHARED_CARD_IDS = [c["id"] for c in SHARED_CARD_SPECS]
