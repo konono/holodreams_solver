@@ -494,30 +494,40 @@ func init() {
 func optimizeResults(results []SolveResult, cardMap map[string]*Card, statScale, baseline, songLength float64, overrideCostumeSkill *CostumeSkill) []SolveResult {
 	optimized := make([]SolveResult, len(results))
 	for ri, r := range results {
-		leaderID := r.TeamIDs[r.LeaderIdx]
-		leaderCard := cardMap[leaderID]
-
-		var others [4]*Card
-		var otherIDs [4]string
-		oi := 0
-		for _, id := range r.TeamIDs {
-			if id != leaderID {
-				others[oi] = cardMap[id]
-				otherIDs[oi] = id
-				oi++
-			}
+		cards5 := [5]*Card{}
+		ids5 := r.TeamIDs
+		for ti, id := range ids5 {
+			cards5[ti] = cardMap[id]
 		}
 
 		best := r
-		for _, perm := range perms4 {
-			team := [5]*Card{leaderCard, others[perm[0]], others[perm[1]], others[perm[2]], others[perm[3]]}
-			score := evaluateTeam(team, 0, statScale, baseline, songLength, overrideCostumeSkill)
-			if score.UnitScore > best.Score.UnitScore {
-				best = SolveResult{
-					Score:               score,
-					LeaderIdx:           0,
-					TeamIDs:             [5]string{leaderID, otherIDs[perm[0]], otherIDs[perm[1]], otherIDs[perm[2]], otherIDs[perm[3]]},
-					CostumeOnlyLeaderID: r.CostumeOnlyLeaderID,
+		for li := 0; li < 5; li++ {
+			leaderCard := cards5[li]
+			leaderID := ids5[li]
+			var others [4]*Card
+			var otherIDs [4]string
+			oi := 0
+			for ti := 0; ti < 5; ti++ {
+				if ti != li {
+					others[oi] = cards5[ti]
+					otherIDs[oi] = ids5[ti]
+					oi++
+				}
+			}
+			cs := overrideCostumeSkill
+			if cs == nil {
+				cs = &leaderCard.CostumeSkill
+			}
+			for _, perm := range perms4 {
+				team := [5]*Card{leaderCard, others[perm[0]], others[perm[1]], others[perm[2]], others[perm[3]]}
+				score := evaluateTeam(team, 0, statScale, baseline, songLength, cs)
+				if score.UnitScore > best.Score.UnitScore {
+					best = SolveResult{
+						Score:               score,
+						LeaderIdx:           0,
+						TeamIDs:             [5]string{leaderID, otherIDs[perm[0]], otherIDs[perm[1]], otherIDs[perm[2]], otherIDs[perm[3]]},
+						CostumeOnlyLeaderID: r.CostumeOnlyLeaderID,
+					}
 				}
 			}
 		}
