@@ -739,7 +739,7 @@ function doSolve() {{
       btn.disabled = false; btnRec.disabled = selected.size < 5; btn.textContent = "最強編成を探す";
       document.getElementById("progressFill").style.width = "100%";
       document.getElementById("progressText").textContent =
-        `完了！ ${{ev.data.totalCombinations.toLocaleString()}} 通りを評価`;
+        `完了！ ${{(ev.data.totalCombinations || ev.data.candidate_pool || 0).toLocaleString()}} 通りを評価`;
       expandResults();
       renderResults(ev.data);
       saveToHistory(ev.data);
