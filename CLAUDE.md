@@ -47,6 +47,8 @@ mise run dev
 | `mise run test:e2e` | E2Eテストのみ |
 | `mise run build` | スタンドアロン版HTML生成 |
 | `mise run build:solver` | Goソルバービルド（CLI + WASM） |
+| `mise run bench` | Goベンチマーク実行（結果をbenchmarks/に保存） |
+| `mise run bench:wasm` | ネイティブ vs WASM パフォーマンス比較 |
 
 ## ファイル構成
 
@@ -55,6 +57,8 @@ mise run dev
 - `data/id_map.json` — HolodoriDB ID ↔ HoloSolve IDマッピング
 - `scripts/sync_holodori.py` — HolodoriDBからデータ生成
 - `scripts/validate_against_yagoo.py` — Yagoo-dori生成データとの検算
+- `scripts/benchmark.sh` — Goベンチマーク実行・結果保存スクリプト
+- `scripts/benchmark_wasm.py` — ネイティブ vs WASM パフォーマンス比較
 - `solver.py` — スコア計算エンジン（Python参照実装）
 - `solver_go/` — Goソルバー（CLI + WASM、本番計算はこちらを使用）
   - `main.go` — CLIエントリポイント（stdin JSON → stdout JSON）
@@ -64,6 +68,7 @@ mise run dev
   - `parse.go` — CLI入力パース・アクションディスパッチ
   - `types.go` — 型定義
   - `wasm.go` — WASM版エントリポイント
+  - `benchmark_test.go` — フェーズ別ベンチマーク
   - `recommend_test.go` — Goテスト
 - `solver_go_bridge.py` — Go CLIをsubprocess経由で呼ぶPythonラッパー
 - `app.py` — FastAPI サーバー（solver_go_bridge経由でGoソルバーを使用）
