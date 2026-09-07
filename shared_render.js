@@ -39,6 +39,7 @@ function renderCardUsage(cardUsage) {
   for (const cu of cardUsage) {
     const card = cardMap[cu.card_id];
     const name = card ? card.character : cu.card_id;
+    const subtitle = card ? card.card_name : '';
     const total = cu.leader_count + cu.member_count;
     const parts = [];
     if (cu.leader_count > 0) parts.push(`<span style="color:#ffd700">L:${cu.leader_count}</span>`);
@@ -47,6 +48,7 @@ function renderCardUsage(cardUsage) {
     html += `<div style="background:#1a2535;border:1px solid #2a3a4a;border-radius:4px;padding:4px 8px;font-size:0.72rem;display:flex;align-items:center;gap:4px">
       ${card ? `<span class="type-badge ${typeClass}" style="font-size:0.6rem;padding:1px 4px">${TYPE_LABELS[card.type] || ''}</span>` : ''}
       <span style="color:#c8d6e0">${name}</span>
+      ${subtitle ? `<span style="color:#6b7f92;font-size:0.65rem">(${subtitle})</span>` : ''}
       <span style="color:#6b7f92">${total}回</span>
       <span>(${parts.join(' ')})</span>
     </div>`;
