@@ -89,13 +89,17 @@ func RerankTopN(
 
 		for pi, perm := range perms5 {
 			var ids [5]string
+			newLeaderIdx := 0
 			for i, p := range perm {
 				ids[i] = lr.TeamIDs[p]
+				if p == lr.LeaderIdx {
+					newLeaderIdx = i
+				}
 			}
 
 			allResults = append(allResults, TimelineRerankResult{
 				TeamIDs:             ids,
-				LeaderIdx:           lr.LeaderIdx,
+				LeaderIdx:           newLeaderIdx,
 				UnitScore:           eval.UnitScore,
 				TotalPower:          eval.TotalPower,
 				LiveScoreIndex:      permResults[pi].LiveScoreIndex,
