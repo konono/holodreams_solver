@@ -76,6 +76,7 @@ self.onmessage = async function (e) {
           candidate_pool: result.candidate_pool || 0,
           total_combinations: result.candidate_pool || 0,
           stability: result.stability || null,
+          card_usage: result.card_usage || null,
         });
       } else {
         if (result.results) {
@@ -93,6 +94,7 @@ self.onmessage = async function (e) {
           type: "done",
           results: result.results || [],
           total_combinations: result.total_combinations || 0,
+          card_usage: result.card_usage || null,
         });
       }
     } catch (err) {
