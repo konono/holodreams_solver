@@ -234,6 +234,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 							SkillEfficiency:     fixedFloat2(skillEff),
 							Top1Pct:             fixedFloat2(top1Pct),
 							ActiveOverlapLoss:   fixedFloat(r.TimelineResult.ActiveOverlapLoss * 100),
+							LeaderID:            r.TeamIDs[r.LeaderIdx],
 							ExpectedActive:      fixedFloat(r.TimelineResult.ExpectedActive),
 							CostumeSBPct:        fixedFloat(r.CostumeSBPct),
 							PassiveSBPct:        fixedFloat(r.PassiveSBPct),
@@ -252,6 +253,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 						LegacyResults: legacyResults,
 						Timeline:      timelineResults,
 						CandidatePool: candidatePool,
+						CardUsage:     computeCardUsageTimeline(timelineResults),
 					}, nil
 				}
 			}
@@ -260,6 +262,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 			if len(sweepResult.Results) > sweepTopN {
 				sweepResult.Results = sweepResult.Results[:sweepTopN]
 			}
+			sweepResult.CardUsage = computeCardUsage(sweepResult.Results)
 			return sweepResult, nil
 		}
 
@@ -394,6 +397,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 					SkillEfficiency:     fixedFloat2(skillEff),
 					Top1Pct:             fixedFloat2(top1Pct),
 					ActiveOverlapLoss:   fixedFloat(r.TimelineResult.ActiveOverlapLoss * 100),
+					LeaderID:            r.TeamIDs[r.LeaderIdx],
 					ExpectedActive:      fixedFloat(r.TimelineResult.ExpectedActive),
 					CostumeSBPct:        fixedFloat(r.CostumeSBPct),
 					PassiveSBPct:        fixedFloat(r.PassiveSBPct),
@@ -446,6 +450,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 				Timeline:      timelineResults,
 				CandidatePool: candidatePool,
 				Stability:     stability,
+				CardUsage:     computeCardUsageTimeline(timelineResults),
 			}, nil
 		}
 
@@ -453,6 +458,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 		if len(legacyResult.Results) > topN {
 			legacyResult.Results = legacyResult.Results[:topN]
 		}
+		legacyResult.CardUsage = computeCardUsage(legacyResult.Results)
 		return legacyResult, nil
 
 	case "calibrate":
@@ -477,6 +483,10 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 		}
 		sweepCostumes := input.SweepCostumes
 		return recommend(ownedSpecs, cf.Cards, topN, acquireCount, statScale, baseline, songLength, fixedLeader, costumeOnly, sweepCostumes, cf), nil
+
+	case "whatif":
+		ownedSpecs := parseOwnedSpecsFromJSON(input.Cards)
+		return whatif(ownedSpecs, input.WhatIfCandidates, cf.Cards, topN, statScale, baseline, songLength, cf), nil
 
 	default:
 		return nil, fmt.Errorf("unknown action: %s", input.Action)

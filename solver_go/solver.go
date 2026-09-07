@@ -1468,3 +1468,177 @@ func formatOutput(results []SolveResult, totalCombos int, statScale, baseline fl
 		Results:           jsonResults,
 	}
 }
+
+func computeCardUsage(results []JSONResult) []CardUsage {
+	type counts struct {
+		leader int
+		member int
+	}
+	m := map[string]*counts{}
+	for _, r := range results {
+		for _, id := range r.MemberIDs {
+			if m[id] == nil {
+				m[id] = &counts{}
+			}
+			if id == r.LeaderID {
+				m[id].leader++
+			} else {
+				m[id].member++
+			}
+		}
+	}
+	usage := make([]CardUsage, 0, len(m))
+	for id, c := range m {
+		usage = append(usage, CardUsage{CardID: id, LeaderCount: c.leader, MemberCount: c.member})
+	}
+	sort.Slice(usage, func(i, j int) bool {
+		ti := usage[i].LeaderCount + usage[i].MemberCount
+		tj := usage[j].LeaderCount + usage[j].MemberCount
+		if ti != tj {
+			return ti > tj
+		}
+		return usage[i].CardID < usage[j].CardID
+	})
+	return usage
+}
+
+func computeCardUsageTimeline(results []TimelineJSONResult) []CardUsage {
+	type counts struct {
+		leader int
+		member int
+	}
+	m := map[string]*counts{}
+	for _, r := range results {
+		for _, id := range r.MemberIDs {
+			if m[id] == nil {
+				m[id] = &counts{}
+			}
+			if id == r.LeaderID {
+				m[id].leader++
+			} else {
+				m[id].member++
+			}
+		}
+	}
+	usage := make([]CardUsage, 0, len(m))
+	for id, c := range m {
+		usage = append(usage, CardUsage{CardID: id, LeaderCount: c.leader, MemberCount: c.member})
+	}
+	sort.Slice(usage, func(i, j int) bool {
+		ti := usage[i].LeaderCount + usage[i].MemberCount
+		tj := usage[j].LeaderCount + usage[j].MemberCount
+		if ti != tj {
+			return ti > tj
+		}
+		return usage[i].CardID < usage[j].CardID
+	})
+	return usage
+}
+
+func whatif(ownedSpecs map[string]CardSpec, candidates []string, allRawCards []CardRaw, topN int, statScale, baseline, songLength float64, cf *CardsFile) WhatIfOutput {
+	outerProgress := progressCallback
+	progressCallback = nil
+	defer func() { progressCallback = outerProgress }()
+
+	rawCardMap := map[string]*CardRaw{}
+	for i := range allRawCards {
+		rawCardMap[allRawCards[i].ID] = &allRawCards[i]
+	}
+
+	resolveOwned := func(specs map[string]CardSpec) []*Card {
+		cards := make([]*Card, 0, len(specs))
+		for _, spec := range specs {
+			raw := rawCardMap[spec.ID]
+			if raw == nil {
+				continue
+			}
+			c := resolveCard(raw, spec.Potential, spec.Level, cf)
+			cards = append(cards, &c)
+		}
+		return cards
+	}
+
+	baseCards := resolveOwned(ownedSpecs)
+	baseResult := solve(baseCards, topN, statScale, baseline, songLength, "", "", nil, nil)
+	baseScore := 0
+	if len(baseResult.Results) > 0 {
+		baseScore = baseResult.Results[0].UnitScore
+	}
+
+	out := WhatIfOutput{
+		BaseScore:  baseScore,
+		TopN:       topN,
+		Candidates: make([]WhatIfCandidate, 0, len(candidates)),
+	}
+
+	for _, candID := range candidates {
+		raw := rawCardMap[candID]
+		if raw == nil {
+			continue
+		}
+
+		trialSpecs := make(map[string]CardSpec, len(ownedSpecs)+1)
+		for k, v := range ownedSpecs {
+			trialSpecs[k] = v
+		}
+
+		isNew := false
+		newPot := 0
+		if existing, ok := ownedSpecs[candID]; ok {
+			newPot = existing.Potential + 1
+			if newPot > 4 {
+				newPot = 4
+			}
+			spec := trialSpecs[candID]
+			spec.Potential = newPot
+			trialSpecs[candID] = spec
+		} else {
+			isNew = true
+			trialSpecs[candID] = CardSpec{ID: candID, Potential: 0}
+		}
+
+		trialCards := resolveOwned(trialSpecs)
+		trialResult := solve(trialCards, topN, statScale, baseline, songLength, "", "", nil, nil)
+
+		bestScore := 0
+		if len(trialResult.Results) > 0 {
+			bestScore = trialResult.Results[0].UnitScore
+		}
+
+		leaderCount := 0
+		memberCount := 0
+		for _, r := range trialResult.Results {
+			for _, id := range r.MemberIDs {
+				if id == candID {
+					if id == r.LeaderID {
+						leaderCount++
+					} else {
+						memberCount++
+					}
+				}
+			}
+		}
+
+		cardName := raw.Character
+		if raw.CardName != "" {
+			cardName = raw.Character + " " + raw.CardName
+		}
+
+		out.Candidates = append(out.Candidates, WhatIfCandidate{
+			CardID:       candID,
+			CardName:     cardName,
+			NewPotential: newPot,
+			IsNewCard:    isNew,
+			BestScore:    bestScore,
+			Delta:        bestScore - baseScore,
+			LeaderCount:  leaderCount,
+			MemberCount:  memberCount,
+		})
+	}
+
+	sort.Slice(out.Candidates, func(i, j int) bool {
+		return out.Candidates[i].Delta > out.Candidates[j].Delta
+	})
+
+	return out
+}

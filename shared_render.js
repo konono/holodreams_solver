@@ -32,6 +32,29 @@ function getCardStats(card, potential, level) {
   };
 }
 
+function renderCardUsage(cardUsage) {
+  let html = `<div style="background:#0d1520;border:1px solid #2a3a4a;border-radius:8px;padding:12px;margin-bottom:12px">
+    <div style="font-size:0.78rem;color:#8899aa;margin-bottom:8px;font-weight:600">カード採用回数</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">`;
+  for (const cu of cardUsage) {
+    const card = cardMap[cu.card_id];
+    const name = card ? card.character : cu.card_id;
+    const total = cu.leader_count + cu.member_count;
+    const parts = [];
+    if (cu.leader_count > 0) parts.push(`<span style="color:#ffd700">L:${cu.leader_count}</span>`);
+    if (cu.member_count > 0) parts.push(`<span style="color:#80c0ff">M:${cu.member_count}</span>`);
+    const typeClass = card ? `type-${card.type}` : '';
+    html += `<div style="background:#1a2535;border:1px solid #2a3a4a;border-radius:4px;padding:4px 8px;font-size:0.72rem;display:flex;align-items:center;gap:4px">
+      ${card ? `<span class="type-badge ${typeClass}" style="font-size:0.6rem;padding:1px 4px">${TYPE_LABELS[card.type] || ''}</span>` : ''}
+      <span style="color:#c8d6e0">${name}</span>
+      <span style="color:#6b7f92">${total}回</span>
+      <span>(${parts.join(' ')})</span>
+    </div>`;
+  }
+  html += `</div></div>`;
+  return html;
+}
+
 function renderRecommendations(data) {
   const area = document.getElementById("resultsArea");
   const recs = data.recommendations;
@@ -124,6 +147,10 @@ function renderTimelineResults(data) {
 
   let html = `<div class="results-title">ライブ期待スコア Top ${tResults.length}（${songName} ${diff}）</div>`;
   html += `<div style="font-size:0.72rem;color:#6b7f92;margin-bottom:10px">候補プール: ${data.candidate_pool} 編成 × 120 順列 → Timeline評価</div>`;
+
+  if (data.card_usage && data.card_usage.length) {
+    html += renderCardUsage(data.card_usage);
+  }
   html += `<details style="margin-bottom:12px;font-size:0.7rem;color:#6b7f92">
     <summary style="cursor:pointer;color:#4f8cff;user-select:none">結果の見かた</summary>
     <div style="background:#0d1520;border:1px solid #2a3a4a;border-radius:6px;padding:10px 12px;margin-top:6px;line-height:1.7">
@@ -153,11 +180,9 @@ function renderTimelineResults(data) {
     const rankColor = rankColors[r.rank] || "#4f8cff";
     const barPct = top1LSI > 0 ? (r.live_score_index / top1LSI * 100) : 100;
 
-    let costumeLabel = "";
-    if (r.costume_only_leader_id) {
-      const clCard = cardMap[r.costume_only_leader_id];
-      costumeLabel = clCard ? `👗 ${clCard.character}(${clCard.card_name})` : `👗 ${r.costume_only_leader_id}`;
-    }
+    const costumeId = r.costume_only_leader_id || r.leader_id || r.member_ids[0];
+    const costumeCard = costumeId ? cardMap[costumeId] : null;
+    const costumeLabel = costumeCard ? `👗 ${costumeCard.character}(${costumeCard.card_name})` : (costumeId ? `👗 ${costumeId}` : "");
 
     html += `<div class="result-card">
       ${costumeLabel ? `<div style="color:#c0c060;font-size:0.75rem;margin-bottom:6px">${costumeLabel}</div>` : ''}
@@ -326,15 +351,17 @@ function renderResults(data) {
 
   html += `<div class="results-title">最強編成 Top ${results.length}（${(data.total_combinations ?? 0).toLocaleString()} 通り${bLabel}）</div>`;
 
+  if (data.card_usage && data.card_usage.length) {
+    html += renderCardUsage(data.card_usage);
+  }
+
   for (const r of results) {
     const rankColors = { 1: "#ffd700", 2: "#c0c0c0", 3: "#cd7f32" };
     const rankColor = rankColors[r.rank] || "";
 
-    let costumeLabel = "";
-    if (r.costume_only_leader_id) {
-      const clCard = cardMap[r.costume_only_leader_id];
-      costumeLabel = clCard ? `👗 ${clCard.character}(${clCard.card_name})` : `👗 ${r.costume_only_leader_id}`;
-    }
+    const costumeId = r.costume_only_leader_id || r.leader_id;
+    const costumeCard = costumeId ? cardMap[costumeId] : null;
+    const costumeLabel = costumeCard ? `👗 ${costumeCard.character}(${costumeCard.card_name})` : (costumeId ? `👗 ${costumeId}` : "");
 
     html += `<div class="result-card">
       ${costumeLabel ? `<div style="color:#c0c060;font-size:0.75rem;margin-bottom:6px">${costumeLabel}</div>` : ''}

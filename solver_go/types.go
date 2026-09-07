@@ -192,11 +192,18 @@ type JSONResult struct {
 	Stability           map[string]int `json:"stability,omitempty"`
 }
 
+type CardUsage struct {
+	CardID      string `json:"card_id"`
+	LeaderCount int    `json:"leader_count"`
+	MemberCount int    `json:"member_count"`
+}
+
 type JSONOutput struct {
 	TotalCombinations int          `json:"total_combinations"`
 	StatScale         float64      `json:"stat_scale"`
 	Baseline          float64      `json:"baseline"`
 	Results           []JSONResult `json:"results"`
+	CardUsage         []CardUsage  `json:"card_usage,omitempty"`
 }
 
 // Input types for CLI
@@ -226,6 +233,9 @@ type CLIInput struct {
 
 	// recommend
 	AcquireCount int `json:"acquire_count"`
+
+	// whatif
+	WhatIfCandidates []string `json:"whatif_candidates"`
 
 	// calibrate
 	MemberIDs   []string            `json:"member_ids"`
@@ -280,6 +290,7 @@ type TimelineJSONResult struct {
 	SkillEfficiency     fixedFloat2 `json:"skill_efficiency"`
 	Top1Pct             fixedFloat2 `json:"top1_pct"`
 	ActiveOverlapLoss   fixedFloat  `json:"active_overlap_loss"`
+	LeaderID            string      `json:"leader_id"`
 	CostumeOnlyLeaderID *string    `json:"costume_only_leader_id"`
 	MemberIDs           []string    `json:"member_ids"`
 	ExpectedActive      fixedFloat      `json:"expected_active"`
@@ -322,6 +333,24 @@ type TimelineJSONOutput struct {
 	Timeline      []TimelineJSONResult      `json:"timeline_results"`
 	CandidatePool int                       `json:"candidate_pool"`
 	Stability     []TimelineStabilityEntry  `json:"stability,omitempty"`
+	CardUsage     []CardUsage               `json:"card_usage,omitempty"`
+}
+
+type WhatIfCandidate struct {
+	CardID       string `json:"card_id"`
+	CardName     string `json:"card_name"`
+	NewPotential int    `json:"new_potential"`
+	IsNewCard    bool   `json:"is_new_card"`
+	BestScore    int    `json:"best_score"`
+	Delta        int    `json:"delta"`
+	LeaderCount  int    `json:"leader_count"`
+	MemberCount  int    `json:"member_count"`
+}
+
+type WhatIfOutput struct {
+	BaseScore  int              `json:"base_score"`
+	TopN       int              `json:"top_n"`
+	Candidates []WhatIfCandidate `json:"candidates"`
 }
 
 type RecommendOutput struct {

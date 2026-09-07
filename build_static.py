@@ -496,7 +496,7 @@ songSel.addEventListener("change", function() {{
   document.getElementById("diffSelect").style.display = this.value ? "" : "none";
 }});
 if (Object.keys(CHART_SCORES).length > 0) {{
-  songSel.value = "m0001";
+  songSel.value = "m0091";
   document.getElementById("diffSelect").style.display = songSel.value ? "" : "none";
 }}
 
