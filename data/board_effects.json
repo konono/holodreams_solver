@@ -1,23 +1,55 @@
 {
+  "generated": "2026-09-12T06:10:14.371310+00:00",
+  "source": "HolodoriDB/holodori-db-jpn-diff SkillTreeNode + SkillTreeEffect",
   "cd_reduce": {
     "nodes": [
       {
         "node_group": "B-013",
         "value_permil": 40,
         "grade": 2,
-        "cost_points": 5
+        "cost_points": 5,
+        "cost_items": [
+          {
+            "id": "item-skill_tree_card-1",
+            "quantity": 100
+          },
+          {
+            "id": "item-skill_tree_card-2",
+            "quantity": 25
+          }
+        ]
       },
       {
         "node_group": "B-020",
         "value_permil": 40,
         "grade": 2,
-        "cost_points": 5
+        "cost_points": 5,
+        "cost_items": [
+          {
+            "id": "item-skill_tree_card-1",
+            "quantity": 100
+          },
+          {
+            "id": "item-skill_tree_card-2",
+            "quantity": 25
+          }
+        ]
       },
       {
         "node_group": "B-031",
         "value_permil": 40,
         "grade": 2,
-        "cost_points": 5
+        "cost_points": 5,
+        "cost_items": [
+          {
+            "id": "item-skill_tree_card-1",
+            "quantity": 100
+          },
+          {
+            "id": "item-skill_tree_card-2",
+            "quantity": 25
+          }
+        ]
       }
     ],
     "per_node_permil": 40,
@@ -27,64 +59,128 @@
   "activation_up": {
     "nodes": [
       {
-        "node_group": "B-007",
-        "value_permil": 60,
-        "grade": 2,
-        "cost_points": 4
-      },
-      {
         "node_group": "B-010",
         "value_permil": 20,
         "grade": 1,
-        "cost_points": 2
-      },
-      {
-        "node_group": "B-012",
-        "value_permil": 30,
-        "grade": 1,
-        "cost_points": 3
-      },
-      {
-        "node_group": "B-014",
-        "value_permil": 30,
-        "grade": 1,
-        "cost_points": 3
+        "cost_points": 2,
+        "cost_items": [
+          {
+            "id": "item-skill_tree_card-1",
+            "quantity": 40
+          }
+        ]
       },
       {
         "node_group": "B-017",
         "value_permil": 20,
         "grade": 1,
-        "cost_points": 2
-      },
-      {
-        "node_group": "B-019",
-        "value_permil": 30,
-        "grade": 1,
-        "cost_points": 3
-      },
-      {
-        "node_group": "B-021",
-        "value_permil": 30,
-        "grade": 1,
-        "cost_points": 3
+        "cost_points": 2,
+        "cost_items": [
+          {
+            "id": "item-skill_tree_card-1",
+            "quantity": 40
+          }
+        ]
       },
       {
         "node_group": "B-026",
         "value_permil": 20,
         "grade": 1,
-        "cost_points": 2
+        "cost_points": 2,
+        "cost_items": [
+          {
+            "id": "item-skill_tree_card-1",
+            "quantity": 40
+          }
+        ]
+      },
+      {
+        "node_group": "B-012",
+        "value_permil": 30,
+        "grade": 1,
+        "cost_points": 3,
+        "cost_items": [
+          {
+            "id": "item-skill_tree_card-1",
+            "quantity": 80
+          }
+        ]
+      },
+      {
+        "node_group": "B-014",
+        "value_permil": 30,
+        "grade": 1,
+        "cost_points": 3,
+        "cost_items": [
+          {
+            "id": "item-skill_tree_card-1",
+            "quantity": 80
+          }
+        ]
+      },
+      {
+        "node_group": "B-019",
+        "value_permil": 30,
+        "grade": 1,
+        "cost_points": 3,
+        "cost_items": [
+          {
+            "id": "item-skill_tree_card-1",
+            "quantity": 80
+          }
+        ]
+      },
+      {
+        "node_group": "B-021",
+        "value_permil": 30,
+        "grade": 1,
+        "cost_points": 3,
+        "cost_items": [
+          {
+            "id": "item-skill_tree_card-1",
+            "quantity": 80
+          }
+        ]
       },
       {
         "node_group": "B-028",
         "value_permil": 30,
         "grade": 1,
-        "cost_points": 3
+        "cost_points": 3,
+        "cost_items": [
+          {
+            "id": "item-skill_tree_card-1",
+            "quantity": 80
+          }
+        ]
       },
       {
         "node_group": "B-030",
         "value_permil": 30,
         "grade": 1,
-        "cost_points": 3
+        "cost_points": 3,
+        "cost_items": [
+          {
+            "id": "item-skill_tree_card-1",
+            "quantity": 80
+          }
+        ]
+      },
+      {
+        "node_group": "B-007",
+        "value_permil": 60,
+        "grade": 2,
+        "cost_points": 4,
+        "cost_items": [
+          {
+            "id": "item-skill_tree_card-1",
+            "quantity": 50
+          },
+          {
+            "id": "item-skill_tree_card-2",
+            "quantity": 10
+          }
+        ]
       }
     ],
     "total_permil": 300
