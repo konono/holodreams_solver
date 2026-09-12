@@ -187,6 +187,12 @@
       "score_coefficient_permil": 8
     },
     {
+      "id": "m0459",
+      "name": "Illusion Night",
+      "playing_seconds": 126,
+      "score_coefficient_permil": 10
+    },
+    {
       "id": "m0347",
       "name": "Infinity (Remastered)",
       "playing_seconds": 122,
@@ -649,6 +655,12 @@
       "score_coefficient_permil": 8
     },
     {
+      "id": "m0527",
+      "name": "めくるめくランデヴー",
+      "playing_seconds": 110,
+      "score_coefficient_permil": 5
+    },
+    {
       "id": "m0017",
       "name": "もぐもぐYUMMY！",
       "playing_seconds": 122,
@@ -725,6 +737,12 @@
       "name": "グッバイ宣言",
       "playing_seconds": 127,
       "score_coefficient_permil": 7
+    },
+    {
+      "id": "m0363",
+      "name": "シミュラクル",
+      "playing_seconds": 143,
+      "score_coefficient_permil": 4
     },
     {
       "id": "m0026",
@@ -841,6 +859,12 @@
       "score_coefficient_permil": 5
     },
     {
+      "id": "m0344",
+      "name": "ホロホーク",
+      "playing_seconds": 152,
+      "score_coefficient_permil": 7
+    },
+    {
       "id": "m0120",
       "name": "マフィア",
       "playing_seconds": 134,
@@ -874,6 +898,12 @@
       "id": "m0332",
       "name": "万歳☆満開",
       "playing_seconds": 136,
+      "score_coefficient_permil": 7
+    },
+    {
+      "id": "m0348",
+      "name": "三位一体♡ラブシステム",
+      "playing_seconds": 131,
       "score_coefficient_permil": 7
     },
     {

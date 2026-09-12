@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'data/cards.json'
+      - 'data/chart_scores.json'
+      - 'data/songs.json'
       - 'solver.py'
       - 'solver_go/**'
       - 'build_static.py'
