@@ -829,7 +829,7 @@ function doRecommend() {{
     costumeOnlyLeaderId: recCostumeVal && !recMemberInclude ? recCostumeVal : null,
     acquireCount: parseInt(document.getElementById("acquireCount").value),
     topN: parseInt(document.getElementById("recommendTopN").value),
-    songLength: selSong ? parseFloat(selSong) : null,
+    songLength: getSelectedSongLength(),
     sweepCostumes: !recCostumeVal && selected.size >= 5,
   }});
 

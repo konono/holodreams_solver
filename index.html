@@ -489,7 +489,6 @@ function initSongSearch() {
     for (const s of songs) {
       if (q && !s.name.toLowerCase().includes(q)) continue;
       const item = document.createElement("div");
-      item.textContent = `${s.name}  ${s.playing_seconds}秒`;
       item.dataset.id = s.id;
       item.style.cssText = "padding:4px 8px;cursor:pointer;color:#c8d8e8;display:flex;justify-content:space-between";
       item.innerHTML = `<span>${escapeHtml(s.name)}</span><span style="color:#6a7a8a;margin-left:12px;white-space:nowrap">${s.playing_seconds}秒</span>`;

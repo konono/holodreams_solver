@@ -73,7 +73,7 @@ def open_page(browser_context):
 
 
 def select_cards(page, count=6):
-    page.select_option("#songSelect", value="")
+    page.evaluate("selectSong('')")
     ids = page.eval_on_selector_all(".card", f"els => els.slice(0, {count}).map(e => e.dataset.id)")
     for cid in ids:
         page.click(f'.card[data-id="{cid}"] .char-name')
@@ -82,14 +82,13 @@ def select_cards(page, count=6):
 
 def select_cards_and_song(page, count=8):
     """カードを選択し、最初の曲を選択する共通ヘルパー"""
-    page.select_option("#songSelect", value="")
+    page.evaluate("selectSong('')")
     ids = page.eval_on_selector_all(".card", f"els => els.slice(0, {count}).map(e => e.dataset.id)")
     for cid in ids:
         page.click(f'.card[data-id="{cid}"] .char-name')
     page.evaluate("""(() => {
-        const sel = document.getElementById('songSelect');
-        const opts = Array.from(sel.options).filter(o => o.value);
-        if (opts.length) { sel.value = opts[0].value; sel.dispatchEvent(new Event('change')); }
+        const first = (window.SONGS_SORTED || Object.values(window.SONGS || {}))[0];
+        if (first) selectSong(first.id);
     })()""")
     return ids
 
