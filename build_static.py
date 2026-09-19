@@ -729,7 +729,6 @@ function doSolve() {{
     levels[c.id] = getCardLevel(c.id);
   }}
 
-  const selSong = document.getElementById("songSelect").value;
   const cardSpecs = owned.map(c => ({{ id: c.id, potential: getCardPotential(c.id), level: getCardLevel(c.id) }}));
 
   getWasmWorker().then(w => {{
@@ -819,8 +818,6 @@ function doRecommend() {{
   const ownedSpecs = [...selected].map(id => ({{ id, potential: getCardPotential(id), level: getCardLevel(id) }}));
   const recCostumeVal = document.getElementById("costumeSelect").value || null;
   const recMemberInclude = document.getElementById("chkMemberInclude").checked;
-  const selSong = document.getElementById("songSelect").value;
-
   getWasmWorker().then(w => {{
   w.postMessage({{
     type: "recommend",
