@@ -13,6 +13,12 @@
       "score_coefficient_permil": 7
     },
     {
+      "id": "m0352",
+      "name": "64.",
+      "playing_seconds": 136,
+      "score_coefficient_permil": 7
+    },
+    {
       "id": "m0047",
       "name": "ALiCE&u",
       "playing_seconds": 130,
@@ -145,10 +151,22 @@
       "score_coefficient_permil": 6
     },
     {
+      "id": "m0351",
+      "name": "Glitch Through",
+      "playing_seconds": 124,
+      "score_coefficient_permil": 6
+    },
+    {
       "id": "m0102",
       "name": "God knows...",
       "playing_seconds": 160,
       "score_coefficient_permil": 8
+    },
+    {
+      "id": "m0349",
+      "name": "Grave of Halo",
+      "playing_seconds": 123,
+      "score_coefficient_permil": 5
     },
     {
       "id": "m0330",
@@ -887,6 +905,12 @@
       "name": "リルビ",
       "playing_seconds": 142,
       "score_coefficient_permil": 6
+    },
+    {
+      "id": "m0350",
+      "name": "リーサルドーズ・パラノイド",
+      "playing_seconds": 133,
+      "score_coefficient_permil": 9
     },
     {
       "id": "m0111",
