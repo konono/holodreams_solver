@@ -323,9 +323,13 @@ header p { color: #8899aa; font-size: 0.85rem; margin-top: 4px; }
     </span>
     <span style="color:#3a4f66">|</span>
     <label>曲:</label>
-    <select id="songSelect" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:4px 6px;border-radius:4px;font-size:0.75rem;max-width:200px">
-      <option value="">汎用（192秒）</option>
-    </select>
+    <span id="songSelectWrapper" style="position:relative;display:inline-block;vertical-align:middle">
+      <input id="songSearchInput" type="text" placeholder="曲名で検索…" autocomplete="off"
+        style="background:#1e2d3d;border:1px solid #3a4f66;color:#c8d8e8;padding:4px 6px;border-radius:4px;font-size:0.75rem;width:220px;box-sizing:border-box">
+      <div id="songDropdown" style="display:none;position:absolute;top:100%;left:0;width:320px;max-height:300px;overflow-y:auto;background:#1a2a3a;border:1px solid #3a4f66;border-radius:4px;z-index:1000;margin-top:2px;font-size:0.75rem">
+      </div>
+      <input type="hidden" id="songSelect" value="">
+    </span>
     <select id="diffSelect" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:4px 6px;border-radius:4px;font-size:0.75rem;display:none">
       <option value="expert">Expert</option>
       <option value="hard">Hard</option>
@@ -809,11 +813,84 @@ const cardPotentials = {};
 const cardLevels = {};
 let levelEnabled = false;
 
+function initSongSearch() {
+  const input = document.getElementById("songSearchInput");
+  const dropdown = document.getElementById("songDropdown");
+  let highlightIdx = -1;
+  const songsSorted = SONGS_LIST.slice().sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+
+  function renderDropdown(filter) {
+    dropdown.innerHTML = "";
+    const defaultItem = document.createElement("div");
+    defaultItem.textContent = "汎用（192秒）";
+    defaultItem.style.cssText = "padding:4px 8px;cursor:pointer;color:#8899aa";
+    defaultItem.addEventListener("mousedown", e => { e.preventDefault(); selectSong(""); });
+    dropdown.appendChild(defaultItem);
+    const q = (filter || "").toLowerCase();
+    let count = 0;
+    for (const s of songsSorted) {
+      if (q && !s.name.toLowerCase().includes(q)) continue;
+      const item = document.createElement("div");
+      item.dataset.id = s.id;
+      item.style.cssText = "padding:4px 8px;cursor:pointer;color:#c8d8e8;display:flex;justify-content:space-between";
+      item.innerHTML = `<span>${escapeHtml(s.name)}</span><span style="color:#6a7a8a;margin-left:12px;white-space:nowrap">${s.playing_seconds}秒</span>`;
+      item.addEventListener("mousedown", e => { e.preventDefault(); selectSong(s.id); });
+      item.addEventListener("mouseenter", () => { item.style.background = "#2a3a4a"; });
+      item.addEventListener("mouseleave", () => { item.style.background = ""; });
+      dropdown.appendChild(item);
+      count++;
+    }
+    if (count === 0 && q) {
+      const empty = document.createElement("div");
+      empty.textContent = "該当なし";
+      empty.style.cssText = "padding:4px 8px;color:#556677";
+      dropdown.appendChild(empty);
+    }
+    highlightIdx = -1;
+  }
+
+  function escapeHtml(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+
+  input.addEventListener("focus", () => { input.value = ""; renderDropdown(""); dropdown.style.display = ""; });
+  input.addEventListener("input", () => { renderDropdown(input.value); dropdown.style.display = ""; });
+  input.addEventListener("blur", () => { setTimeout(() => { dropdown.style.display = "none"; restoreInputLabel(); }, 150); });
+  input.addEventListener("keydown", e => {
+    const items = dropdown.querySelectorAll("div[data-id], div:first-child");
+    if (e.key === "ArrowDown") { e.preventDefault(); highlightIdx = Math.min(highlightIdx + 1, items.length - 1); updateHighlight(items); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); highlightIdx = Math.max(highlightIdx - 1, 0); updateHighlight(items); }
+    else if (e.key === "Enter") { e.preventDefault(); if (highlightIdx >= 0 && items[highlightIdx]) items[highlightIdx].dispatchEvent(new Event("mousedown")); }
+    else if (e.key === "Escape") { input.blur(); }
+  });
+
+  function updateHighlight(items) {
+    items.forEach((el, i) => { el.style.background = i === highlightIdx ? "#2a3a4a" : ""; });
+    if (items[highlightIdx]) items[highlightIdx].scrollIntoView({ block: "nearest" });
+  }
+}
+
+function restoreInputLabel() {
+  const id = document.getElementById("songSelect").value;
+  const input = document.getElementById("songSearchInput");
+  if (id) {
+    const s = SONGS_LIST.find(s => s.id === id);
+    if (s) input.value = `${s.name} (${s.playing_seconds}秒)`;
+  } else {
+    input.value = "";
+  }
+}
+
+function selectSong(id) {
+  document.getElementById("songSelect").value = id;
+  document.getElementById("songDropdown").style.display = "none";
+  document.getElementById("diffSelect").style.display = id ? "" : "none";
+  restoreInputLabel();
+}
+
 function getSelectedSongLength() {
-  const sel = document.getElementById("songSelect");
-  if (!sel.value) return null;
-  const opt = sel.selectedOptions[0];
-  return opt?.dataset.seconds ? parseFloat(opt.dataset.seconds) : null;
+  const id = document.getElementById("songSelect").value;
+  if (!id) return null;
+  const s = SONGS_LIST.find(s => s.id === id);
+  return s ? s.playing_seconds : null;
 }
 
 function getSelectedChartScore() {
@@ -1096,35 +1173,9 @@ for (const btn of document.querySelectorAll(".btn-lv-global")) {
   });
 }
 
-const songSel = document.getElementById("songSelect");
-const songsByRange = {};
-const ranges = [[0,99,"~99秒"],[100,119,"100~119秒"],[120,139,"120~139秒"],[140,159,"140~159秒"],[160,999,"160秒~"]];
-const sortedSongs = SONGS_LIST.slice().sort((a,b) => a.playing_seconds - b.playing_seconds || a.name.localeCompare(b.name));
-for (const s of sortedSongs) {
-  const range = ranges.find(r => s.playing_seconds >= r[0] && s.playing_seconds <= r[1]);
-  const label = range ? range[2] : "その他";
-  (songsByRange[label] = songsByRange[label] || []).push(s);
-}
-for (const [,,label] of ranges) {
-  const group = songsByRange[label];
-  if (!group) continue;
-  const optgroup = document.createElement("optgroup");
-  optgroup.label = `${label} (${group.length}曲)`;
-  for (const s of group) {
-    const opt = document.createElement("option");
-    opt.value = s.id;
-    opt.dataset.seconds = s.playing_seconds;
-    opt.textContent = `${s.name} (${s.playing_seconds}秒)`;
-    optgroup.appendChild(opt);
-  }
-  songSel.appendChild(optgroup);
-}
-songSel.addEventListener("change", function() {
-  document.getElementById("diffSelect").style.display = this.value ? "" : "none";
-});
+initSongSearch();
 if (Object.keys(CHART_SCORES).length > 0) {
-  songSel.value = "m0091";
-  document.getElementById("diffSelect").style.display = songSel.value ? "" : "none";
+  selectSong("m0091");
 }
 
 document.getElementById("btnCopyIds").addEventListener("click", () => {
@@ -1493,7 +1544,7 @@ function saveToHistory(solveData) {
     settings: {
       topN: parseInt(document.getElementById("topN").value),
       costumeLeaderId: document.getElementById("costumeSelect").value || null,
-      songLength: document.getElementById("songSelect").value ? parseFloat(document.getElementById("songSelect").value) : null,
+      songId: document.getElementById("songSelect").value || null,
     },
     snapshot: { ids: [...selected], allCards: selected.size === 0, potentials: pots, levels: lvs, defaultPotential, defaultLevel, levelEnabled },
     results: (solveData.results || []).slice(0, 3).map(r => ({
@@ -1600,8 +1651,7 @@ function restoreFromHistory(idx) {
   }
   if (entry.settings?.topN != null) document.getElementById("topN").value = entry.settings.topN;
   document.getElementById("costumeSelect").value = entry.settings?.costumeLeaderId || entry.settings?.fixedLeaderId || "";
-  const songSel = document.getElementById("songSelect");
-  songSel.value = entry.settings?.songLength != null ? entry.settings.songLength : "";
+  selectSong(entry.settings?.songId || "");
 
   savePersistence();
   chkLevel.checked = levelEnabled;
