@@ -45,20 +45,56 @@ pip install sonolus-level-converters  # SUS ファイルパーサー
 
 ## 生成手順
 
-### 1. SUS ファイルをゲーム CDN から取得
+### 推奨フロー: 差分ダウンロード + 個別取得
+
+`holodori_asset_tools download` の一括ダウンロードは、新規追加曲の取得にサイレント失敗することがある（3回リトライ後にログに `failed` と出るだけでスキップされる）。既存ファイルはそのまま使い、不足分だけ個別取得するのが確実。
+
+#### Step 1. 既存 SUS ファイルを `--no-overwrite` で差分取得
 
 ```bash
-python3 -m holodori_asset_tools download /tmp/holodori_assets --filter 'chart_m' --workers 4
+python3 -m holodori_asset_tools download /tmp/holodori_assets --filter 'chart_m' --workers 4 --no-overwrite
 ```
 
-- ゲーム CDN (`asset.game-hololive-dreams.com`) から暗号化アセットを DL
-- `chart_m` でフィルタしてチャートアセットのみ取得（約 776 ファイル）
-- 自動的に復号して `/tmp/holodori_assets/resources/chart_*.sus` として保存
-- `--no-overwrite` で既存ファイルをスキップ可能
+#### Step 2. songs.json にあるが SUS が無い曲を特定し、個別取得
 
-初回は数分かかる。2 回目以降は `--no-overwrite` で差分のみ。
+```python
+python3 -c "
+from holodori_asset_tools.catalog import fetch
+from holodori_asset_tools.crypto import decrypt
+import httpx, json
+from pathlib import Path
 
-### 2. 公開用ビン集約データを生成
+with open('data/songs.json') as f:
+    song_ids = {s['id'] for s in json.load(f)['songs']}
+
+existing = {p.stem.rsplit('_', 1)[0].replace('chart_','')
+            for p in Path('/tmp/holodori_assets/resources').glob('chart_m*_expert.sus')}
+missing = song_ids - existing
+if not missing:
+    print('All songs have SUS files'); exit()
+print(f'Missing {len(missing)} songs: {sorted(missing)}')
+
+cat = fetch()
+client = httpx.Client(http2=True, timeout=120, follow_redirects=True)
+for r in cat.resources:
+    if not r.name.endswith('.sus'): continue
+    mid = r.name.replace('chart_','').rsplit('_',1)[0]
+    if mid not in missing: continue
+    resp = client.get(r.url)
+    data = decrypt(resp.content, r.name)
+    out = Path(f'/tmp/holodori_assets/resources/{r.name}')
+    out.write_bytes(data)
+    try:
+        data.decode('utf-8')
+        print(f'OK: {r.name} ({len(data)} bytes)')
+    except:
+        print(f'DECODE ERROR: {r.name}')
+"
+```
+
+**重要**: `crypto.decrypt(data, entry.name)` の第2引数はファイル名（`entry.name`）。`entry.md5` を渡すと復号に失敗してゴミデータになる。
+
+#### Step 3. 公開用ビン集約データを生成
 
 ```bash
 python3 scripts/generate_charts.py /tmp/holodori_assets/resources/ \
@@ -68,7 +104,7 @@ python3 scripts/generate_charts.py /tmp/holodori_assets/resources/ \
 これが `data/chart_scores.json`（リポジトリに含まれる公開可能データ）。
 0.5 秒ビンに集約されており、個々のノート位置は復元不可能。
 
-### 3. （オプション）ローカル用フルデータを生成
+#### Step 4. （オプション）ローカル用フルデータを生成
 
 ```bash
 python3 scripts/generate_charts.py /tmp/holodori_assets/resources/ \
@@ -77,7 +113,7 @@ python3 scripts/generate_charts.py /tmp/holodori_assets/resources/ \
 
 `data/charts.json` は `.gitignore` 対象。個別ノートのタイムスタンプを含む。
 
-### 4. 確認
+#### Step 5. 確認
 
 ```bash
 python3 -c "
@@ -92,6 +128,16 @@ print(f'Bins: {len(c.get(\"bins\", []))}')
 print(f'Notes: {c.get(\"total_notes\", 0)}')
 "
 ```
+
+### 旧フロー: 一括ダウンロード（初回セットアップ用）
+
+SUS ファイルが全くない初回は一括取得が速い:
+
+```bash
+python3 -m holodori_asset_tools download /tmp/holodori_assets --filter 'chart_m' --workers 4
+```
+
+一括取得後、上記 Step 2 で取りこぼしを補完すること。
 
 ## データフロー
 
@@ -185,6 +231,17 @@ sudo dnf install gcc gcc-c++
 - ネットワーク確認
 - `holodori-app-protos` のバージョン情報が古い場合がある（稀）
 - `--catalog` オプションでカタログ JSON を手動指定可能
+
+### 一括ダウンロードで一部の曲が取得されない
+
+`download` コマンドはサイレント失敗する（3回リトライ後に `logger.error` で `failed` と出るだけ）。
+新規追加曲で発生しやすい。`--no-overwrite` + Step 2 の個別取得で対処する。
+
+### generate_charts.py で utf-8 デコードエラーが出る
+
+`'utf-8' codec can't decode byte 0x83 in position 0` のようなエラーは、復号が正しく行われていないサイン。
+`crypto.decrypt(data, entry.name)` の第2引数に `entry.md5` を渡すと復号キーが異なりゴミデータになる。
+必ず `entry.name`（ファイル名）を渡すこと。
 
 ### パースエラーが出る
 
