@@ -235,6 +235,12 @@
       "score_coefficient_permil": 6
     },
     {
+      "id": "m0376",
+      "name": "KONKON Beats",
+      "playing_seconds": 101,
+      "score_coefficient_permil": 5
+    },
+    {
       "id": "m0304",
       "name": "LET'S JUST CRASH",
       "playing_seconds": 112,
@@ -331,6 +337,12 @@
       "score_coefficient_permil": 7
     },
     {
+      "id": "m0354",
+      "name": "PARADISE！",
+      "playing_seconds": 116,
+      "score_coefficient_permil": 5
+    },
+    {
       "id": "m0121",
       "name": "PSYCHO",
       "playing_seconds": 95,
@@ -341,6 +353,12 @@
       "name": "Palette",
       "playing_seconds": 153,
       "score_coefficient_permil": 5
+    },
+    {
+      "id": "m0357",
+      "name": "Play Dice!",
+      "playing_seconds": 155,
+      "score_coefficient_permil": 8
     },
     {
       "id": "m0007",
@@ -469,6 +487,12 @@
       "score_coefficient_permil": 7
     },
     {
+      "id": "m0525",
+      "name": "Watcha Gatcha!!!!!!!!",
+      "playing_seconds": 122,
+      "score_coefficient_permil": 5
+    },
+    {
       "id": "m0342",
       "name": "We are GAMERS !!!!",
       "playing_seconds": 166,
@@ -485,6 +509,12 @@
       "name": "Wicked feat. Mori Calliope",
       "playing_seconds": 124,
       "score_coefficient_permil": 6
+    },
+    {
+      "id": "m0375",
+      "name": "Wonky Monkey",
+      "playing_seconds": 124,
+      "score_coefficient_permil": 7
     },
     {
       "id": "m0524",
@@ -562,6 +592,12 @@
       "id": "m0146",
       "name": "おにけもだんす",
       "playing_seconds": 146,
+      "score_coefficient_permil": 5
+    },
+    {
+      "id": "m0548",
+      "name": "きゃぴ",
+      "playing_seconds": 123,
       "score_coefficient_permil": 5
     },
     {
@@ -871,6 +907,12 @@
       "score_coefficient_permil": 7
     },
     {
+      "id": "m0358",
+      "name": "プロポーズ",
+      "playing_seconds": 133,
+      "score_coefficient_permil": 5
+    },
+    {
       "id": "m0310",
       "name": "ホットダック！",
       "playing_seconds": 136,
@@ -1132,6 +1174,12 @@
       "id": "m0317",
       "name": "気分上々↑↑",
       "playing_seconds": 138,
+      "score_coefficient_permil": 8
+    },
+    {
+      "id": "m0413",
+      "name": "爆ラブ+ケミストリー",
+      "playing_seconds": 125,
       "score_coefficient_permil": 8
     },
     {
