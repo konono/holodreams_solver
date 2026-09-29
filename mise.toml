@@ -56,13 +56,14 @@ run = "uv run python scripts/sync_holodori.py"
 description = "チャートデータ更新（CDNから差分DL + 不足分個別取得 + ビン集約生成）"
 run = """
 set -e
-pip install -q git+https://github.com/HolodoriDB/holodori-asset-tools.git git+https://github.com/UntitledCharts/sonolus-level-converters.git 2>/dev/null || true
+echo "==> Step 0: 依存ツールのインストール"
+uv pip install git+https://github.com/HolodoriDB/holodori-asset-tools.git git+https://github.com/UntitledCharts/sonolus-level-converters.git
 
 echo "==> Step 1: 差分ダウンロード"
-python3 -m holodori_asset_tools download /tmp/holodori_assets --filter 'chart_m' --workers 4 --no-overwrite
+uv run python3 -m holodori_asset_tools download /tmp/holodori_assets --filter 'chart_m' --workers 4 --no-overwrite
 
 echo "==> Step 2: 不足曲の個別取得"
-python3 -c "
+uv run python3 -c "
 from holodori_asset_tools.catalog import fetch
 from holodori_asset_tools.crypto import decrypt
 import httpx, json
@@ -96,19 +97,13 @@ for r in cat.resources:
 "
 
 echo "==> Step 3: ビン集約データ生成 (chart_scores.json)"
-python3 scripts/generate_charts.py /tmp/holodori_assets/resources/ --output data/chart_scores.json --bin-size 0.5
+uv run python3 scripts/generate_charts.py /tmp/holodori_assets/resources/ --output data/chart_scores.json --bin-size 0.5
 
 echo "==> Step 4: ローカル用フルデータ生成 (charts.json)"
-python3 scripts/generate_charts.py /tmp/holodori_assets/resources/ --output data/charts.json
+uv run python3 scripts/generate_charts.py /tmp/holodori_assets/resources/ --output data/charts.json
 
 echo "==> 完了"
-python3 -c "
-import json
-with open('data/chart_scores.json') as f:
-    charts = json.load(f)
-print(f'Charts: {len(charts)}')
-print(f'Songs: {len(set(v[\"music_id\"] for v in charts.values()))}')
-"
+uv run python3 -c 'import json; c=json.load(open("data/chart_scores.json")); print(f"Charts: {len(c)}"); print(f"Songs: {len(set(v[\"music_id\"] for v in c.values()))}")'
 """
 
 [tasks.bench]
