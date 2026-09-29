@@ -47,6 +47,9 @@ mise run dev
 | `mise run test:e2e` | E2Eテストのみ |
 | `mise run build` | スタンドアロン版HTML生成 |
 | `mise run build:solver` | Goソルバービルド（CLI + WASM） |
+| `mise run sync:cards` | カード・ボードデータ同期（HolodoriDB） |
+| `mise run sync:charts` | チャートデータ更新（CDN差分DL + 不足分取得 + 生成） |
+| `mise run sync:all` | 全データ同期（cards + charts） |
 | `mise run bench` | Goベンチマーク実行（結果をbenchmarks/に保存） |
 | `mise run bench:wasm` | ネイティブ vs WASM パフォーマンス比較 |
 
