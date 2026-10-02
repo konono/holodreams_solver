@@ -50,11 +50,19 @@ class SolveRequest(BaseModel):
     sweep_costumes: bool = False
     chart_score: dict | None = None
     stability_charts: list[dict] | None = None
+    board_search_mode: str = "balanced"
 
     @field_validator("song_length")
     @classmethod
     def check_song_length(cls, v):
         return _validate_song_length(v)
+
+    @field_validator("board_search_mode")
+    @classmethod
+    def check_board_search_mode(cls, v):
+        if v not in {"fast", "balanced", "exhaustive"}:
+            raise ValueError("board_search_mode must be fast, balanced, or exhaustive")
+        return v
 
 
 class CalibrateRequest(BaseModel):
@@ -148,6 +156,7 @@ def post_solve(req: SolveRequest):
         kwargs["sweep_costumes"] = True
     if req.chart_score:
         kwargs["chart_score"] = req.chart_score
+    kwargs["board_search_mode"] = req.board_search_mode
     if req.stability_charts:
         kwargs["stability_charts"] = req.stability_charts
     result = solve(actual, **kwargs)
@@ -182,6 +191,7 @@ def post_solve_stream(req: SolveRequest):
         "stat_scale": req.stat_scale,
         "baseline": req.baseline,
         "sweep_costumes": bool(req.sweep_costumes),
+        "board_search_mode": req.board_search_mode,
     }
     if req.fixed_leader_id:
         payload["fixed_leader_id"] = req.fixed_leader_id

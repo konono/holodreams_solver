@@ -49,7 +49,7 @@ def build_card_specs(n):
     return specs, card_ids
 
 
-def bench_native(card_ids, runs):
+def bench_native(card_ids, runs, chart=None, board_mode=None):
     if not SOLVER_BIN.exists():
         print(f"  SKIP: {SOLVER_BIN} not found (run: mise run build:solver)")
         return None
@@ -59,6 +59,7 @@ def bench_native(card_ids, runs):
         "cards": card_ids,
         "top_n": 5,
         "sweep_costumes": True,
+        **({"chart_score": chart, "board_search_mode": board_mode} if chart else {}),
     })
 
     # warmup
@@ -91,7 +92,7 @@ def bench_native(card_ids, runs):
     return times
 
 
-def bench_wasm(page, card_specs, runs):
+def bench_wasm(page, card_specs, runs, chart=None, board_mode=None):
     # warmup
     for _ in range(WARMUP_RUNS):
         page.evaluate(f"""() => {{
@@ -106,7 +107,9 @@ def bench_wasm(page, card_specs, runs):
                     type: 'solve',
                     cards: {json.dumps(card_specs)},
                     topN: 5,
-                    sweepCostumes: true
+                    sweepCostumes: true,
+                    chartScore: {json.dumps(chart)},
+                    boardSearchMode: {json.dumps(board_mode)}
                 }});
             }});
         }}""")
@@ -130,7 +133,9 @@ def bench_wasm(page, card_specs, runs):
                     type: 'solve',
                     cards: {json.dumps(card_specs)},
                     topN: 5,
-                    sweepCostumes: true
+                    sweepCostumes: true,
+                    chartScore: {json.dumps(chart)},
+                    boardSearchMode: {json.dumps(board_mode)}
                 }});
             }});
         }}""")
@@ -154,9 +159,13 @@ def main():
             print(f"Error: {req} not found. Run: mise run build:solver && uv run python build_static.py")
             sys.exit(1)
 
+    with open(ROOT / "data" / "chart_scores.json") as f:
+        chart = json.load(f)["m0001_expert"]
     scenarios = [
-        ("solve (25 cards, sweep)", 25),
-        ("solve (70 cards, sweep)", 70),
+        ("solve (25 cards, sweep)", 25, None, None),
+        ("solve (70 cards, sweep)", 70, None, None),
+        ("timeline fast (25 cards)", 25, chart, "fast"),
+        ("timeline balanced (25 cards)", 25, chart, "balanced"),
     ]
 
     server = start_server()
@@ -180,11 +189,11 @@ def main():
         print(f"{'Phase':<30} {'Native':>10} {'WASM':>10} {'Ratio':>8}")
         print("-" * 62)
 
-        for label, n_cards in scenarios:
+        for label, n_cards, score_chart, mode in scenarios:
             specs, ids = build_card_specs(n_cards)
 
-            native_times = bench_native(ids, BENCH_RUNS)
-            wasm_times = bench_wasm(page, specs, BENCH_RUNS)
+            native_times = bench_native(ids, BENCH_RUNS, score_chart, mode)
+            wasm_times = bench_wasm(page, specs, BENCH_RUNS, score_chart, mode)
 
             native_med = sorted(native_times)[len(native_times) // 2] if native_times else None
             wasm_med = sorted(wasm_times)[len(wasm_times) // 2]

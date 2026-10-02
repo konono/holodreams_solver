@@ -39,6 +39,7 @@ func TestTimelineRegressionGolden(t *testing.T) {
 		ChartScoreData: chartData,
 	}
 
+	input.BoardSearchMode = "fast" // Preserve pre-Board-aware golden values.
 	tOutput := runSolveTimeline(t, input, cf)
 	assertGoldenTimeline(t, tOutput, []goldenEntry{
 		{lsi: 265944367781, power: 200519, unit: 921893, overlap: 25.0},
@@ -74,6 +75,7 @@ func TestTimelineRegressionGolden_M0005(t *testing.T) {
 		ChartScoreData: chartData,
 	}
 
+	input.BoardSearchMode = "fast" // Preserve pre-Board-aware golden values.
 	tOutput := runSolveTimeline(t, input, cf)
 	assertGoldenTimeline(t, tOutput, []goldenEntry{
 		{lsi: 291282678137, power: 200519, unit: 921893, overlap: 27.0},
@@ -109,6 +111,7 @@ func TestTimelineRegressionSweep10Cards(t *testing.T) {
 		ChartScoreData: chartData,
 	}
 
+	input.BoardSearchMode = "fast" // Preserve pre-Board-aware golden values.
 	tOutput := runSolveTimeline(t, input, cf)
 	assertGoldenTimeline(t, tOutput, []goldenEntry{
 		{lsi: 292235942215},
@@ -157,6 +160,7 @@ func TestTimelineRegressionSweep34Cards(t *testing.T) {
 		ChartScoreData: chartData,
 	}
 
+	input.BoardSearchMode = "fast" // Preserve pre-Board-aware golden values.
 	tOutput := runSolveTimeline(t, input, cf)
 	assertGoldenTimeline(t, tOutput, []goldenEntry{
 		{lsi: 326449317402, power: 219336, unit: 884800},
@@ -204,6 +208,7 @@ func TestSolveRegressionNonSweepTimeline(t *testing.T) {
 		ChartScoreData: chartData,
 	}
 
+	input.BoardSearchMode = "fast" // Preserve pre-Board-aware golden values.
 	tOutput := runSolveTimeline(t, input, cf)
 	assertGoldenTimeline(t, tOutput, []goldenEntry{
 		{lsi: 326449317402},

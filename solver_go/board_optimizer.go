@@ -16,11 +16,11 @@ type BoardEffectsData struct {
 		MaxNodes      int `json:"max_nodes"`
 		TotalPermil   int `json:"total_permil"`
 		Nodes         []struct {
-			NodeGroup  string `json:"node_group"`
-			ValuePermil int   `json:"value_permil"`
-			Grade      int    `json:"grade"`
-			CostPoints int    `json:"cost_points"`
-			CostItems  []struct {
+			NodeGroup   string `json:"node_group"`
+			ValuePermil int    `json:"value_permil"`
+			Grade       int    `json:"grade"`
+			CostPoints  int    `json:"cost_points"`
+			CostItems   []struct {
 				ID       string `json:"id"`
 				Quantity int    `json:"quantity"`
 			} `json:"cost_items"`
@@ -138,9 +138,9 @@ func OptimizeBoardForTeam(
 
 	// Pre-compute per-event fixed values: weight, comboMultiplier, scoreSupportAtTime
 	type eventFixed struct {
-		weight          float64
-		comboWeight     float64 // weight * comboMultiplier
-		supportFactor   float64 // 1 + (alwaysOnSupport + spSupport) / 100
+		weight        float64
+		comboWeight   float64 // weight * comboMultiplier
+		supportFactor float64 // 1 + (alwaysOnSupport + spSupport) / 100
 	}
 	evFixed := make([]eventFixed, nEvents)
 	for ei := range scoreEvents {
@@ -261,5 +261,66 @@ func OptimizeBoardForTeam(
 		OptimizedLoss: fixedFloat(bestResult.ActiveOverlapLoss * 100),
 		BaselineLSI:   int(math.Round(baseResult.LiveScoreIndex)),
 		OptimizedLSI:  int(math.Round(bestResult.LiveScoreIndex)),
+		BestEval:      bestResult,
 	}
+}
+
+// BoardUpperBound lets every member choose a different CD level at each note.
+// A fixed board is one of those choices, so this bounds every exact board score
+// for this particular SP order. All score-up and support factors are nonnegative.
+func BoardUpperBound(team [5]*Card, totalPower, songDuration float64, timeline *SongTimeline, events []ScoreEvent, alwaysOnSupport float64) float64 {
+	if len(events) == 0 {
+		return 0
+	}
+	if totalPower < 0 {
+		return math.Inf(1)
+	}
+	spWindows := generateSpecialWindows(team, timeline)
+	typeCounts := countTypes(team)
+	maxNodes := getCdReduceMaxNodes()
+	var scoreUps [5]float64
+	var probs [5][]float64
+	for i, card := range team {
+		su := card.CenterSkill.ScoreUp
+		if card.CenterSkill.Condition != nil && checkCenterTypeCondition(card.CenterSkill.Condition, typeCounts) && card.CenterSkill.ConditionalScoreUp != nil {
+			su = *card.CenterSkill.ConditionalScoreUp
+		}
+		if su < 0 || alwaysOnSupport < -100 {
+			return math.Inf(1)
+		}
+		scoreUps[i] = su
+		probs[i] = make([]float64, len(events))
+		for level := 0; level <= maxNodes; level++ {
+			cfg := &BoardConfig{CdReducePermil: level * getCdReducePerNode(), ActivationUpPermil: getActivationUpTotalPermil()}
+			state := activeCardState{attempts: generateActiveAttemptsWithBoard(card, i, songDuration, 0, spWindows, typeCounts, cfg)}
+			for ei := range events {
+				p := activeProbAtTime(&state, events[ei].Time)
+				if p > probs[i][ei] {
+					probs[i][ei] = p
+				}
+			}
+		}
+	}
+	order := [5]int{0, 1, 2, 3, 4}
+	sort.Slice(order[:], func(i, j int) bool { return scoreUps[order[i]] > scoreUps[order[j]] })
+	sum := 0.0
+	for ei, ev := range events {
+		emax, none := 0.0, 1.0
+		for _, i := range order {
+			p := probs[i][ei]
+			emax += scoreUps[i] * p * none
+			none *= 1 - p
+		}
+		w := ev.Weight
+		if w <= 0 {
+			w = 1
+		}
+		support := 1 + (alwaysOnSupport+scoreSupportAtTime(spWindows, ev.Time))/100
+		if support < 0 {
+			return math.Inf(1)
+		}
+		sum += w * comboMultiplier(ev.ComboIndex) * (1 + emax/100) * support
+	}
+	// Guard against floating-point differences from the full evaluator.
+	return totalPower*sum*(1+1e-12) + 1e-6
 }

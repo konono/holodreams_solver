@@ -57,6 +57,7 @@ self.onmessage = async function (e) {
         stat_scale: d.statScale ?? 1.0,
         baseline: d.baseline ?? 0,
         sweep_costumes: d.sweepCostumes || false,
+        board_search_mode: d.boardSearchMode || "balanced",
       };
       if (d.songLength) payload.song_length = d.songLength;
       if (d.fixedLeaderId) payload.fixed_leader_id = d.fixedLeaderId;
@@ -74,6 +75,7 @@ self.onmessage = async function (e) {
           timeline_results: result.timeline_results,
           legacy_results: result.legacy_results || [],
           candidate_pool: result.candidate_pool || 0,
+          board_search: result.board_search || null,
           total_combinations: result.candidate_pool || 0,
           stability: result.stability || null,
           card_usage: result.card_usage || null,

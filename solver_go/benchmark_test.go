@@ -269,6 +269,21 @@ func BenchmarkBoardOpt(b *testing.B) {
 	}
 }
 
+func BenchmarkBoardAware100(b *testing.B) {
+	_, cards := loadBenchCards(b, 25)
+	legacy, cardMap := benchLegacyResults(cards, 100)
+	timeline, events := benchTimeline()
+	base := RerankTopN(legacy, cardMap, timeline, events, 1, 0, 100, nil, len(legacy))
+	b.ResetTimer()
+	var stats BoardSearchStats
+	for i := 0; i < b.N; i++ {
+		_, stats = RerankBoardAware(base, cardMap, timeline, events, 10, "balanced")
+	}
+	b.ReportMetric(float64(stats.RefinementTeams), "teams/op")
+	b.ReportMetric(float64(stats.ExactSearches), "exact/op")
+	b.ReportMetric(float64(stats.BoundMilliseconds), "bound_ms/op")
+}
+
 // === Phase 7: カード解決 ===
 
 func BenchmarkResolveCard(b *testing.B) {

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"time"
 )
 
 func derefStr(p *string) string {
@@ -106,6 +107,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 
 	switch input.Action {
 	case "solve":
+		solveStarted := time.Now()
 		cards := parseCardsFromJSON(input.Cards, cf)
 		fixedLeader := ""
 		if input.FixedLeaderID != nil {
@@ -148,6 +150,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 			}
 
 			sweepResult := solveSweepCostumes(cards, cf.Cards, rawCardMap, candidatePool, statScale, baseline, songLength, input.StabilityLengths, cf)
+			legacyMS := time.Since(solveStarted).Milliseconds()
 
 			if hasTimeline {
 				scoreEvents := timeline.ScoreEvents
@@ -190,22 +193,41 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 						})
 					}
 
-					reranked := RerankTopN(legacySolveResults, cardMap, timeline, scoreEvents, statScale, baseline, songLength, nil, timelineTopN)
+					mode := input.BoardSearchMode
+					poolN := timelineTopN
+					if mode != "fast" {
+						poolN = len(legacySolveResults)
+					}
+					if progressCallback != nil {
+						progressCallback(-1, -1)
+					}
+					timelineStarted := time.Now()
+					reranked := RerankTopN(legacySolveResults, cardMap, timeline, scoreEvents, statScale, baseline, songLength, nil, poolN)
+					timelineMS := time.Since(timelineStarted).Milliseconds()
+					var boardStats *BoardSearchStats
+					if mode != "fast" {
+						var stats BoardSearchStats
+						reranked, stats = RerankBoardAware(reranked, cardMap, timeline, scoreEvents, timelineTopN, mode)
+						stats.LegacyMilliseconds = legacyMS
+						stats.TimelineMilliseconds = timelineMS
+						stats.TotalMilliseconds = time.Since(solveStarted).Milliseconds()
+						boardStats = &stats
+					}
 
 					rawComboSumSweep := 0.0
 					for i := range scoreEvents {
 						ev := &scoreEvents[i]
 						w := ev.Weight
-						if w <= 0 { w = 1.0 }
+						if w <= 0 {
+							w = 1.0
+						}
 						rawComboSumSweep += w * comboMultiplier(ev.ComboIndex)
 					}
 					top1LSI := 0.0
-					if len(reranked) > 0 { top1LSI = reranked[0].LiveScoreIndex }
-
-	
-					if progressCallback != nil {
-						progressCallback(-1, -1) // signal: entering timeline rerank phase
+					if len(reranked) > 0 {
+						top1LSI = reranked[0].LiveScoreIndex
 					}
+
 					var timelineResults []TimelineJSONResult
 					for i, r := range reranked {
 						spEff := make([]float64, 0)
@@ -214,16 +236,20 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 						}
 						skillEff := 0.0
 						noSkillLSI := r.TotalPower * rawComboSumSweep
-						if noSkillLSI > 0 { skillEff = r.LiveScoreIndex / noSkillLSI }
+						if noSkillLSI > 0 {
+							skillEff = r.LiveScoreIndex / noSkillLSI
+						}
 						top1Pct := 0.0
-						if top1LSI > 0 { top1Pct = r.LiveScoreIndex / top1LSI * 100 }
+						if top1LSI > 0 {
+							top1Pct = r.LiveScoreIndex / top1LSI * 100
+						}
 						var costumePtr *string
 						if r.CostumeOnlyLeaderID != "" {
 							s := r.CostumeOnlyLeaderID
 							costumePtr = &s
 						}
-						var boardOpt *BoardOptResult
-						if i < 10 {
+						boardOpt := r.BoardOpt
+						if boardOpt == nil && i < 10 {
 							boardOpt = boardOptForReranked(r, cardMap, timeline, scoreEvents)
 						}
 						timelineResults = append(timelineResults, TimelineJSONResult{
@@ -243,6 +269,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 							MemberIDs:           r.TeamIDs[:],
 							SPEfficiency:        spEff,
 							BoardOptimization:   boardOpt,
+							BoardApplied:        r.BoardOpt != nil,
 						})
 					}
 					legacyResults := sweepPool.Results
@@ -253,6 +280,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 						LegacyResults: legacyResults,
 						Timeline:      timelineResults,
 						CandidatePool: candidatePool,
+						BoardSearch:   boardStats,
 						CardUsage:     computeCardUsageTimeline(timelineResults),
 					}, nil
 				}
@@ -301,6 +329,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 		}
 
 		legacyResult := solve(cards, solveTopN, statScale, baseline, songLength, fixedLeader, costumeOnly, overrideCostumeSkill, input.StabilityLengths)
+		legacyMS := time.Since(solveStarted).Milliseconds()
 
 		if useTimeline {
 			cardMap := make(map[string]*Card, len(cards))
@@ -343,7 +372,26 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 				scoreEvents = BinsToScoreEvents(input.ChartScoreData.Bins)
 			}
 
-			reranked := RerankTopN(legacySolveResults, cardMap, timeline, scoreEvents, statScale, baseline, songLength, overrideCostumeSkill, timelineTopN)
+			mode := input.BoardSearchMode
+			poolN := timelineTopN
+			if mode != "fast" {
+				poolN = len(legacySolveResults)
+			}
+			if progressCallback != nil {
+				progressCallback(-1, -1)
+			}
+			timelineStarted := time.Now()
+			reranked := RerankTopN(legacySolveResults, cardMap, timeline, scoreEvents, statScale, baseline, songLength, overrideCostumeSkill, poolN)
+			timelineMS := time.Since(timelineStarted).Milliseconds()
+			var boardStats *BoardSearchStats
+			if mode != "fast" {
+				var stats BoardSearchStats
+				reranked, stats = RerankBoardAware(reranked, cardMap, timeline, scoreEvents, timelineTopN, mode)
+				stats.LegacyMilliseconds = legacyMS
+				stats.TimelineMilliseconds = timelineMS
+				stats.TotalMilliseconds = time.Since(solveStarted).Milliseconds()
+				boardStats = &stats
+			}
 
 			// rawComboSum: sum of (noteWeight × comboMultiplier) with no skills
 			rawComboSum := 0.0
@@ -361,10 +409,6 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 				top1LSI = reranked[0].LiveScoreIndex
 			}
 
-	
-			if progressCallback != nil {
-				progressCallback(-1, -1)
-			}
 			var timelineResults []TimelineJSONResult
 			for i, r := range reranked {
 				spEff := make([]float64, 0)
@@ -385,8 +429,8 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 					s := r.CostumeOnlyLeaderID
 					costumePtr = &s
 				}
-				var boardOpt *BoardOptResult
-				if i < 10 {
+				boardOpt := r.BoardOpt
+				if boardOpt == nil && i < 10 {
 					boardOpt = boardOptForReranked(r, cardMap, timeline, scoreEvents)
 				}
 				timelineResults = append(timelineResults, TimelineJSONResult{
@@ -406,6 +450,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 					MemberIDs:           r.TeamIDs[:],
 					SPEfficiency:        spEff,
 					BoardOptimization:   boardOpt,
+					BoardApplied:        r.BoardOpt != nil,
 				})
 			}
 
@@ -449,6 +494,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 				LegacyResults: legacyForDisplay,
 				Timeline:      timelineResults,
 				CandidatePool: candidatePool,
+				BoardSearch:   boardStats,
 				Stability:     stability,
 				CardUsage:     computeCardUsageTimeline(timelineResults),
 			}, nil

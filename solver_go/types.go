@@ -224,6 +224,7 @@ type CLIInput struct {
 	StabilityCharts    []ChartScore       `json:"stability_charts"`
 	PlayAssumption     *PlayAssumption    `json:"play_assumption"`
 	TimelineTopN       int                `json:"timeline_top_n"`
+	BoardSearchMode    string             `json:"board_search_mode"` // fast, balanced (default), exhaustive
 
 	// solve
 	FixedLeaderID       *string   `json:"fixed_leader_id"`
@@ -299,6 +300,7 @@ type TimelineJSONResult struct {
 	SpecialPct          fixedFloat      `json:"special_pct"`
 	SPEfficiency        []float64       `json:"sp_efficiency,omitempty"`
 	BoardOptimization   *BoardOptResult `json:"board_optimization,omitempty"`
+	BoardApplied        bool            `json:"board_applied,omitempty"`
 }
 
 // BoardConfig represents per-member board (skill tree) settings
@@ -319,6 +321,21 @@ type BoardOptResult struct {
 	OptimizedLoss fixedFloat           `json:"optimized_loss"`
 	BaselineLSI   int                  `json:"baseline_lsi"`
 	OptimizedLSI  int                  `json:"optimized_lsi"`
+	BestEval      TimelineEvalResult   `json:"-"`
+}
+
+type BoardSearchStats struct {
+	LegacyMilliseconds int64 `json:"legacy_ms"`
+	TimelineMilliseconds int64 `json:"timeline_ms"`
+	TimelineCandidates int `json:"timeline_candidates"`
+	RefinementTeams int `json:"refinement_teams"`
+	PermutationsChecked int `json:"permutations_checked"`
+	PermutationsPruned int `json:"permutations_pruned"`
+	PermutationsEquivalent int `json:"permutations_equivalent"`
+	ExactSearches int `json:"exact_searches"`
+	BoundMilliseconds int64 `json:"bound_ms"`
+	ExactMilliseconds int64 `json:"exact_ms"`
+	TotalMilliseconds int64 `json:"total_ms"`
 }
 
 type TimelineStabilityEntry struct {
@@ -332,6 +349,7 @@ type TimelineJSONOutput struct {
 	LegacyResults []JSONResult              `json:"legacy_results"`
 	Timeline      []TimelineJSONResult      `json:"timeline_results"`
 	CandidatePool int                       `json:"candidate_pool"`
+	BoardSearch *BoardSearchStats `json:"board_search,omitempty"`
 	Stability     []TimelineStabilityEntry  `json:"stability,omitempty"`
 	CardUsage     []CardUsage               `json:"card_usage,omitempty"`
 }

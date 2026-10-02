@@ -64,7 +64,9 @@ func RerankTopN(
 
 	songDuration := timeline.Duration
 
-	var allResults []TimelineRerankResult
+	// A candidate can appear with several leaders. Keep only its best order
+	// while searching, rather than retaining and sorting 120 results per input.
+	bestByTeam := make(map[rerankKey]TimelineRerankResult, len(legacyResults))
 
 	for _, lr := range legacyResults {
 		var cards [5]*Card
@@ -87,7 +89,14 @@ func RerankTopN(
 
 		permResults := rerankTeamAllPerms(cards, eval.TotalPower, songDuration, timeline, scoreEvents, alwaysOnSupport)
 
+		var sortedIDs [5]string
+		copy(sortedIDs[:], lr.TeamIDs[:])
+		sort.Strings(sortedIDs[:])
+		key := rerankKey{members: sortedIDs, costume: lr.CostumeOnlyLeaderID}
 		for pi, perm := range perms5 {
+			if old, ok := bestByTeam[key]; ok && permResults[pi].LiveScoreIndex <= old.LiveScoreIndex {
+				continue
+			}
 			var ids [5]string
 			newLeaderIdx := 0
 			for i, p := range perm {
@@ -97,7 +106,7 @@ func RerankTopN(
 				}
 			}
 
-			allResults = append(allResults, TimelineRerankResult{
+			bestByTeam[key] = TimelineRerankResult{
 				TeamIDs:             ids,
 				LeaderIdx:           newLeaderIdx,
 				UnitScore:           eval.UnitScore,
@@ -109,36 +118,37 @@ func RerankTopN(
 				SpecialPct:          eval.SpecialPct,
 				AlwaysOnSupport:     alwaysOnSupport,
 				TimelineResult:      permResults[pi],
-			})
+			}
 		}
 	}
 
-	// Sort by LiveScoreIndex descending
-	sort.Slice(allResults, func(i, j int) bool {
-		return allResults[i].LiveScoreIndex > allResults[j].LiveScoreIndex
-	})
-
-	// Deduplicate: keep only the best permutation per (team set + costume)
-	type dedupKey struct {
-		members [5]string
-		costume string
+	results := make([]TimelineRerankResult, 0, len(bestByTeam))
+	for _, r := range bestByTeam {
+		results = append(results, r)
 	}
-	seen := map[dedupKey]bool{}
-	var deduped []TimelineRerankResult
-	for _, r := range allResults {
-		var sorted5 [5]string
-		copy(sorted5[:], r.TeamIDs[:])
-		sort.Strings(sorted5[:])
-		dk := dedupKey{members: sorted5, costume: r.CostumeOnlyLeaderID}
-		if seen[dk] {
-			continue
-		}
-		seen[dk] = true
-		deduped = append(deduped, r)
-		if len(deduped) >= finalN {
-			break
+	sort.Slice(results, func(i, j int) bool { return rerankLess(results[i], results[j]) })
+	if finalN < len(results) {
+		results = results[:finalN]
+	}
+	return results
+}
+
+type rerankKey struct {
+	members [5]string
+	costume string
+}
+
+func rerankLess(a, b TimelineRerankResult) bool {
+	if a.LiveScoreIndex != b.LiveScoreIndex {
+		return a.LiveScoreIndex > b.LiveScoreIndex
+	}
+	for i := 0; i < 5; i++ {
+		if a.TeamIDs[i] != b.TeamIDs[i] {
+			return a.TeamIDs[i] < b.TeamIDs[i]
 		}
 	}
-
-	return deduped
+	if a.CostumeOnlyLeaderID != b.CostumeOnlyLeaderID {
+		return a.CostumeOnlyLeaderID < b.CostumeOnlyLeaderID
+	}
+	return a.LeaderIdx < b.LeaderIdx
 }
