@@ -16,12 +16,12 @@ func (s Stats) Total() float64 {
 }
 
 type CenterSkill struct {
-	Interval                   float64  `json:"interval"`
-	Duration                   float64  `json:"duration"`
-	ScoreUp                    float64  `json:"score_up"`
-	Condition                  *string  `json:"condition"`
-	ConditionalScoreUp         *float64 `json:"conditional_score_up"`
-	ActivationProbabilityPermil *int    `json:"activation_probability_permil"`
+	Interval                    float64  `json:"interval"`
+	Duration                    float64  `json:"duration"`
+	ScoreUp                     float64  `json:"score_up"`
+	Condition                   *string  `json:"condition"`
+	ConditionalScoreUp          *float64 `json:"conditional_score_up"`
+	ActivationProbabilityPermil *int     `json:"activation_probability_permil"`
 }
 
 type SupportTarget struct {
@@ -59,7 +59,7 @@ type CostumeEffect struct {
 }
 
 type CostumeSkill struct {
-	Condition *ConditionObj    `json:"condition"`
+	Condition *ConditionObj   `json:"condition"`
 	Effects   []CostumeEffect `json:"effects"`
 }
 
@@ -71,27 +71,27 @@ type SpecialSkill struct {
 }
 
 type PotentialData struct {
-	Potential        int         `json:"potential"`
-	ParamBonusPermil int         `json:"param_bonus_permil"`
-	RefStatsLv80     Stats       `json:"ref_stats_lv80"`
-	CenterSkill      CenterSkill `json:"center_skill"`
+	Potential        int             `json:"potential"`
+	ParamBonusPermil int             `json:"param_bonus_permil"`
+	RefStatsLv80     Stats           `json:"ref_stats_lv80"`
+	CenterSkill      CenterSkill     `json:"center_skill"`
 	SupportSkillRaw  SupportSkillRaw `json:"support_skill"`
 	CostumeSkill     CostumeSkill    `json:"costume_skill"`
 	SpecialSkill     *SpecialSkill   `json:"special_skill"`
 }
 
 type CardRaw struct {
-	ID                string          `json:"id"`
-	HolodoriID        string          `json:"holodori_id"`
-	Character         string          `json:"character"`
-	CardName          string          `json:"card_name"`
-	Rarity            int             `json:"rarity"`
-	Type              string          `json:"type"`
-	Group             string          `json:"group"`
-	Variant           string          `json:"variant"`
-	CardLevelGroupID  string          `json:"card_level_group_id"`
-	Permil            *Stats          `json:"permil"`
-	PotentialData     []PotentialData `json:"potential_data"`
+	ID               string          `json:"id"`
+	HolodoriID       string          `json:"holodori_id"`
+	Character        string          `json:"character"`
+	CardName         string          `json:"card_name"`
+	Rarity           int             `json:"rarity"`
+	Type             string          `json:"type"`
+	Group            string          `json:"group"`
+	Variant          string          `json:"variant"`
+	CardLevelGroupID string          `json:"card_level_group_id"`
+	Permil           *Stats          `json:"permil"`
+	PotentialData    []PotentialData `json:"potential_data"`
 	// Legacy flat fields for bench_go compatibility
 	Stats        Stats           `json:"stats"`
 	CenterSkill  CenterSkill     `json:"center_skill"`
@@ -120,7 +120,7 @@ type Card struct {
 }
 
 type CardsFile struct {
-	Cards       []CardRaw                    `json:"cards"`
+	Cards       []CardRaw                 `json:"cards"`
 	LevelTables map[string]map[string]int `json:"level_tables"`
 }
 
@@ -147,20 +147,20 @@ type SolveResult struct {
 }
 
 type BaseScores struct {
-	BasePower     float64
-	BaseBonus     float64
-	TotalPerf     float64
-	TotalTech     float64
-	TotalSense    float64
-	MemberParams  float64
+	BasePower      float64
+	BaseBonus      float64
+	TotalPerf      float64
+	TotalTech      float64
+	TotalSense     float64
+	MemberParams   float64
 	SupportContrib float64
-	ActivePct     float64
-	PassiveSBPct  float64
-	SpecialPct    float64
-	SupportSS     float64
-	TypeCounts    map[string]int
-	GroupCounts   map[string]int
-	Leader        *Card
+	ActivePct      float64
+	PassiveSBPct   float64
+	SpecialPct     float64
+	SupportSS      float64
+	TypeCounts     map[string]int
+	GroupCounts    map[string]int
+	Leader         *Card
 }
 
 type fixedFloat float64
@@ -178,17 +178,17 @@ func (f fixedFloat2) MarshalJSON() ([]byte, error) {
 // JSON output types
 
 type JSONResult struct {
-	Rank                int          `json:"rank"`
-	UnitScore           int          `json:"unit_score"`
-	TotalPower          int          `json:"total_power"`
-	ScoreBonus          fixedFloat   `json:"score_bonus"`
-	ActivePct           fixedFloat   `json:"active_pct"`
-	CostumeSBPct        fixedFloat   `json:"costume_sb_pct"`
-	PassiveSBPct        fixedFloat   `json:"passive_sb_pct"`
-	SpecialPct          fixedFloat   `json:"special_pct"`
-	LeaderID            string       `json:"leader_id"`
-	CostumeOnlyLeaderID *string      `json:"costume_only_leader_id"`
-	MemberIDs           []string     `json:"member_ids"`
+	Rank                int            `json:"rank"`
+	UnitScore           int            `json:"unit_score"`
+	TotalPower          int            `json:"total_power"`
+	ScoreBonus          fixedFloat     `json:"score_bonus"`
+	ActivePct           fixedFloat     `json:"active_pct"`
+	CostumeSBPct        fixedFloat     `json:"costume_sb_pct"`
+	PassiveSBPct        fixedFloat     `json:"passive_sb_pct"`
+	SpecialPct          fixedFloat     `json:"special_pct"`
+	LeaderID            string         `json:"leader_id"`
+	CostumeOnlyLeaderID *string        `json:"costume_only_leader_id"`
+	MemberIDs           []string       `json:"member_ids"`
 	Stability           map[string]int `json:"stability,omitempty"`
 }
 
@@ -209,22 +209,22 @@ type JSONOutput struct {
 // Input types for CLI
 
 type CLIInput struct {
-	Action  string `json:"action"`
+	Action string `json:"action"`
 
 	// solve/recommend common
-	Cards    json.RawMessage `json:"cards"`
-	TopN     int             `json:"top_n"`
-	StatScale *float64       `json:"stat_scale"`
-	Baseline  *float64       `json:"baseline"`
-	SongLength *float64      `json:"song_length"`
+	Cards      json.RawMessage `json:"cards"`
+	TopN       int             `json:"top_n"`
+	StatScale  *float64        `json:"stat_scale"`
+	Baseline   *float64        `json:"baseline"`
+	SongLength *float64        `json:"song_length"`
 
 	// timeline (optional)
-	SongTimeline       *SongTimeline      `json:"song_timeline"`
-	ChartScoreData     *ChartScore        `json:"chart_score"`
-	StabilityCharts    []ChartScore       `json:"stability_charts"`
-	PlayAssumption     *PlayAssumption    `json:"play_assumption"`
-	TimelineTopN       int                `json:"timeline_top_n"`
-	BoardSearchMode    string             `json:"board_search_mode"` // fast, balanced (default), exhaustive
+	SongTimeline    *SongTimeline   `json:"song_timeline"`
+	ChartScoreData  *ChartScore     `json:"chart_score"`
+	StabilityCharts []ChartScore    `json:"stability_charts"`
+	PlayAssumption  *PlayAssumption `json:"play_assumption"`
+	TimelineTopN    int             `json:"timeline_top_n"`
+	BoardSearchMode string          `json:"board_search_mode"` // fast, balanced (default), exhaustive
 
 	// solve
 	FixedLeaderID       *string   `json:"fixed_leader_id"`
@@ -233,18 +233,20 @@ type CLIInput struct {
 	SweepCostumes       bool      `json:"sweep_costumes"`
 
 	// recommend
-	AcquireCount int `json:"acquire_count"`
+	AcquireCount     int  `json:"acquire_count"`
+	IncludePotential bool `json:"include_potential"`
+	NewCardLevel     *int `json:"new_card_level"`
 
 	// whatif
 	WhatIfCandidates []string `json:"whatif_candidates"`
 
 	// calibrate
-	MemberIDs   []string            `json:"member_ids"`
-	LeaderID1   string              `json:"leader_id_1"`
-	GameScore1  int                 `json:"game_score_1"`
-	LeaderID2   string              `json:"leader_id_2"`
-	GameScore2  int                 `json:"game_score_2"`
-	CardSpecs   map[string]CardSpec `json:"card_specs"`
+	MemberIDs  []string            `json:"member_ids"`
+	LeaderID1  string              `json:"leader_id_1"`
+	GameScore1 int                 `json:"game_score_1"`
+	LeaderID2  string              `json:"leader_id_2"`
+	GameScore2 int                 `json:"game_score_2"`
+	CardSpecs  map[string]CardSpec `json:"card_specs"`
 }
 
 type CardSpec struct {
@@ -260,13 +262,13 @@ type CalibrateOutput struct {
 }
 
 type RecommendCard struct {
-	CardID           string  `json:"card_id"`
-	CardName         string  `json:"card_name"`
-	Character        string  `json:"character"`
-	Action           string  `json:"action"`
-	CurrentPotential *int    `json:"current_potential"`
-	TargetPotential  int     `json:"target_potential"`
-	Cost             int     `json:"cost"`
+	CardID           string `json:"card_id"`
+	CardName         string `json:"card_name"`
+	Character        string `json:"character"`
+	Action           string `json:"action"`
+	CurrentPotential *int   `json:"current_potential"`
+	TargetPotential  int    `json:"target_potential"`
+	Cost             int    `json:"cost"`
 }
 
 type RecommendResult struct {
@@ -284,16 +286,16 @@ type RecommendBestTeam struct {
 }
 
 type TimelineJSONResult struct {
-	Rank                int         `json:"rank"`
-	UnitScore           int         `json:"unit_score"`
-	TotalPower          int         `json:"total_power"`
-	LiveScoreIndex      int         `json:"live_score_index"`
-	SkillEfficiency     fixedFloat2 `json:"skill_efficiency"`
-	Top1Pct             fixedFloat2 `json:"top1_pct"`
-	ActiveOverlapLoss   fixedFloat  `json:"active_overlap_loss"`
-	LeaderID            string      `json:"leader_id"`
-	CostumeOnlyLeaderID *string    `json:"costume_only_leader_id"`
-	MemberIDs           []string    `json:"member_ids"`
+	Rank                int             `json:"rank"`
+	UnitScore           int             `json:"unit_score"`
+	TotalPower          int             `json:"total_power"`
+	LiveScoreIndex      int             `json:"live_score_index"`
+	SkillEfficiency     fixedFloat2     `json:"skill_efficiency"`
+	Top1Pct             fixedFloat2     `json:"top1_pct"`
+	ActiveOverlapLoss   fixedFloat      `json:"active_overlap_loss"`
+	LeaderID            string          `json:"leader_id"`
+	CostumeOnlyLeaderID *string         `json:"costume_only_leader_id"`
+	MemberIDs           []string        `json:"member_ids"`
 	ExpectedActive      fixedFloat      `json:"expected_active"`
 	CostumeSBPct        fixedFloat      `json:"costume_sb_pct"`
 	PassiveSBPct        fixedFloat      `json:"passive_sb_pct"`
@@ -306,7 +308,7 @@ type TimelineJSONResult struct {
 // BoardConfig represents per-member board (skill tree) settings
 // that modify Active Skill timing and probability.
 type BoardConfig struct {
-	CdReducePermil    int `json:"cd_reduce_permil"`
+	CdReducePermil     int `json:"cd_reduce_permil"`
 	ActivationUpPermil int `json:"activation_up_permil"`
 }
 
@@ -325,17 +327,17 @@ type BoardOptResult struct {
 }
 
 type BoardSearchStats struct {
-	LegacyMilliseconds int64 `json:"legacy_ms"`
-	TimelineMilliseconds int64 `json:"timeline_ms"`
-	TimelineCandidates int `json:"timeline_candidates"`
-	RefinementTeams int `json:"refinement_teams"`
-	PermutationsChecked int `json:"permutations_checked"`
-	PermutationsPruned int `json:"permutations_pruned"`
-	PermutationsEquivalent int `json:"permutations_equivalent"`
-	ExactSearches int `json:"exact_searches"`
-	BoundMilliseconds int64 `json:"bound_ms"`
-	ExactMilliseconds int64 `json:"exact_ms"`
-	TotalMilliseconds int64 `json:"total_ms"`
+	LegacyMilliseconds     int64 `json:"legacy_ms"`
+	TimelineMilliseconds   int64 `json:"timeline_ms"`
+	TimelineCandidates     int   `json:"timeline_candidates"`
+	RefinementTeams        int   `json:"refinement_teams"`
+	PermutationsChecked    int   `json:"permutations_checked"`
+	PermutationsPruned     int   `json:"permutations_pruned"`
+	PermutationsEquivalent int   `json:"permutations_equivalent"`
+	ExactSearches          int   `json:"exact_searches"`
+	BoundMilliseconds      int64 `json:"bound_ms"`
+	ExactMilliseconds      int64 `json:"exact_ms"`
+	TotalMilliseconds      int64 `json:"total_ms"`
 }
 
 type TimelineStabilityEntry struct {
@@ -346,12 +348,12 @@ type TimelineStabilityEntry struct {
 }
 
 type TimelineJSONOutput struct {
-	LegacyResults []JSONResult              `json:"legacy_results"`
-	Timeline      []TimelineJSONResult      `json:"timeline_results"`
-	CandidatePool int                       `json:"candidate_pool"`
-	BoardSearch *BoardSearchStats `json:"board_search,omitempty"`
-	Stability     []TimelineStabilityEntry  `json:"stability,omitempty"`
-	CardUsage     []CardUsage               `json:"card_usage,omitempty"`
+	LegacyResults []JSONResult             `json:"legacy_results"`
+	Timeline      []TimelineJSONResult     `json:"timeline_results"`
+	CandidatePool int                      `json:"candidate_pool"`
+	BoardSearch   *BoardSearchStats        `json:"board_search,omitempty"`
+	Stability     []TimelineStabilityEntry `json:"stability,omitempty"`
+	CardUsage     []CardUsage              `json:"card_usage,omitempty"`
 }
 
 type WhatIfCandidate struct {
@@ -366,13 +368,41 @@ type WhatIfCandidate struct {
 }
 
 type WhatIfOutput struct {
-	BaseScore  int              `json:"base_score"`
-	TopN       int              `json:"top_n"`
+	BaseScore  int               `json:"base_score"`
+	TopN       int               `json:"top_n"`
 	Candidates []WhatIfCandidate `json:"candidates"`
 }
 
 type RecommendOutput struct {
-	BaseScore       int               `json:"base_score"`
-	AcquireCount    int               `json:"acquire_count"`
-	Recommendations []RecommendResult `json:"recommendations"`
+	BaseScore           int               `json:"base_score"`
+	AcquireCount        int               `json:"acquire_count"`
+	Recommendations     []RecommendResult `json:"recommendations"`
+	PotentialCards      []PotentialCard   `json:"potential_cards,omitempty"`
+	NewCardLevel        int               `json:"new_card_level,omitempty"`
+	ScoreMetric         string            `json:"score_metric,omitempty"`
+	BoardSearchMode     string            `json:"board_search_mode,omitempty"`
+	ComboCandidateLimit int               `json:"combo_candidate_limit,omitempty"`
+}
+
+// PotentialStep is an exact single-card investment from the current collection.
+// Copies include the first acquisition of an unowned card (0凸).
+type PotentialStep struct {
+	Copies          int                 `json:"copies"`
+	TargetPotential int                 `json:"target_potential"`
+	NewScore        int                 `json:"new_score"`
+	Delta           int                 `json:"delta"`
+	Role            string              `json:"role"` // leader, member, costume, or unused
+	BestTeam        RecommendBestTeam   `json:"best_team"`
+	BestOtherDelta  int                 `json:"best_other_delta"`
+	CandidateTeams  []RecommendBestTeam `json:"-"`
+}
+
+type PotentialCard struct {
+	CardID            string           `json:"card_id"`
+	CardName          string           `json:"card_name"`
+	Character         string           `json:"character"`
+	CurrentPotential  *int             `json:"current_potential"`
+	FirstUsefulCopies int              `json:"first_useful_copies"`
+	Steps             []PotentialStep  `json:"steps"`
+	BudgetPlan        *RecommendResult `json:"budget_plan,omitempty"`
 }

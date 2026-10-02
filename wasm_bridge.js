@@ -112,6 +112,8 @@ self.onmessage = async function (e) {
         cards: d.cards,
         top_n: d.topN || 5,
         acquire_count: d.acquireCount || 1,
+        include_potential: d.includePotential || false,
+        new_card_level: d.newCardLevel || 80,
         stat_scale: d.statScale ?? 1.0,
         baseline: d.baseline ?? 0,
       };
@@ -120,6 +122,10 @@ self.onmessage = async function (e) {
       if (d.costumeOnlyLeaderId)
         payload.costume_only_leader_id = d.costumeOnlyLeaderId;
       if (d.sweepCostumes) payload.sweep_costumes = true;
+      if (d.chartScore) {
+        payload.chart_score = d.chartScore;
+        payload.board_search_mode = d.boardSearchMode || "balanced";
+      }
 
       const result = callSolver(payload);
 
@@ -128,6 +134,11 @@ self.onmessage = async function (e) {
         base_score: result.base_score || 0,
         acquire_count: result.acquire_count || 1,
         recommendations: result.recommendations || [],
+        potential_cards: result.potential_cards || [],
+        new_card_level: result.new_card_level || d.newCardLevel || 80,
+        score_metric: result.score_metric || "unit_score",
+        board_search_mode: result.board_search_mode || "",
+        combo_candidate_limit: result.combo_candidate_limit || 20,
       });
     } catch (err) {
       self.postMessage({ type: "error", message: err.message });

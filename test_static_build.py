@@ -420,6 +420,20 @@ class TestStaticWasmResultParity:
 
 
 class TestStaticRecommendWasm:
+    def test_recommend_uses_selected_song_timeline(self, browser_context):
+        page = open_page(browser_context)
+        ids = page.eval_on_selector_all(".card", "els => els.slice(0, 8).map(e => e.dataset.id)")
+        for cid in ids:
+            page.click(f'.card[data-id="{cid}"] .char-name')
+        page.evaluate("selectSong('m0001')")
+        page.select_option("#boardSearchMode", "fast")
+        page.click("#btnRecommend")
+        page.wait_for_selector(".result-card", timeout=120000)
+        title = page.locator(".results-title").first.inner_text()
+        assert "選択曲のライブ期待スコア" in title
+        assert page.locator(".potential-card").count() > 0
+        page.close()
+
     def test_recommend_best_team_shows_card_name(self, browser_context):
         """8枚選択+レコメンド → ベストチームにカード名(括弧内)が表示される"""
         page = open_page(browser_context)

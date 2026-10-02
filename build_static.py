@@ -75,6 +75,10 @@ def build():
       <option value="4">+4枚</option>
       <option value="5">+5枚</option>
     </select>
+    <label style="font-size:0.78rem;color:#f0a040;cursor:pointer"><input type="checkbox" id="chkPotential" checked> 新規カードの将来性も分析</label>
+    <label style="font-size:0.75rem;color:#8899aa">新規想定Lv <select id="newCardLevel" style="background:#1e2d3d;border:1px solid #3a4f66;color:#c8d8e8;padding:4px;border-radius:4px">
+      <option value="40">40</option><option value="50">50</option><option value="60">60</option><option value="70">70</option><option value="80" selected>80</option>
+    </select></label>
     <select id="recommendTopN" style="background:#1e2d3d;border:1px solid #3a4f66;color:#f0a040;padding:6px 8px;border-radius:4px;font-size:0.8rem">
       <option value="5" selected>Top 5</option>
       <option value="10">Top 10</option>
@@ -821,7 +825,7 @@ function doRecommend() {{
   pa.classList.add("visible");
   document.getElementById("progressFill").style.width = "0%";
   const ac = parseInt(document.getElementById("acquireCount").value);
-  const timeNote = ac >= 4 ? "（候補が多い場合1〜2分かかることがあります）" : "";
+  const timeNote = document.getElementById("chkPotential").checked || ac >= 4 ? "（全カードの凸段階を調べるため時間がかかることがあります）" : "";
   document.getElementById("progressText").textContent = `強化レコメンドを分析中...${{timeNote}}`;
   document.getElementById("resultsArea").innerHTML = "";
 
@@ -835,8 +839,12 @@ function doRecommend() {{
     fixedLeaderId: recCostumeVal && recMemberInclude ? recCostumeVal : null,
     costumeOnlyLeaderId: recCostumeVal && !recMemberInclude ? recCostumeVal : null,
     acquireCount: parseInt(document.getElementById("acquireCount").value),
+    includePotential: document.getElementById("chkPotential").checked,
+    newCardLevel: parseInt(document.getElementById("newCardLevel").value),
     topN: parseInt(document.getElementById("recommendTopN").value),
     songLength: getSelectedSongLength(),
+    chartScore: getSelectedChartScore(),
+    boardSearchMode: document.getElementById("boardSearchMode").value,
     sweepCostumes: !recCostumeVal && selected.size >= 5,
   }});
 
