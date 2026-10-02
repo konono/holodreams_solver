@@ -141,11 +141,22 @@ function renderRecommendations(data) {
   area.innerHTML = html;
 }
 
-function renderTimelineResults(data) {
+function resultPotential(id, historyEntry) {
+  const snapshot = historyEntry?.snapshot;
+  return snapshot ? (snapshot.potentials?.[id] ?? snapshot.defaultPotential ?? 0) : getCardPotential(id);
+}
+
+function resultLevel(id, historyEntry) {
+  const snapshot = historyEntry?.snapshot;
+  if (!snapshot) return getCardLevel(id);
+  return snapshot.levelEnabled ? (snapshot.levels?.[id] ?? snapshot.defaultLevel ?? 80) : 80;
+}
+
+function renderTimelineResults(data, historyEntry = null) {
   const tResults = data.timeline_results;
-  const songId = document.getElementById("songSelect").value;
+  const songId = historyEntry ? historyEntry.settings?.songId : document.getElementById("songSelect").value;
   const songName = window.SONGS?.[songId]?.name || songId;
-  const diff = document.getElementById("diffSelect").value || "expert";
+  const diff = (historyEntry ? historyEntry.settings?.difficulty : document.getElementById("diffSelect").value) || "expert";
 
   let html = `<div class="results-title">ライブ期待スコア Top ${tResults.length}（${songName} ${diff}）</div>`;
   html += `<div style="font-size:0.72rem;color:#6b7f92;margin-bottom:10px">候補プール: ${data.candidate_pool} 編成 × 120 順列 → Timeline評価</div>`;
@@ -248,8 +259,8 @@ function renderTimelineResults(data) {
       const mid = r.member_ids[i];
       const card = cardMap[mid];
       if (!card) continue;
-      const pot = getCardPotential(mid);
-      const lv = getCardLevel(mid);
+      const pot = resultPotential(mid, historyEntry);
+      const lv = resultLevel(mid, historyEntry);
       const s = getCardStats(card, pot, lv);
       const spEff = r.sp_efficiency?.[i];
       let spLabel = '';
@@ -288,7 +299,7 @@ function renderTimelineResults(data) {
           <span>T:${s.technique.toLocaleString()}</span>
           <span>S:${s.sense.toLocaleString()}</span>
         </div>
-        <div class="m-pot-lv">${pot}凸${levelEnabled ? ` Lv${lv}` : ''}</div>
+        <div class="m-pot-lv">${pot}凸${(historyEntry?.snapshot?.levelEnabled ?? levelEnabled) ? ` Lv${lv}` : ''}</div>
         ${activeLabel}
         ${spLabel}
         ${boardLabel}
@@ -330,8 +341,7 @@ function renderTimelineResults(data) {
   return html;
 }
 
-function renderResults(data) {
-  const area = document.getElementById("resultsArea");
+function renderResults(data, area = document.getElementById("resultsArea"), historyEntry = null) {
   const isTimeline = !!data.timeline_results;
   const results = isTimeline ? data.legacy_results : data.results;
   if ((!results || !results.length) && !isTimeline) {
@@ -346,7 +356,7 @@ function renderResults(data) {
   }
 
   if (isTimeline) {
-    html += renderTimelineResults(data);
+    html += renderTimelineResults(data, historyEntry);
     area.innerHTML = html;
     return;
   }
@@ -380,8 +390,8 @@ function renderResults(data) {
     for (const mid of r.member_ids) {
       const card = cardMap[mid]; if (!card) continue;
       const isLeader = mid === r.leader_id;
-      const pot = getCardPotential(mid);
-      const lv = getCardLevel(mid);
+      const pot = resultPotential(mid, historyEntry);
+      const lv = resultLevel(mid, historyEntry);
       const s = getCardStats(card, pot, lv);
       const showLeader = isLeader && !r.costume_only_leader_id;
       html += `<div class="member-card${showLeader ? " is-leader" : ""}">
@@ -393,7 +403,7 @@ function renderResults(data) {
           <span>T:${s.technique.toLocaleString()}</span>
           <span>S:${s.sense.toLocaleString()}</span>
         </div>
-        <div class="m-pot-lv">${pot}凸${levelEnabled ? ` Lv${lv}` : ''}</div>
+        <div class="m-pot-lv">${pot}凸${(historyEntry?.snapshot?.levelEnabled ?? levelEnabled) ? ` Lv${lv}` : ''}</div>
       </div>`;
     }
     html += `</div>`;

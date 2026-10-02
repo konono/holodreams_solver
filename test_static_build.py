@@ -149,7 +149,7 @@ class TestStaticSolve:
 
     def test_history_restores_results_and_selected_cards(self, browser_context):
         page = open_page(browser_context)
-        page.evaluate("async () => { await historyTransaction(await getHistoryDB(), 'readwrite', store => store.clear()); await renderHistory(); }")
+        page.evaluate("async () => { const db = await getHistoryDB(); for (const entry of await historyTransaction(db, 'readonly', store => store.getAll())) await deleteHistoryRecord(db, entry.id); await renderHistory(); }")
         page.evaluate("selectSong('')")
         ids = page.eval_on_selector_all(".card", "els => els.slice(0, 7).map(e => e.dataset.id)")
         for cid in ids[:6]:
@@ -163,7 +163,7 @@ class TestStaticSolve:
         page.click("#btnSolve")
         page.wait_for_function("document.querySelector('#historyCount').textContent === '1'", timeout=30000)
         before = page.eval_on_selector_all("#resultsArea .result-card", "els => els.map(e => e.innerText)")
-        assert before
+        assert len(before) > 3
 
         page.click(f'.card[data-id="{ids[6]}"] .char-name')
         page.select_option("#topN", "10")
@@ -176,14 +176,23 @@ class TestStaticSolve:
         page.reload()
         page.wait_for_selector(".card", timeout=10000)
         page.click("#historyToggle")
-        page.locator(".history-entry").nth(1).locator("button[data-action=restore]").click()
+        older = page.locator(".history-entry").nth(1)
+        older.locator(".h-details summary").click()
+        older.locator(".history-results .result-card").first.wait_for()
+        assert older.locator(".history-results .result-card").evaluate_all("els => els.map(e => e.innerText)") == before
+        assert set(page.eval_on_selector_all(".card.selected", "els => els.map(e => e.dataset.id)")) == set(ids)
+        newer = page.locator(".history-entry").first
+        newer.locator(".h-details summary").click()
+        newer.locator(".history-results .result-card").first.wait_for()
+        assert newer.locator(".history-results .result-card").evaluate_all("els => els.map(e => e.innerText)") == after
+        older.locator("button[data-action=restore]").click()
         assert set(page.eval_on_selector_all(".card.selected", "els => els.map(e => e.dataset.id)")) == set(ids[:6])
         assert page.input_value("#topN") == "30"
         assert page.input_value("#boardSearchMode") == "fast"
         assert page.eval_on_selector(f'.card[data-id="{ids[0]}"] .pot-btn.active', "el => Number(el.dataset.pot)") == 3
         assert page.is_checked("#chkLevelEnabled")
         assert page.input_value(f'.card[data-id="{ids[0]}"] .lv-input') == "70"
-        assert page.eval_on_selector_all("#resultsArea .result-card", "els => els.map(e => e.innerText)") == before
+        assert page.eval_on_selector_all("#resultsArea .result-card", "els => els.map(e => e.innerText)") == []
 
         page.reload()
         page.wait_for_selector(".card", timeout=10000)
@@ -193,12 +202,12 @@ class TestStaticSolve:
         page.locator(".history-entry").first.locator("button[data-action=restore]").click()
         assert set(page.eval_on_selector_all(".card.selected", "els => els.map(e => e.dataset.id)")) == set(ids)
         assert page.input_value("#boardSearchMode") == "balanced"
-        assert page.eval_on_selector_all("#resultsArea .result-card", "els => els.map(e => e.innerText)") == after
+        assert page.eval_on_selector_all("#resultsArea .result-card", "els => els.map(e => e.innerText)") == []
         page.close()
 
     def test_timeline_history_restores_result(self, browser_context):
         page = open_page(browser_context)
-        page.evaluate("async () => { await historyTransaction(await getHistoryDB(), 'readwrite', store => store.clear()); await renderHistory(); }")
+        page.evaluate("async () => { const db = await getHistoryDB(); for (const entry of await historyTransaction(db, 'readonly', store => store.getAll())) await deleteHistoryRecord(db, entry.id); await renderHistory(); }")
         select_cards(page, 6)
         page.evaluate("selectSong('m0001')")
         page.select_option("#boardSearchMode", "fast")
@@ -208,9 +217,50 @@ class TestStaticSolve:
         assert "ライブ期待スコア" in before
         page.evaluate("selectSong('')")
         page.click("#historyToggle")
+        page.locator(".history-entry .h-details summary").click()
+        page.locator(".history-results .result-card").first.wait_for()
+        assert page.eval_on_selector(".history-results", "el => el.innerText") == before
+        assert page.input_value("#songSelect") == ""
         page.locator(".history-entry button[data-action=restore]").click()
         assert page.input_value("#songSelect") == "m0001"
-        assert page.eval_on_selector("#resultsArea", "el => el.innerText") == before
+        assert page.eval_on_selector("#resultsArea", "el => el.innerText") == ""
+        page.close()
+
+    def test_history_only_renders_opened_top_results(self, browser_context):
+        page = open_page(browser_context)
+        page.evaluate("""async () => {
+          const db = await getHistoryDB();
+          for (const entry of await historyTransaction(db, 'readonly', store => store.getAll())) {
+            await deleteHistoryRecord(db, entry.id);
+          }
+          const ids = CARDS.slice(0, 5).map(card => card.id);
+          const result = {results: Array.from({length: 4}, (_, i) => ({
+            rank: i + 1, unit_score: 800000 - i, total_power: 200000,
+            score_bonus: 100, active_pct: 50, costume_sb_pct: 10,
+            passive_sb_pct: 10, special_pct: 30,
+            member_ids: ids, leader_id: ids[0],
+          }))};
+          const state = captureHistoryState();
+          for (let i = 0; i < 3; i++) {
+            await writeHistoryRecord(db, {
+              id: `history-open-${i}`, ts: Date.now() - i, label: '',
+              ...state, results: historySummary(result), resultCount: 4,
+              isTimeline: false,
+            }, result);
+          }
+          await renderHistory();
+        }""")
+        page.click("#historyToggle")
+        entries = page.locator(".history-entry")
+        assert entries.count() == 3
+        assert page.locator(".history-results .result-card").count() == 0
+        for index in range(3):
+            entries.nth(index).locator(".h-details summary").click()
+            entries.nth(index).locator(".history-results .result-card").last.wait_for()
+        assert not entries.first.locator(".h-details").evaluate("el => el.open")
+        assert entries.first.locator(".history-results .result-card").count() == 0
+        assert entries.nth(1).locator(".history-results .result-card").count() == 4
+        assert entries.nth(2).locator(".history-results .result-card").count() == 4
         page.close()
 
     def test_solve_with_costume_member_include_shows_leader_badge(self, browser_context):

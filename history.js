@@ -2,23 +2,66 @@
 const HISTORY_LIMIT = 20;
 let historyEntries = [];
 let historyReady;
+let historyOpenSequence = 0;
 
 function openHistoryDB() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open("holodri_solve_history", 1);
-    request.onupgradeneeded = () => request.result.createObjectStore("entries", { keyPath: "id" });
+    const request = indexedDB.open("holodri_solve_history", 2);
+    request.onupgradeneeded = event => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains("entries")) db.createObjectStore("entries", { keyPath: "id" });
+      if (!db.objectStoreNames.contains("results")) db.createObjectStore("results", { keyPath: "id" });
+      if (event.oldVersion === 1) {
+        const entries = request.transaction.objectStore("entries");
+        const results = request.transaction.objectStore("results");
+        entries.openCursor().onsuccess = event => {
+          const cursor = event.target.result;
+          if (!cursor) return;
+          const entry = cursor.value;
+          entry.resultCount = (entry.result?.timeline_results || entry.result?.results || entry.results || []).length;
+          if (entry.result) {
+            results.put({ id: entry.id, result: entry.result });
+            delete entry.result;
+          }
+          cursor.update(entry);
+          cursor.continue();
+        };
+      }
+    };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
 }
 
-function historyTransaction(db, mode, action) {
+function historyTransaction(db, mode, action, storeName = "entries") {
   return new Promise((resolve, reject) => {
-    const tx = db.transaction("entries", mode);
-    const request = action(tx.objectStore("entries"));
+    const tx = db.transaction(storeName, mode);
+    const request = action(tx.objectStore(storeName));
     let value;
     if (request) request.onsuccess = () => { value = request.result; };
     tx.oncomplete = () => resolve(value);
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+}
+
+function writeHistoryRecord(db, entry, result) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(["entries", "results"], "readwrite");
+    tx.objectStore("entries").put(entry);
+    if (result) tx.objectStore("results").put({ id: entry.id, result });
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+}
+
+function deleteHistoryRecord(db, id) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(["entries", "results"], "readwrite");
+    tx.objectStore("entries").delete(id);
+    tx.objectStore("results").delete(id);
+    tx.oncomplete = resolve;
     tx.onerror = () => reject(tx.error);
     tx.onabort = () => reject(tx.error);
   });
@@ -39,12 +82,12 @@ async function getHistoryDB() {
           if (entry.resultKey) {
             try { result = JSON.parse(localStorage.getItem(entry.resultKey)); } catch {}
           }
-          await historyTransaction(db, "readwrite", store => store.put({
+          await writeHistoryRecord(db, {
             id: `legacy-${entry.ts}-${i}`, ts: entry.ts, label: entry.label || "",
             settings: entry.settings || {}, snapshot: entry.snapshot,
             results: entry.results || [], isTimeline: entry.isTimeline || !!result?.timeline_results,
-            result,
-          }));
+            resultCount: (result?.timeline_results || result?.results || entry.results || []).length,
+          }, result);
         }
         for (const entry of old) {
           if (entry.resultKey) localStorage.removeItem(entry.resultKey);
@@ -103,13 +146,13 @@ async function saveToHistory(result, state = captureHistoryState()) {
     const entry = {
       id: `${Date.now()}-${crypto.randomUUID()}`, ts: Date.now(), label: "",
       ...state, results: historySummary(result), isTimeline: !!result.timeline_results,
-      result,
+      resultCount: (result.timeline_results || result.results || []).length,
     };
-    await historyTransaction(db, "readwrite", store => store.put(entry));
+    await writeHistoryRecord(db, entry, result);
     const entries = await historyTransaction(db, "readonly", store => store.getAll());
     entries.sort((a, b) => b.ts - a.ts || b.id.localeCompare(a.id));
     for (const old of entries.slice(HISTORY_LIMIT)) {
-      await historyTransaction(db, "readwrite", store => store.delete(old.id));
+      await deleteHistoryRecord(db, old.id);
     }
     document.getElementById("historyError").textContent = "";
     await renderHistory();
@@ -150,15 +193,16 @@ async function renderHistory() {
       const time = `${date.getMonth()+1}/${date.getDate()} ${date.getHours()}:${String(date.getMinutes()).padStart(2, "0")}`;
       const summaries = entry.results || [];
       const count = entry.snapshot?.allCards ? "全" : (entry.snapshot?.ids || []).length;
-      const rows = summaries.map((r, i) => {
-        const names = (r.member_ids || []).map(id => cardMap[id]?.character || id).join("・");
-        return `<div class="h-result">#${r.rank || i+1} ${historyEscape(historyScore(r, entry.isTimeline))}　${historyEscape(names)}</div>`;
-      }).join("");
+      const resultCount = entry.resultCount ?? summaries.length;
+      const resultLabel = resultCount > summaries.length ? `保存済み Top ${resultCount} を見る` : `保存済み上位${resultCount}件を見る`;
       return `<div class="history-entry">
         <div class="h-header"><span class="h-time">${historyEscape(time)} / ${count}枚</span>
           <span class="h-score">${historyEscape(historyScore(summaries[0], entry.isTimeline))}</span></div>
         <input class="h-label-input" placeholder="メモ" value="${historyEscape(entry.label)}" data-index="${index}">
-        ${rows || '<div class="h-result">結果なし</div>'}
+        <details class="h-details" data-index="${index}">
+          <summary>${historyEscape(resultLabel)}</summary>
+          <div class="history-results results-area"></div>
+        </details>
         <div style="display:flex;gap:4px;margin-top:6px">
           <button class="h-btn" data-action="restore" data-index="${index}">復元</button>
           <button class="h-btn" data-action="delete" data-index="${index}">削除</button>
@@ -176,6 +220,32 @@ async function renderHistory() {
       if (button.dataset.action === "restore") restoreFromHistory(index);
       else deleteHistory(index);
     }));
+    area.querySelectorAll(".h-details").forEach(details => details.addEventListener("toggle", async () => {
+      const target = details.querySelector(".history-results");
+      if (!details.open) {
+        target.replaceChildren();
+        return;
+      }
+      details.dataset.openedAt = String(++historyOpenSequence);
+      const otherOpen = [...area.querySelectorAll(".h-details[open]")].filter(item => item !== details);
+      otherOpen.sort((a, b) => Number(a.dataset.openedAt) - Number(b.dataset.openedAt));
+      for (const old of otherOpen.slice(0, Math.max(0, otherOpen.length - 1))) old.open = false;
+      const entry = historyEntries[Number(details.dataset.index)];
+      target.textContent = "結果を読み込み中...";
+      try {
+        const saved = await historyTransaction(db, "readonly", store => store.get(entry.id), "results");
+        if (!details.open) return;
+        if (saved?.result) {
+          renderResults(saved.result, target, entry);
+        } else {
+          const rows = (entry.results || []).map((r, i) => {
+            const names = (r.member_ids || []).map(id => cardMap[id]?.character || id).join("・");
+            return `<div class="h-result">#${r.rank || i+1} ${historyEscape(historyScore(r, entry.isTimeline))}　${historyEscape(names)}</div>`;
+          }).join("");
+          target.innerHTML = rows || '<div class="h-result">保存済みの結果データがありません</div>';
+        }
+      } catch (error) { showHistoryError(error); target.textContent = "結果を読み込めませんでした。"; }
+    }));
   } catch (error) { showHistoryError(error); }
 }
 
@@ -183,7 +253,7 @@ async function deleteHistory(index) {
   const entry = historyEntries[index];
   if (!entry) return;
   try {
-    await historyTransaction(await getHistoryDB(), "readwrite", store => store.delete(entry.id));
+    await deleteHistoryRecord(await getHistoryDB(), entry.id);
     await renderHistory();
   } catch (error) { showHistoryError(error); }
 }
@@ -233,17 +303,10 @@ function restoreFromHistory(index) {
   if (typeof updateBaselineDisplay === "function") updateBaselineDisplay();
   renderCards();
   updateCounter();
-  expandResults();
-  if (entry.result) {
-    renderResults(entry.result);
-  } else {
-    const rows = (entry.results || []).map((r, i) =>
-      `<div class="h-result">#${r.rank || i+1} ${historyEscape(historyScore(r, entry.isTimeline))}　${historyEscape((r.member_ids || []).join("・"))}</div>`).join("");
-    document.getElementById("resultsArea").innerHTML =
-      `<div class="results-title">旧履歴の保存済み上位結果</div>${rows || "結果データなし"}`;
-  }
-  setFabMode("back");
-  document.getElementById("resultsWrapper").scrollIntoView({ behavior: "smooth" });
+  document.getElementById("resultsArea").innerHTML = "";
+  document.getElementById("resultsWrapper").style.display = "none";
+  setFabMode("solve");
+  document.getElementById("cardArea").scrollIntoView({ behavior: "smooth" });
 }
 
 document.getElementById("historyToggle").addEventListener("click", () => {

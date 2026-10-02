@@ -213,6 +213,37 @@ class TestPersistenceReload:
 
 
 class TestSolveHistory:
+    def test_existing_indexeddb_results_are_upgraded(self, ctx, server):
+        page = ctx.new_page()
+        page.goto(f"{server}/api/cards")
+        page.evaluate("""() => new Promise((resolve, reject) => {
+          const request = indexedDB.open('holodri_solve_history', 1);
+          request.onupgradeneeded = () => request.result.createObjectStore('entries', {keyPath: 'id'});
+          request.onerror = () => reject(request.error);
+          request.onsuccess = () => {
+            const db = request.result;
+            const tx = db.transaction('entries', 'readwrite');
+            tx.objectStore('entries').put({
+              id: 'older-entry', ts: Date.now(), label: '旧DB',
+              snapshot: {ids: [], allCards: true}, settings: {},
+              results: [{rank: 1, unit_score: 1234}],
+              result: {results: [{rank: 1, unit_score: 1234}]},
+            });
+            tx.oncomplete = () => { db.close(); resolve(); };
+            tx.onerror = () => reject(tx.error);
+          };
+        })""")
+        page.goto(server)
+        page.wait_for_selector(".card", timeout=10000)
+        page.wait_for_function("document.querySelector('#historyCount').textContent === '1'", timeout=10000)
+        assert page.evaluate("""async () => {
+          const db = await getHistoryDB();
+          const entry = await historyTransaction(db, 'readonly', store => store.get('older-entry'));
+          const saved = await historyTransaction(db, 'readonly', store => store.get('older-entry'), 'results');
+          return !('result' in entry) && entry.resultCount === 1 && saved.result.results[0].unit_score === 1234;
+        }""")
+        page.close()
+
     def test_results_and_selection_can_be_compared_and_restored(self, fresh_page):
         page = fresh_page
         ids = get_card_ids(page, 7)
@@ -228,7 +259,7 @@ class TestSolveHistory:
         page.click("#btnSolve")
         page.wait_for_function("document.querySelector('#historyCount').textContent === '1'", timeout=30000)
         before = page.eval_on_selector_all("#resultsArea .result-card", "els => els.map(e => e.innerText)")
-        assert before
+        assert len(before) > 3
 
         click_card(page, ids[6])
         page.select_option("#topN", "10")
@@ -241,14 +272,23 @@ class TestSolveHistory:
         page.reload()
         page.wait_for_selector(".card", timeout=10000)
         page.click("#historyToggle")
-        page.locator(".history-entry").nth(1).locator("button[data-action=restore]").click()
+        older = page.locator(".history-entry").nth(1)
+        older.locator(".h-details summary").click()
+        older.locator(".history-results .result-card").first.wait_for()
+        assert older.locator(".history-results .result-card").evaluate_all("els => els.map(e => e.innerText)") == before
+        assert set(get_selected_ids(page)) == set(ids)
+        newer = page.locator(".history-entry").first
+        newer.locator(".h-details summary").click()
+        newer.locator(".history-results .result-card").first.wait_for()
+        assert newer.locator(".history-results .result-card").evaluate_all("els => els.map(e => e.innerText)") == after
+        older.locator("button[data-action=restore]").click()
         assert set(get_selected_ids(page)) == set(ids[:6])
         assert page.input_value("#topN") == "30"
         assert page.input_value("#boardSearchMode") == "fast"
         assert page.eval_on_selector(f'.card[data-id="{ids[0]}"] .pot-btn.active', "el => Number(el.dataset.pot)") == 3
         assert page.is_checked("#chkLevelEnabled")
         assert page.input_value(f'.card[data-id="{ids[0]}"] .lv-input') == "70"
-        assert page.eval_on_selector_all("#resultsArea .result-card", "els => els.map(e => e.innerText)") == before
+        assert page.eval_on_selector_all("#resultsArea .result-card", "els => els.map(e => e.innerText)") == []
 
         page.reload()
         page.wait_for_selector(".card", timeout=10000)
@@ -258,7 +298,7 @@ class TestSolveHistory:
         page.locator(".history-entry").first.locator("button[data-action=restore]").click()
         assert set(get_selected_ids(page)) == set(ids)
         assert page.input_value("#boardSearchMode") == "balanced"
-        assert page.eval_on_selector_all("#resultsArea .result-card", "els => els.map(e => e.innerText)") == after
+        assert page.eval_on_selector_all("#resultsArea .result-card", "els => els.map(e => e.innerText)") == []
 
     def test_old_server_history_keeps_saved_results(self, fresh_page):
         page = fresh_page
@@ -272,22 +312,26 @@ class TestSolveHistory:
         page.evaluate("""async () => {
           const db = await getHistoryDB();
           const [entry] = await historyTransaction(db, 'readonly', store => store.getAll());
+          const saved = await historyTransaction(db, 'readonly', store => store.get(entry.id), 'results');
           const resultKey = `holodri_result_${entry.ts}`;
-          localStorage.setItem(resultKey, JSON.stringify(entry.result));
+          localStorage.setItem(resultKey, JSON.stringify(saved.result));
           localStorage.setItem('holodri_solve_history', JSON.stringify([{
             ts: entry.ts, label: '以前の履歴', settings: entry.settings,
             snapshot: entry.snapshot, results: entry.results,
             isTimeline: entry.isTimeline, resultKey,
           }]));
-          await historyTransaction(db, 'readwrite', store => store.clear());
+          await deleteHistoryRecord(db, entry.id);
         }""")
         page.reload()
         page.wait_for_selector(".card", timeout=10000)
         page.wait_for_function("document.querySelector('#historyCount').textContent === '1'", timeout=10000)
         page.click("#historyToggle")
         assert page.locator(".history-entry .h-label-input").first.input_value() == "以前の履歴"
+        page.locator(".history-entry .h-details summary").click()
+        page.locator(".history-results .result-card").first.wait_for()
+        assert page.eval_on_selector_all(".history-results .result-card", "els => els.map(e => e.innerText)") == before
         page.locator(".history-entry button[data-action=restore]").click()
-        assert page.eval_on_selector_all("#resultsArea .result-card", "els => els.map(e => e.innerText)") == before
+        assert page.eval_on_selector_all("#resultsArea .result-card", "els => els.map(e => e.innerText)") == []
         assert page.evaluate("localStorage.getItem('holodri_solve_history')") is None
 
     def test_timeline_result_is_restored(self, fresh_page):
@@ -302,9 +346,13 @@ class TestSolveHistory:
         assert "ライブ期待スコア" in before
         page.evaluate("selectSong('')")
         page.click("#historyToggle")
+        page.locator(".history-entry .h-details summary").click()
+        page.locator(".history-results .result-card").first.wait_for()
+        assert page.eval_on_selector(".history-results", "el => el.innerText") == before
+        assert page.input_value("#songSelect") == ""
         page.locator(".history-entry button[data-action=restore]").click()
         assert page.input_value("#songSelect") == "m0001"
-        assert page.eval_on_selector("#resultsArea", "el => el.innerText") == before
+        assert page.eval_on_selector("#resultsArea", "el => el.innerText") == ""
 
 
 class TestServerResultParity:
