@@ -228,11 +228,22 @@ class RecommendRequest(BaseModel):
     acquire_count: int = 1
     song_length: float | None = None
     sweep_costumes: bool = False
+    include_potential: bool = False
+    new_card_level: int = 80
+    chart_score: dict | None = None
+    board_search_mode: str = "balanced"
 
     @field_validator("song_length")
     @classmethod
     def check_song_length(cls, v):
         return _validate_song_length(v)
+
+    @field_validator("board_search_mode")
+    @classmethod
+    def check_board_search_mode(cls, v):
+        if v not in {"fast", "balanced", "exhaustive"}:
+            raise ValueError("board_search_mode must be fast, balanced, or exhaustive")
+        return v
 
 
 @app.post("/api/recommend")
@@ -263,7 +274,7 @@ def post_recommend(req: RecommendRequest):
 
     top_n = max(1, min(req.top_n, 20))
     acquire_count = max(1, min(req.acquire_count, 5))
-    kwargs = dict(top_n=top_n, acquire_count=acquire_count, stat_scale=req.stat_scale, baseline=req.baseline, fixed_leader_id=req.fixed_leader_id, costume_only_leader_id=req.costume_only_leader_id)
+    kwargs = dict(top_n=top_n, acquire_count=acquire_count, stat_scale=req.stat_scale, baseline=req.baseline, fixed_leader_id=req.fixed_leader_id, costume_only_leader_id=req.costume_only_leader_id, include_potential=req.include_potential, new_card_level=max(1, min(req.new_card_level, 80)), chart_score=req.chart_score, board_search_mode=req.board_search_mode)
     if req.song_length is not None:
         kwargs["song_length"] = req.song_length
     if req.sweep_costumes:
@@ -309,6 +320,8 @@ def post_recommend_stream(req: RecommendRequest):
         "acquire_count": acquire_count,
         "stat_scale": req.stat_scale,
         "baseline": req.baseline,
+        "include_potential": req.include_potential,
+        "new_card_level": max(1, min(req.new_card_level, 80)),
     }
     if req.fixed_leader_id:
         payload["fixed_leader_id"] = req.fixed_leader_id
@@ -318,6 +331,9 @@ def post_recommend_stream(req: RecommendRequest):
         payload["song_length"] = req.song_length
     if req.sweep_costumes:
         payload["sweep_costumes"] = True
+    if req.chart_score:
+        payload["chart_score"] = req.chart_score
+        payload["board_search_mode"] = req.board_search_mode
 
     dropped = len(req.cards) - len(card_specs)
 

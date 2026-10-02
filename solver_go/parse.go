@@ -528,7 +528,27 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 			costumeOnly = *input.CostumeOnlyLeaderID
 		}
 		sweepCostumes := input.SweepCostumes
-		return recommend(ownedSpecs, cf.Cards, topN, acquireCount, statScale, baseline, songLength, fixedLeader, costumeOnly, sweepCostumes, cf), nil
+		ctx := newTimelineRecommendContext(input, ownedSpecs, cf.Cards, statScale, baseline, songLength, fixedLeader, costumeOnly, sweepCostumes, cf)
+		var profiles []PotentialCard
+		if input.IncludePotential || ctx != nil {
+			maxCopies := acquireCount
+			if input.IncludePotential {
+				maxCopies = 5
+			}
+			profiles = analyzePotential(ownedSpecs, nil, cf.Cards, maxCopies, input.NewCardLevel, statScale, baseline, songLength, fixedLeader, costumeOnly, sweepCostumes, cf)
+			if ctx != nil {
+				rerankPotentialByTimeline(profiles, ownedSpecs, input.NewCardLevel, ctx)
+			}
+		}
+		out := recommendWithProfiles(ownedSpecs, cf.Cards, topN, acquireCount, statScale, baseline, songLength, fixedLeader, costumeOnly, sweepCostumes, profiles, input.NewCardLevel, ctx, cf)
+		if input.IncludePotential {
+			out.PotentialCards = profiles
+		}
+		out.NewCardLevel = 80
+		if input.NewCardLevel != nil {
+			out.NewCardLevel = max(1, min(*input.NewCardLevel, 80))
+		}
+		return out, nil
 
 	case "whatif":
 		ownedSpecs := parseOwnedSpecsFromJSON(input.Cards)

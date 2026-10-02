@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"math"
+	"os"
 	"testing"
 	"time"
 )
@@ -35,6 +37,146 @@ func TestRecommendBaseline(t *testing.T) {
 	for _, r := range result.Recommendations {
 		t.Logf("  #%d: %s (%s) delta=%d score=%d team=%v",
 			r.Rank, r.Cards[0].CardName, r.Cards[0].Character, r.Delta, r.NewScore, r.BestTeam.MemberIDs)
+	}
+}
+
+func thresholdOwnedCards() map[string]CardSpec {
+	ids := []string{
+		"tokino_sora_5", "robocosan_5", "hoshimachi_suisei_5",
+		"sakura_miko_5", "shirakami_fubuki_5", "natsuiro_matsuri_5", "akai_haato_5",
+	}
+	owned := make(map[string]CardSpec, len(ids))
+	for _, id := range ids {
+		owned[id] = CardSpec{ID: id, Potential: 0}
+	}
+	return owned
+}
+
+func TestRecommendCostumeOnlyUsesOwnedPotential(t *testing.T) {
+	cf, err := loadCardsFile("../data/cards.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	owned := thresholdOwnedCards()
+	spec := owned["tokino_sora_5"]
+	spec.Potential = 2
+	owned[spec.ID] = spec
+	const costumeID = "tokino_sora_5"
+	recommendation := recommend(owned, cf.Cards, 5, 1, 1, 0, 192, "", costumeID, false, cf)
+	var cards []*Card
+	var costume *CostumeSkill
+	for i := range cf.Cards {
+		raw := &cf.Cards[i]
+		if ownedSpec, ok := owned[raw.ID]; ok {
+			card := resolveCard(raw, ownedSpec.Potential, ownedSpec.Level, cf)
+			cards = append(cards, &card)
+			if raw.ID == costumeID {
+				skill := raw.PotentialData[ownedSpec.Potential].CostumeSkill
+				costume = &skill
+			}
+		}
+	}
+	full := solve(cards, 1, 1, 0, 192, "", costumeID, costume, nil)
+	if recommendation.BaseScore != full.Results[0].UnitScore {
+		t.Fatalf("fixed costume recommendation base score = %d, solve = %d", recommendation.BaseScore, full.Results[0].UnitScore)
+	}
+}
+
+func TestPotentialFindsUnownedCardAfterSeveralCopies(t *testing.T) {
+	cf, err := loadCardsFile("../data/cards.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	owned := thresholdOwnedCards()
+	cardID := "ninomae_ina_nis_5"
+	profiles := analyzePotential(owned, []string{cardID}, cf.Cards, 5, nil, 1, 0, 192, "", "", false, cf)
+	if len(profiles) != 1 || len(profiles[0].Steps) != 5 {
+		t.Fatalf("expected five milestones for %s, got %+v", cardID, profiles)
+	}
+	steps := profiles[0].Steps
+	if steps[0].TargetPotential != 0 || steps[0].Delta != 0 {
+		t.Fatalf("first copy should be 0凸 with no score gain: %+v", steps[0])
+	}
+	if steps[2].TargetPotential != 2 || steps[2].Delta <= 0 || profiles[0].FirstUsefulCopies <= 1 {
+		t.Fatalf("later potential should be found despite no first-copy gain: %+v", profiles[0])
+	}
+
+	trialSpecs := make(map[string]CardSpec, len(owned)+1)
+	for id, spec := range owned {
+		trialSpecs[id] = spec
+	}
+	trialSpecs[cardID] = CardSpec{ID: cardID, Potential: 2}
+	var trialCards []*Card
+	for i := range cf.Cards {
+		if spec, ok := trialSpecs[cf.Cards[i].ID]; ok {
+			card := resolveCard(&cf.Cards[i], spec.Potential, spec.Level, cf)
+			trialCards = append(trialCards, &card)
+		}
+	}
+	full := solve(trialCards, 1, 1, 0, 192, "", "", nil, nil)
+	if got, want := steps[2].NewScore, full.Results[0].UnitScore; got != want {
+		t.Fatalf("2凸 profile score = %d, full solve = %d", got, want)
+	}
+}
+
+func TestRecommendIncludesNewCardMultiCopy(t *testing.T) {
+	cf, err := loadCardsFile("../data/cards.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := recommend(thresholdOwnedCards(), cf.Cards, 500, 3, 1, 0, 192, "", "", false, cf)
+	for _, recommendation := range result.Recommendations {
+		if len(recommendation.Cards) == 1 {
+			card := recommendation.Cards[0]
+			if card.CardID == "ninomae_ina_nis_5" && card.Action == "acquire" && card.TargetPotential == 2 && card.Cost == 3 {
+				return
+			}
+		}
+	}
+	t.Fatal("new card at 2凸 was omitted from three-copy recommendations")
+}
+
+func TestRecommendTimelineUsesSelectedChart(t *testing.T) {
+	cf, err := loadCardsFile("../data/cards.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile("../data/chart_scores.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var charts map[string]json.RawMessage
+	if err := json.Unmarshal(data, &charts); err != nil {
+		t.Fatal(err)
+	}
+	owned := thresholdOwnedCards()
+	var specs []CardSpec
+	for _, spec := range owned {
+		specs = append(specs, spec)
+	}
+	cardsJSON, _ := json.Marshal(specs)
+	var scores []int
+	var leaders []string
+	for _, key := range []string{"m0001_easy", "m0001_expert"} {
+		var chart ChartScore
+		if err := json.Unmarshal(charts[key], &chart); err != nil {
+			t.Fatal(err)
+		}
+		input := CLIInput{Action: "recommend", Cards: cardsJSON, TopN: 5, AcquireCount: 1,
+			IncludePotential: true, SweepCostumes: true, ChartScoreData: &chart, BoardSearchMode: "fast"}
+		value, err := dispatchAction(input, cf)
+		if err != nil {
+			t.Fatal(err)
+		}
+		result := value.(RecommendOutput)
+		if result.ScoreMetric != "live_score_index" || len(result.PotentialCards) == 0 || len(result.Recommendations) == 0 {
+			t.Fatalf("chart was not used for recommendations: %+v", result)
+		}
+		scores = append(scores, result.BaseScore)
+		leaders = append(leaders, result.Recommendations[0].Cards[0].CardID)
+	}
+	if scores[0] == scores[1] || leaders[0] == leaders[1] {
+		t.Fatalf("changing the selected chart should affect the timeline ranking: scores=%v, leaders=%v", scores, leaders)
 	}
 }
 
@@ -137,6 +279,8 @@ func TestRecommendGolden(t *testing.T) {
 		score  int
 	}
 	expected := []golden{
+		{"aki_rosenthal_swim_5", 22758, 828804},
+		{"anya_melfissa_swim_5", 22522, 828568},
 		{"ookami_mio_swim_5", 21975, 828021},
 		{"otonose_kanade_swim_5", 18955, 825001},
 		{"airani_iofifteen_5", 16618, 822664},
@@ -145,8 +289,6 @@ func TestRecommendGolden(t *testing.T) {
 		{"sakura_miko_swim_5", 9587, 815633},
 		{"himemori_luna_swim_5", 8533, 814579},
 		{"kobo_kanaeru_5", 4943, 810989},
-		{"kureiji_ollie_swim_5", 2729, 808775},
-		{"hakos_baelz_5", 2506, 808552},
 	}
 
 	if len(result.Recommendations) != len(expected) {
@@ -175,11 +317,11 @@ func TestRecommendMultiAcquire(t *testing.T) {
 		score int
 	}
 	expected := []goldenCombo{
+		{33764, 839810},
+		{32824, 838870},
 		{31397, 837443},
 		{29301, 835347},
 		{26771, 832817},
-		{24280, 830326},
-		{22716, 828762},
 	}
 	if len(result.Recommendations) != len(expected) {
 		t.Fatalf("got %d recommendations, want %d", len(result.Recommendations), len(expected))

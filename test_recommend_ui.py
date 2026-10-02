@@ -32,9 +32,11 @@ def browser_context():
 
 def fresh_page(browser_context, url):
     page = browser_context.new_page()
-    page.add_init_script("() => localStorage.clear()")
+    page.add_init_script("localStorage.clear()")
     page.goto(url)
     page.wait_for_selector(".card", timeout=10000)
+    page.wait_for_function("window.CHART_SCORES && window.SONGS && window.SONGS['m0091']")
+    page.evaluate("selectSong('')")
     return page
 
 
@@ -98,6 +100,39 @@ def test_recommend_top5_single_card(server, browser_context):
     page.close()
 
 
+def test_recommend_shows_new_card_potential_after_three_copies(server, browser_context):
+    page = fresh_page(browser_context, server)
+    select_cards_by_data_id(page, TEST_CARDS_8[:7])
+    page.select_option("#costumeSelect", "tokino_sora_5")
+    page.uncheck("#chkMemberInclude")
+    page.click("#btnRecommend")
+
+    profile = page.locator('.potential-card[data-card-id="ninomae_ina_nis_5"]')
+    profile.wait_for(timeout=60000)
+    expect(profile.locator("summary")).to_contain_text("3枚目から効果")
+    profile.locator("summary").click()
+    rows = profile.locator("tbody tr")
+    expect(rows.nth(0)).to_contain_text("1枚")
+    expect(rows.nth(0)).to_contain_text("±0")
+    expect(rows.nth(2)).to_contain_text("2凸")
+    expect(rows.nth(2)).to_contain_text("+16,896")
+    page.close()
+
+
+def test_recommend_uses_selected_song_timeline(server, browser_context):
+    page = fresh_page(browser_context, server)
+    page.wait_for_function("window.CHART_SCORES && window.CHART_SCORES['m0001_expert']")
+    select_cards_by_data_id(page, TEST_CARDS_8[:7])
+    page.evaluate("selectSong('m0001')")
+    page.select_option("#boardSearchMode", "fast")
+    page.click("#btnRecommend")
+
+    title = page.locator(".results-title").first
+    expect(title).to_contain_text("選択曲のライブ期待スコア", timeout=60000)
+    expect(page.locator('.potential-card[data-card-id="ninomae_ina_nis_5"]')).to_be_visible()
+    page.close()
+
+
 def test_recommend_multi_card_combo(server, browser_context):
     """+2〜3枚で組み合わせレコメンドが表示されることを確認"""
     page = fresh_page(browser_context, server)
@@ -114,9 +149,9 @@ def test_recommend_multi_card_combo(server, browser_context):
 
     first = results.first
     action_badges = first.locator('span:has-text("新規取得"), span:has-text("凸→")')
-    assert action_badges.count() >= 2, "Expected at least 2 card actions in combo result"
+    assert action_badges.count() >= 2 or "2枚" in first.inner_text(), "Expected a two-copy result"
 
-    expect(page.locator(".results-title")).to_contain_text("+2枚")
+    expect(page.locator(".results-title").first).to_contain_text("+2枚")
 
     page.select_option("#acquireCount", "3")
     page.click("#btnRecommend")
@@ -124,7 +159,7 @@ def test_recommend_multi_card_combo(server, browser_context):
 
     results3 = page.locator(".results-area .result-card")
     assert results3.count() >= 1
-    expect(page.locator(".results-title")).to_contain_text("+3枚")
+    expect(page.locator(".results-title").first).to_contain_text("+3枚")
 
     page.close()
 
@@ -151,6 +186,8 @@ def test_recommend_multi_uncap_acquire2(server, browser_context):
     select_cards_by_data_id(page, TEST_CARDS_MANY)
     page.click("#btnPot0")
     page.wait_for_timeout(200)
+    page.select_option("#costumeSelect", "tokino_sora_5")
+    page.uncheck("#chkMemberInclude")
 
     page.select_option("#acquireCount", "2")
     page.select_option("#recommendTopN", "10")
@@ -185,7 +222,7 @@ def test_recommend_acquire3_produces_results(server, browser_context):
 
     results = page.locator(".results-area .result-card")
     assert results.count() >= 1
-    expect(page.locator(".results-title")).to_contain_text("+3枚")
+    expect(page.locator(".results-title").first).to_contain_text("+3枚")
 
     first = results.first
     action_badges = first.locator('span:has-text("新規取得"), span:has-text("凸→")')
@@ -299,9 +336,14 @@ def test_mutual_exclusion(server, browser_context):
 
     select_cards_by_data_id(page, TEST_CARDS_8)
     page.select_option("#acquireCount", "2")
+    page.evaluate("""() => {
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = (...args) => String(args[0]).includes('/api/recommend/stream')
+        ? new Promise(resolve => setTimeout(() => resolve(originalFetch(...args)), 2000))
+        : originalFetch(...args);
+    }""")
 
     page.click("#btnRecommend")
-    page.wait_for_timeout(500)
 
     solve_btn = page.locator("#btnSolve")
     expect(solve_btn).to_be_disabled()

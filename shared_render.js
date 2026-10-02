@@ -57,10 +57,54 @@ function renderCardUsage(cardUsage) {
   return html;
 }
 
+function renderPotentialAnalysis(data) {
+  const profiles = data.potential_cards || [];
+  if (!profiles.length) return "";
+  const newCards = profiles.filter(p => p.current_potential == null);
+  const ownedCards = profiles.filter(p => p.current_potential != null);
+  const fmt = value => value > 0 ? `+${value.toLocaleString()}` : "±0";
+  const timeline = data.score_metric === "live_score_index";
+  const group = (title, cards, open) => {
+    let result = `<details class="potential-group" ${open ? "open" : ""} style="margin:10px 0"><summary style="cursor:pointer;color:#c8d8e8;font-weight:600">${title}（${cards.length}件）</summary>`;
+    for (const p of cards) {
+      const first = p.steps[0], last = p.steps[p.steps.length - 1];
+      const milestone = p.first_useful_copies
+        ? `${p.first_useful_copies}枚目から効果` : "追加してもスコア変化なし";
+      result += `<details class="potential-card" data-card-id="${p.card_id}" style="margin:7px 0 0 10px;background:#152332;border:1px solid #2a3a4a;border-radius:6px;padding:8px 10px">
+        <summary style="cursor:pointer;display:list-item;color:#c8d8e8">
+          <strong>${p.character} ${p.card_name}</strong>
+          <span style="color:#8fa4b8;font-size:0.75rem"> 今1枚 ${fmt(first.delta)} ／ ${last.copies}枚 ${fmt(last.delta)} ／ ${milestone}</span>
+        </summary>
+        ${data.acquire_count > 1 && p.budget_plan ? `<div style="font-size:0.75rem;color:#c0d8e8;margin:8px 0">このカードを先に確保し、最大${data.acquire_count}枚使う案: <strong style="color:#40d080">${fmt(p.budget_plan.delta)}</strong> — ${p.budget_plan.cards.map(c => `${c.character} ${c.target_potential}凸`).join(" ＋ ")}</div>` : ""}
+        <div style="overflow-x:auto;margin-top:9px"><table style="width:100%;font-size:0.75rem;border-collapse:collapse;text-align:left">
+          <thead><tr style="color:#8fa4b8"><th>追加枚数</th><th>到達凸</th><th>スコア増分</th><th>他カード1種の最高値</th><th>採用</th><th>最適編成</th></tr></thead><tbody>`;
+      for (const step of p.steps) {
+        const team = step.best_team?.member_ids || [];
+        const teamLabel = team.map(id => cardMap[id]?.character || id).join(" / ");
+        const costume = step.best_team?.costume_only_leader_id;
+        const costumeLabel = costume ? ` （衣装: ${cardMap[costume]?.character || costume}）` : "";
+        const role = { leader: "リーダー", member: "メンバー", costume: "衣装", unused: "不採用" }[step.role] || step.role;
+        result += `<tr style="border-top:1px solid #2a3a4a"><td>${step.copies}枚</td><td>${step.target_potential}凸</td>
+          <td style="color:${step.delta > 0 ? "#40d080" : "#8fa4b8"}">${fmt(step.delta)}</td>
+          <td>${fmt(step.best_other_delta || 0)}</td><td>${role}</td>
+          <td style="min-width:240px">${teamLabel}${costumeLabel}</td></tr>`;
+      }
+      result += `</tbody></table></div></details>`;
+    }
+    return result + "</details>";
+  };
+  return `<div style="margin-top:18px;border-top:1px solid #3a4f66;padding-top:14px">
+    <div class="results-title">カードの将来性（各カードへ集中して1～5枚追加）</div>
+    <div style="font-size:0.75rem;color:#8fa4b8;line-height:1.6">新規カードは1枚目で0凸、Lv${data.new_card_level || 80}で計算。比較欄は同じ枚数を別のカード1種へ使った場合の最高値です。${timeline ? "選択曲のTimelineとBoard条件で、各段階の有望な編成を再評価しています。編成候補の探索は近似です。" : ""}複数カードへの配分案も候補を絞った近似探索です。排出確率は考慮していません。</div>
+    <input id="potentialSearch" type="search" placeholder="カード名・キャラ名で絞り込み" style="margin-top:10px;width:min(100%,340px);background:#1e2d3d;border:1px solid #3a4f66;color:#c8d8e8;padding:7px;border-radius:4px">
+    ${group("未所持カード", newCards, true)}${group("所持カードの凸", ownedCards, false)}
+  </div>`;
+}
+
 function renderRecommendations(data) {
   const area = document.getElementById("resultsArea");
-  const recs = data.recommendations;
-  if (!recs || !recs.length) {
+  const recs = data.recommendations || [];
+  if (!recs.length && !(data.potential_cards || []).length) {
     area.innerHTML = `<div class="empty-msg">現在の編成からスコアを上げる候補が見つかりませんでした。<br>ベーススコア: ${(data.base_score || 0).toLocaleString()}</div>`;
     return;
   }
@@ -73,8 +117,11 @@ function renderRecommendations(data) {
     html += `<div style="background:#3d2a0f;color:#f0a040;padding:8px 12px;border-radius:6px;margin-bottom:8px;font-size:0.85rem">${data.warnings.join("<br>")}</div>`;
   }
   const ac = data.acquire_count || 1;
-  html += `<div class="results-title">強化レコメンド Top ${recs.length}（+${ac}枚 / ベーススコア: <span style="color:#4f8cff">${data.base_score.toLocaleString()}</span>）</div>`;
-  html += `<div style="font-size:0.78rem;color:#6b7f92;margin-bottom:12px">${ac === 1 ? '各カードを取得/凸した場合' : `単体で効果のある候補（最大20件）から${ac}枚の組み合わせを探索した結果`}のスコア上昇幅を比較しています</div>`;
+  const timeline = data.score_metric === "live_score_index";
+  const scoreLabel = timeline ? "選択曲のライブ期待スコア" : "ベーススコア";
+  if (recs.length) {
+  html += `<div class="results-title">強化レコメンド Top ${recs.length}（+${ac}枚 / ${scoreLabel}: <span style="color:#4f8cff">${data.base_score.toLocaleString()}</span>）</div>`;
+  html += `<div style="font-size:0.78rem;color:#6b7f92;margin-bottom:12px">${ac === 1 ? '各カードを取得/凸した場合' : `単一カードへの${ac}枚投入は全候補を評価。組み合わせは有望な${data.combo_candidate_limit || 20}候補から探索した近似結果`}のスコア上昇幅を比較しています${timeline ? '。編成候補も近似探索です' : ''}</div>`;
 
   for (const r of recs) {
     const cards = r.cards || [r];
@@ -96,7 +143,7 @@ function renderRecommendations(data) {
     for (const c of cards) {
       const card = cardMap[c.card_id];
       const actionLabel = c.action === "acquire"
-        ? '<span style="background:#0f3d1a;color:#40d080;padding:2px 8px;border-radius:3px;font-size:0.72rem;font-weight:600">新規取得</span>'
+        ? `<span style="background:#0f3d1a;color:#40d080;padding:2px 8px;border-radius:3px;font-size:0.72rem;font-weight:600">新規取得${c.target_potential > 0 ? `→${c.target_potential}凸（${c.cost}枚）` : ""}</span>`
         : `<span style="background:#3d2a0f;color:#f0a040;padding:2px 8px;border-radius:3px;font-size:0.72rem;font-weight:600">${c.current_potential}凸→${c.target_potential}凸</span>`;
       html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
         ${actionLabel}
@@ -119,8 +166,9 @@ function renderRecommendations(data) {
         const mc = cardMap[mid];
         if (!mc) continue;
         const isLeader = mid === r.best_team.leader_id && !hasCostume;
-        const pot = getCardPotential(mid);
-        const lv = getCardLevel(mid);
+        const planned = cards.find(c => c.card_id === mid);
+        const pot = planned ? planned.target_potential : getCardPotential(mid);
+        const lv = planned && planned.action === "acquire" ? (data.new_card_level || 80) : getCardLevel(mid);
         const s = getCardStats(mc, pot, lv);
         html += `<div class="member-card${isLeader ? " is-leader" : ""}">
           <span class="type-badge type-${mc.type}" style="float:right;margin-top:2px">${TYPE_LABELS[mc.type]}</span>
@@ -138,7 +186,17 @@ function renderRecommendations(data) {
     }
     html += `</div>`;
   }
+  } else {
+    html += `<div class="empty-msg">今の取得枚数でスコアを上げる候補はありません。ベーススコア: ${(data.base_score || 0).toLocaleString()}</div>`;
+  }
+  html += renderPotentialAnalysis(data);
   area.innerHTML = html;
+  const search = area.querySelector("#potentialSearch");
+  if (search) search.addEventListener("input", () => {
+    const q = search.value.trim().toLocaleLowerCase();
+    if (q) area.querySelectorAll(".potential-group").forEach(group => { group.open = true; });
+    area.querySelectorAll(".potential-card").forEach(el => { el.hidden = !el.querySelector("summary").textContent.toLocaleLowerCase().includes(q); });
+  });
 }
 
 function resultPotential(id, historyEntry) {

@@ -47,9 +47,16 @@ def _call_go_stream(payload: dict):
     proc.stdin.close()
 
     import select
+    import threading
     import time
 
+    stdout_result = {}
+    stdout_reader = threading.Thread(
+        target=lambda: stdout_result.setdefault("data", proc.stdout.read()), daemon=True
+    )
+    stdout_reader.start()
     last_progress_time = 0
+    stderr_lines = []
     while True:
         ready, _, _ = select.select([proc.stderr], [], [], 0.1)
         if ready:
@@ -65,14 +72,17 @@ def _call_go_stream(payload: dict):
                 parts = text[9:].split("/")
                 if len(parts) == 2:
                     yield {"type": "progress", "current": int(parts[0]), "total": int(parts[1])}
+            else:
+                stderr_lines.append(text)
         elif proc.poll() is not None:
             break
 
     proc.wait()
+    stdout_reader.join()
     if proc.returncode != 0:
-        err = proc.stderr.read().decode()
+        err = "\n".join(stderr_lines + [proc.stderr.read().decode()])
         raise RuntimeError(f"Go solver failed: {err}")
-    stdout = proc.stdout.read()
+    stdout = stdout_result["data"]
     yield {"type": "done", "result": json.loads(stdout)}
 
 
@@ -150,6 +160,10 @@ def recommend(
     costume_only_leader_id: str | None = None,
     song_length: float = 192,
     sweep_costumes: bool = False,
+    include_potential: bool = False,
+    new_card_level: int = 80,
+    chart_score: dict | None = None,
+    board_search_mode: str = "balanced",
 ) -> dict:
     payload = {
         "action": "recommend",
@@ -158,7 +172,12 @@ def recommend(
         "acquire_count": acquire_count,
         "stat_scale": stat_scale,
         "baseline": baseline,
+        "include_potential": include_potential,
+        "new_card_level": new_card_level,
     }
+    if chart_score:
+        payload["chart_score"] = chart_score
+        payload["board_search_mode"] = board_search_mode
     if fixed_leader_id:
         payload["fixed_leader_id"] = fixed_leader_id
     if costume_only_leader_id:
