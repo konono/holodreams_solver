@@ -97,6 +97,11 @@ async def shared_render_js():
     return FileResponse(ROOT / "shared_render.js", media_type="application/javascript")
 
 
+@app.get("/history.js")
+async def history_js():
+    return FileResponse(ROOT / "history.js", media_type="application/javascript")
+
+
 @app.get("/api/cards")
 async def get_cards():
     data = _load_card_data()
