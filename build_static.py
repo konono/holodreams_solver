@@ -85,6 +85,11 @@ def build():
       <option value="50">Top 50</option>
       <option value="100">Top 100</option>
     </select>
+    <select id="boardSearchMode" title="曲の譜面がある場合のBoard探索精度" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:6px 8px;border-radius:4px;font-size:0.8rem">
+      <option value="balanced" selected>Board: バランス</option>
+      <option value="fast">Board: 高速</option>
+      <option value="exhaustive">Board: 高精度（低速）</option>
+    </select>
     <select id="costumeSelect" style="background:#1e2d3d;border:1px solid #3a4f66;color:#8899aa;padding:6px 8px;border-radius:4px;font-size:0.8rem;max-width:260px">
       <option value="">衣装+編成を自動選択</option>
     </select>
@@ -732,7 +737,7 @@ function doSolve() {{
   const cardSpecs = owned.map(c => ({{ id: c.id, potential: getCardPotential(c.id), level: getCardLevel(c.id) }}));
 
   getWasmWorker().then(w => {{
-    w.postMessage({{ type: "solve", cards: cardSpecs, fixedLeaderId, costumeOnlyLeaderId, sweepCostumes: !costumeVal && selected.size > 0, topN: parseInt(document.getElementById("topN").value), songLength: getSelectedSongLength(), chartScore: getSelectedChartScore(), stabilityCharts: document.getElementById("chkStability").checked && getSelectedChartScore() ? getStabilityCharts() : null, stabilityLengths: document.getElementById("chkStability").checked && !getSelectedChartScore() ? [95, 110, 125, 140, 155] : null }});
+    w.postMessage({{ type: "solve", cards: cardSpecs, fixedLeaderId, costumeOnlyLeaderId, sweepCostumes: !costumeVal && selected.size > 0, topN: parseInt(document.getElementById("topN").value), boardSearchMode: document.getElementById("boardSearchMode").value, songLength: getSelectedSongLength(), chartScore: getSelectedChartScore(), stabilityCharts: document.getElementById("chkStability").checked && getSelectedChartScore() ? getStabilityCharts() : null, stabilityLengths: document.getElementById("chkStability").checked && !getSelectedChartScore() ? [95, 110, 125, 140, 155] : null }});
 
   w.onerror = function() {{
     w.onmessage = null;

@@ -106,6 +106,7 @@ def solve(
     sweep_costumes: bool = False,
     chart_score: dict | None = None,
     stability_charts: list[dict] | None = None,
+    board_search_mode: str = "balanced",
 ) -> dict:
     payload = {
         "action": "solve",
@@ -114,6 +115,7 @@ def solve(
         "stat_scale": stat_scale,
         "baseline": baseline,
         "sweep_costumes": sweep_costumes,
+        "board_search_mode": board_search_mode,
     }
     if fixed_leader_id:
         payload["fixed_leader_id"] = fixed_leader_id

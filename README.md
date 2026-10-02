@@ -118,6 +118,9 @@ echo '{
 - `song_length`: 曲の再生秒数（デフォルト: 192）
 - `stability_lengths`: 複数の曲長でスコアを計算し安定性を評価
 - `sweep_costumes`: 全衣装候補を自動探索
+- `board_search_mode`: 譜面データを指定したときのBoard探索。`balanced`（デフォルト）はTimeline上位とBoard上限上位の候補を選び、各候補の全120 SP順を同値集約・上限枝刈りしながら厳密評価する。`fast`は従来のTimeline順位と上位10件のBoard参考表示。`exhaustive`はLegacy候補全件の全SP順を評価する（低速）。
+
+Timeline出力の `live_score_index` は `balanced` / `exhaustive` ではBoard最適化後の値です。`board_search` にはフェーズ別所要時間、候補数、探索・枝刈り数を収録します。`balanced` は候補チームを絞る近似モードなので、必要に応じて `exhaustive` で確認できます。
 
 ### recommend — カード推薦
 

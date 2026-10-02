@@ -239,11 +239,12 @@ v1ではΣ線形和で全員のActiveを合算し、発動率も無視してい�
 ### v3: Timeline Expected Score Engine
 
 v3では曲ごとのチャートデータを用いた精密なライブ期待スコア計算を追加。
-Unit Score Predictor（v2）は高速全探索用にそのまま維持し、Top候補のみを
-Timeline Engineで再評価する二段階方式。
+Unit Score Predictor（v2）は高速全探索用に維持し、Legacy上位候補を
+Timeline EngineとBoard探索で再評価する段階的な方式。
 
 ```
-全候補 → Legacy Fast Solver → Top 200 → 5!=120順列 Timeline → Final Top N
+全候補 → Legacy Fast Solver → Top max(1000, 10×TopN) → 5!=120順列 Timeline
+       → Board上限評価 → 有望候補のBoard最適化 → Final Top N
 ```
 
 Timeline Engineでは:
@@ -251,6 +252,9 @@ Timeline Engineでは:
 - E[max(active)]を各ノート/ビン時刻で解析的に計算（Monte Carlo不要）
 - Score Support × Active Score Up の乗算的相互作用を直接評価
 - SP固定5地点に基づく編成順最適化
+- Board発動頻度ノードの組み合わせ（通常4^5）を選んだ編成とSP順について最適化
+
+Board上限は各ノートごとに各メンバーの頻度ノードを自由に選んだ場合のE[max]で、固定Board設定の得点を上回る。`balanced` はTimeline得点上位とこの上限の上位を候補として選び、各候補の全120 SP順を上限で枝刈りしながら厳密評価する。同じSP効果を生む順は1件にまとめる。nativeとWASMで同じ探索条件を使う。候補を絞るため、Legacy候補全体の厳密な最適解は保証しない。`exhaustive` はLegacy候補全件と全SP順を探索し、上限が確定済み得点以下の順を省く。
 
 LiveScoreIndex = TotalPower × Σ(noteWeight × comboMultiplier × skillMultiplier)
 - ランキング用相対指標（同一曲内での編成比較に使用）
