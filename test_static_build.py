@@ -147,6 +147,72 @@ class TestStaticSolve:
         assert results > 0, "Should produce at least 1 result"
         page.close()
 
+    def test_history_restores_results_and_selected_cards(self, browser_context):
+        page = open_page(browser_context)
+        page.evaluate("async () => { await historyTransaction(await getHistoryDB(), 'readwrite', store => store.clear()); await renderHistory(); }")
+        page.evaluate("selectSong('')")
+        ids = page.eval_on_selector_all(".card", "els => els.slice(0, 7).map(e => e.dataset.id)")
+        for cid in ids[:6]:
+            page.click(f'.card[data-id="{cid}"] .char-name')
+        page.click(f'.card[data-id="{ids[0]}"] .pot-btn[data-pot="3"]')
+        page.check("#chkLevelEnabled")
+        page.locator(f'.card[data-id="{ids[0]}"] .lv-input').fill("70")
+        page.locator(f'.card[data-id="{ids[0]}"] .lv-input').press("Tab")
+        page.select_option("#topN", "30")
+        page.select_option("#boardSearchMode", "fast")
+        page.click("#btnSolve")
+        page.wait_for_function("document.querySelector('#historyCount').textContent === '1'", timeout=30000)
+        before = page.eval_on_selector_all("#resultsArea .result-card", "els => els.map(e => e.innerText)")
+        assert before
+
+        page.click(f'.card[data-id="{ids[6]}"] .char-name')
+        page.select_option("#topN", "10")
+        page.select_option("#boardSearchMode", "balanced")
+        page.click("#btnSolve")
+        page.wait_for_function("document.querySelector('#historyCount').textContent === '2'", timeout=30000)
+        after = page.eval_on_selector_all("#resultsArea .result-card", "els => els.map(e => e.innerText)")
+        assert after
+
+        page.reload()
+        page.wait_for_selector(".card", timeout=10000)
+        page.click("#historyToggle")
+        page.locator(".history-entry").nth(1).locator("button[data-action=restore]").click()
+        assert set(page.eval_on_selector_all(".card.selected", "els => els.map(e => e.dataset.id)")) == set(ids[:6])
+        assert page.input_value("#topN") == "30"
+        assert page.input_value("#boardSearchMode") == "fast"
+        assert page.eval_on_selector(f'.card[data-id="{ids[0]}"] .pot-btn.active', "el => Number(el.dataset.pot)") == 3
+        assert page.is_checked("#chkLevelEnabled")
+        assert page.input_value(f'.card[data-id="{ids[0]}"] .lv-input') == "70"
+        assert page.eval_on_selector_all("#resultsArea .result-card", "els => els.map(e => e.innerText)") == before
+
+        page.reload()
+        page.wait_for_selector(".card", timeout=10000)
+        assert set(page.eval_on_selector_all(".card.selected", "els => els.map(e => e.dataset.id)")) == set(ids[:6])
+        page.click("#historyToggle")
+
+        page.locator(".history-entry").first.locator("button[data-action=restore]").click()
+        assert set(page.eval_on_selector_all(".card.selected", "els => els.map(e => e.dataset.id)")) == set(ids)
+        assert page.input_value("#boardSearchMode") == "balanced"
+        assert page.eval_on_selector_all("#resultsArea .result-card", "els => els.map(e => e.innerText)") == after
+        page.close()
+
+    def test_timeline_history_restores_result(self, browser_context):
+        page = open_page(browser_context)
+        page.evaluate("async () => { await historyTransaction(await getHistoryDB(), 'readwrite', store => store.clear()); await renderHistory(); }")
+        select_cards(page, 6)
+        page.evaluate("selectSong('m0001')")
+        page.select_option("#boardSearchMode", "fast")
+        page.click("#btnSolve")
+        page.wait_for_function("document.querySelector('#historyCount').textContent === '1'", timeout=60000)
+        before = page.eval_on_selector("#resultsArea", "el => el.innerText")
+        assert "ライブ期待スコア" in before
+        page.evaluate("selectSong('')")
+        page.click("#historyToggle")
+        page.locator(".history-entry button[data-action=restore]").click()
+        assert page.input_value("#songSelect") == "m0001"
+        assert page.eval_on_selector("#resultsArea", "el => el.innerText") == before
+        page.close()
+
     def test_solve_with_costume_member_include_shows_leader_badge(self, browser_context):
         """衣装選択+メンバーに含める → リーダーバッジあり、衣装バナーなし"""
         page = open_page(browser_context)

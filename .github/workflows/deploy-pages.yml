@@ -11,6 +11,7 @@ on:
       - 'solver_go/**'
       - 'build_static.py'
       - 'index.html'
+      - 'history.js'
       - 'wasm_bridge.js'
       - 'wasm_exec.js'
       - '.github/workflows/deploy-pages.yml'

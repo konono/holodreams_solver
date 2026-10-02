@@ -46,6 +46,8 @@ uv run python app.py
 | 総合力 | パラメータ + 衣装バフ + サポートバフ |
 | SB (スコアボーナス) | アクティブ + 衣装SS + パッシブSS + スペシャル |
 
+探索が完了すると、結果とそのときのカード選択・凸・レベル・曲などの条件をブラウザの履歴へ保存する。履歴には上位3件のスコアと編成が並ぶので、条件を変えた探索結果を見比べられる。「復元」で保存済みの全結果と探索条件を表示し、そこからカードを編集して再探索できる。履歴は同じブラウザ内に最大20件保存される。
+
 ### 3. リーダー固定
 
 ドロップダウンで特定のキャラをリーダーに固定して探索できる。「この推しをリーダーにした最強編成は？」という使い方。
@@ -266,7 +268,7 @@ mise run build:solver
 
 # HTML + WASM ファイル生成
 mise run build
-# → dist/index.html, dist/solver.wasm, dist/wasm_bridge.js, dist/wasm_exec.js
+# → dist/index.html, dist/history.js, dist/solver.wasm, dist/wasm_bridge.js, dist/wasm_exec.js
 ```
 
 WASM 版は HTTP サーバー経由で配信する必要がある（`file://` では動作しない）。GitHub Pages にデプロイするか、ローカルで `python -m http.server -d dist` で確認できる。
