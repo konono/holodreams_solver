@@ -2,22 +2,26 @@ package main
 
 import (
 	"math"
+	"time"
 )
 
 // timelineRecommendContext compares recommendations using the same song chart
 // and Board mode as solve. Candidate teams are first selected by the legacy
 // optimizer, so this remains an approximate search over team compositions.
 type timelineRecommendContext struct {
-	timeline        *SongTimeline
-	events          []ScoreEvent
-	boardMode       string
-	rawCards        map[string]*CardRaw
-	cf              *CardsFile
-	statScale       float64
-	baseline        float64
-	songLength      float64
-	overrideCostume *CostumeSkill
-	baseScore       int
+	timeline           *SongTimeline
+	events             []ScoreEvent
+	boardMode          string
+	rawCards           map[string]*CardRaw
+	cf                 *CardsFile
+	statScale          float64
+	baseline           float64
+	songLength         float64
+	overrideCostume    *CostumeSkill
+	baseScore          int
+	legacyBaseScore    int
+	baselineSolveMs    int64
+	baselineTimelineMs int64
 }
 
 func newTimelineRecommendContext(input CLIInput, ownedSpecs map[string]CardSpec, allRawCards []CardRaw, statScale, baseline, songLength float64, fixedLeaderID, costumeOnlyLeaderID string, sweepCostumes bool, cf *CardsFile) *timelineRecommendContext {
@@ -60,6 +64,8 @@ func newTimelineRecommendContext(input CLIInput, ownedSpecs map[string]CardSpec,
 	baseCards := ctx.resolveCards(ownedSpecs)
 	poolSize := 1000
 	var legacy []JSONResult
+	reportStage("baseline", 0, 0)
+	baselineStarted := time.Now()
 	if sweepCostumes && fixedLeaderID == "" && costumeOnlyLeaderID == "" {
 		result := solveSweepCostumes(baseCards, allRawCards, rawMap, poolSize, statScale, baseline, songLength, nil, cf)
 		if len(result.Results) == 0 {
@@ -73,6 +79,10 @@ func newTimelineRecommendContext(input CLIInput, ownedSpecs map[string]CardSpec,
 		}
 		legacy = result.Results
 	}
+	ctx.baselineSolveMs = time.Since(baselineStarted).Milliseconds()
+	ctx.legacyBaseScore = legacy[0].UnitScore
+	reportStage("baseline_timeline", 0, 0)
+	timelineStarted := time.Now()
 	cardMap := make(map[string]*Card, len(baseCards)+1)
 	for _, card := range baseCards {
 		cardMap[card.ID] = card
@@ -108,6 +118,7 @@ func newTimelineRecommendContext(input CLIInput, ownedSpecs map[string]CardSpec,
 		reranked, _ = RerankBoardAware(reranked, cardMap, timeline, events, 1, ctx.boardMode)
 	}
 	ctx.baseScore = int(math.Round(reranked[0].LiveScoreIndex))
+	ctx.baselineTimelineMs = time.Since(timelineStarted).Milliseconds()
 	return ctx
 }
 
@@ -181,6 +192,7 @@ func rerankPotentialByTimeline(profiles []PotentialCard, ownedSpecs map[string]C
 		total += len(profile.Steps)
 	}
 	done := 0
+	reportStage("timeline", 0, total)
 	for i := range profiles {
 		profile := &profiles[i]
 		for j := range profile.Steps {
@@ -222,7 +234,9 @@ func rerankPotentialByTimeline(profiles []PotentialCard, ownedSpecs map[string]C
 			step.BestTeam = bestTeam
 			step.Role = role
 			done++
-			if outerProgress != nil {
+			if stageCallback != nil {
+				reportStage("timeline", done, total)
+			} else if outerProgress != nil {
 				outerProgress(done, total)
 			}
 		}

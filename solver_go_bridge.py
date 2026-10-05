@@ -33,7 +33,7 @@ def _call_go(payload: dict) -> dict:
 def _call_go_stream(payload: dict):
     """Run Go solver and yield progress events, then the final result.
 
-    Yields dicts: {"type": "progress", "current": int, "total": int}
+    Yields progress and stage events while the solver runs.
     Final yield:  {"type": "done", "result": dict}
     """
     proc = subprocess.Popen(
@@ -56,6 +56,7 @@ def _call_go_stream(payload: dict):
     )
     stdout_reader.start()
     last_progress_time = 0
+    last_stage_progress_time = 0
     stderr_lines = []
     while True:
         ready, _, _ = select.select([proc.stderr], [], [], 0.1)
@@ -72,6 +73,16 @@ def _call_go_stream(payload: dict):
                 parts = text[9:].split("/")
                 if len(parts) == 2:
                     yield {"type": "progress", "current": int(parts[0]), "total": int(parts[1])}
+            elif text.startswith("STAGE:"):
+                parts = text[6:].split(":", 1)
+                if len(parts) == 2:
+                    counts = parts[1].split("/")
+                    if len(counts) == 2:
+                        current, total = int(counts[0]), int(counts[1])
+                        now = time.monotonic()
+                        if current == 0 or current == total or now - last_stage_progress_time >= 0.15:
+                            last_stage_progress_time = now
+                            yield {"type": "stage", "phase": parts[0], "current": current, "total": total}
             else:
                 stderr_lines.append(text)
         elif proc.poll() is not None:

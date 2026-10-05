@@ -385,6 +385,35 @@ header p { color: #8899aa; font-size: 0.85rem; margin-top: 4px; }
 // cardLevels, defaultLevel, levelEnabled, window.SONGS
 const TYPE_LABELS = { happy: "Happy", pure: "Pure", cute: "Cute" };
 const MAX_LEVEL = 80;
+const RECOMMEND_STAGE_LABELS = {
+  baseline: "ベース編成を探索中",
+  baseline_timeline: "選択曲のTimelineとBoardを評価中",
+  costume: "各カードの衣装効果を評価中",
+  members: "各カード・凸段階の編成を評価中",
+  timeline: "各凸段階を選択曲で再評価中",
+  recommend: "レコメンドを集計中",
+  finalize: "結果を準備中",
+};
+
+function updateRecommendProgress(event, currentPhase, textEl, fillEl, barEl) {
+  const phase = event.type === "stage" ? event.phase : currentPhase;
+  const label = RECOMMEND_STAGE_LABELS[phase] || "強化レコメンドを分析中";
+  const current = Number(event.current) || 0;
+  const total = Number(event.total) || 0;
+  if (total > 0) {
+    const pct = Math.min(95, Math.max(0, current / total * 95));
+    barEl.style.display = "block";
+    fillEl.style.width = `${pct}%`;
+    textEl.textContent = current >= total
+      ? `${label}が終了。次の処理に進んでいます...`
+      : `${label}：${current.toLocaleString()} / ${total.toLocaleString()}`;
+  } else {
+    barEl.style.display = "none";
+    fillEl.style.width = "0%";
+    textEl.textContent = label + "...";
+  }
+  return phase;
+}
 
 function getCardPotential(id) { return cardPotentials[id] ?? defaultPotential; }
 function getCardLevel(id) {
@@ -1531,6 +1560,18 @@ function doRecommend() {
   const ownedSpecs = [...selected].map(id => ({ id, potential: getCardPotential(id), level: getCardLevel(id) }));
   const recCostumeVal = document.getElementById("costumeSelect").value || null;
   const recMemberInclude = document.getElementById("chkMemberInclude").checked;
+  let currentPhase = "baseline";
+  const showRecommendError = (message) => {
+    isComputing = false;
+    btn.disabled = selected.size < 5; btnSolve.disabled = selected.size > 0 && selected.size < 5; btn.textContent = "強化レコメンド";
+    pa.classList.remove("visible");
+    setFabMode("solve");
+    expandResults();
+    const area = document.getElementById("resultsArea");
+    area.innerHTML = '<div class="empty-msg" role="alert"></div>';
+    area.firstElementChild.textContent = `計算中にエラーが発生しました: ${message}`;
+    document.getElementById("resultsWrapper").scrollIntoView({ behavior: "smooth" });
+  };
   getWasmWorker().then(w => {
   w.postMessage({
     type: "recommend",
@@ -1547,22 +1588,16 @@ function doRecommend() {
     sweepCostumes: !recCostumeVal && selected.size >= 5,
   });
 
-  w.onerror = function() {
+  w.onerror = function(ev) {
     w.onmessage = null;
-    isComputing = false;
-    btn.disabled = selected.size < 5; btnSolve.disabled = selected.size > 0 && selected.size < 5; btn.textContent = "強化レコメンド";
-    pa.classList.remove("visible");
-    setFabMode("solve");
-    expandResults();
-    document.getElementById("resultsArea").innerHTML = '<div class="empty-msg">計算中にエラーが発生しました。</div>';
+    showRecommendError(ev?.message || "WASM Worker が停止しました。ページを再読み込みしてください。");
   };
   w.onmessage = function(ev) {
-    if (ev.data.type === "error") { w.onerror(); return; }
-    if (ev.data.type === "progress") {
-      const pct = Math.min(100, ev.data.current / ev.data.total * 100);
-      document.getElementById("progressFill").style.width = pct + "%";
-      document.getElementById("progressText").textContent =
-        `${ev.data.current} / ${ev.data.total} 候補を評価中...`;
+    if (ev.data.type === "error") { w.onmessage = null; showRecommendError(ev.data.message || "詳細不明"); return; }
+    if (ev.data.type === "stage" || ev.data.type === "progress") {
+      currentPhase = updateRecommendProgress(ev.data, currentPhase,
+        document.getElementById("progressText"), document.getElementById("progressFill"),
+        document.querySelector("#progressArea .progress-bar-bg"));
     } else if (ev.data.type === "recommend_done") {
       w.onmessage = null;
       isComputing = false;
@@ -1576,19 +1611,15 @@ function doRecommend() {
       } catch (renderErr) {
         console.error("renderRecommendations error:", renderErr);
         expandResults();
-        document.getElementById("resultsArea").innerHTML =
-          `<div class="empty-msg">結果の表示中にエラーが発生しました: ${renderErr.message}</div>`;
+        const area = document.getElementById("resultsArea");
+        area.innerHTML = '<div class="empty-msg" role="alert"></div>';
+        area.firstElementChild.textContent = `結果の表示中にエラーが発生しました: ${renderErr.message}`;
       }
       setFabMode("back");
     }
   };
-  }).catch(() => {
-    isComputing = false;
-    btn.disabled = selected.size < 5; btnSolve.disabled = selected.size > 0 && selected.size < 5; btn.textContent = "強化レコメンド";
-    pa.classList.remove("visible");
-    setFabMode("solve");
-    expandResults();
-    document.getElementById("resultsArea").innerHTML = '<div class="empty-msg">WASMの初期化に失敗しました。</div>';
+  }).catch((err) => {
+    showRecommendError("WASMの初期化に失敗しました: " + err.message);
   });
 }
 

@@ -774,6 +774,21 @@ func solveWithRequiredCard(cards []*Card, requiredCard *Card, statScale, baselin
 // solveWithRequiredCardSweep finds the best (team, costume) where requiredCard is a member.
 // Path A of costume-sweep recommend: fix requiredCard as member, sweep all costumes.
 func solveWithRequiredCardSweep(cards []*Card, requiredCard *Card, costumeSkills []CostumeEntry, statScale, baseline, songLength float64) (bestUnitScore float64, bestTeamIDs [5]string, bestLeaderIdx int, bestCostumeID string) {
+	compiledCostumes := make([]compiledCostume, len(costumeSkills))
+	var maxPerfRate, maxTechRate, maxSenseRate, maxScoreSupport float64
+	var minPerfRate, minTechRate, minSenseRate, minScoreSupport float64
+	for i := range costumeSkills {
+		compiledCostumes[i] = compileCostume(&costumeSkills[i].Skill)
+		cs := compiledCostumes[i]
+		maxPerfRate = max(maxPerfRate, cs.perfRate)
+		maxTechRate = max(maxTechRate, cs.techRate)
+		maxSenseRate = max(maxSenseRate, cs.senseRate)
+		maxScoreSupport = max(maxScoreSupport, cs.scoreSupport)
+		minPerfRate = min(minPerfRate, cs.perfRate)
+		minTechRate = min(minTechRate, cs.techRate)
+		minSenseRate = min(minSenseRate, cs.senseRate)
+		minScoreSupport = min(minScoreSupport, cs.scoreSupport)
+	}
 	charGroups := map[string][]*Card{}
 	for _, c := range cards {
 		if c.Character == requiredCard.Character {
@@ -826,21 +841,25 @@ func solveWithRequiredCardSweep(cards []*Card, requiredCard *Card, costumeSkills
 							for _, c2 := range lists[2] {
 								for _, c3 := range lists[3] {
 									team := [5]*Card{requiredCard, c0, c1, c2, c3}
-									var bestBase *BaseScores
-									bestLI := 0
-									for li := 0; li < 5; li++ {
-										base := computeBaseScores(team, li, statScale, baseline, songLength)
-										if bestBase == nil || base.BasePower > bestBase.BasePower {
-											b := base
-											bestBase = &b
-											bestLI = li
+									// The costume is supplied separately, so the base score
+									// is independent of which member is marked leader.
+									base := computeBaseScores(team, 0, statScale, baseline, songLength)
+									maxPower := base.BasePower + base.TotalPerf*maxPerfRate + base.TotalTech*maxTechRate + base.TotalSense*maxSenseRate
+									minPower := base.BasePower + base.TotalPerf*minPerfRate + base.TotalTech*minTechRate + base.TotalSense*minSenseRate
+									minBonusFactor := 1 + (base.BaseBonus+minScoreSupport*100*costumeSSRate)/100
+									// Each component maximum may come from a different costume, so
+									// this is an upper bound for every actual costume score.
+									if minPower >= 0 && minBonusFactor >= 0 && base.TotalPerf >= 0 && base.TotalTech >= 0 && base.TotalSense >= 0 {
+										maxScore := maxPower * (1 + (base.BaseBonus+maxScoreSupport*100*costumeSSRate)/100) * unitScoreK
+										if maxScore*(1+1e-12)+1e-6 <= bestUnitScore {
+											continue
 										}
 									}
-									for _, ce := range costumeSkills {
-										us, _, _, _, _, _ := applyCostume(bestBase, &ce.Skill)
+									for i, ce := range costumeSkills {
+										us := compiledCostumes[i].score(&base)
 										if us > bestUnitScore {
 											bestUnitScore = us
-											bestLeaderIdx = bestLI
+											bestLeaderIdx = 0
 											bestTeamIDs = [5]string{requiredCard.ID, c0.ID, c1.ID, c2.ID, c3.ID}
 											bestCostumeID = ce.CardID
 										}
@@ -851,111 +870,6 @@ func solveWithRequiredCardSweep(cards []*Card, requiredCard *Card, costumeSkills
 					}
 				}
 			}
-		}
-	}
-	return
-}
-
-// precomputedBase holds BaseScores for a team, precomputed once for multiple costume applications.
-type precomputedBase struct {
-	base      BaseScores
-	leaderIdx int
-	teamIDs   [5]string
-}
-
-// precomputeOwnedBases computes BaseScores for all team combinations from owned cards.
-// This is done once and reused across multiple candidate costume evaluations.
-func precomputeOwnedBases(cards []*Card, statScale, baseline, songLength float64) []precomputedBase {
-	charGroups := map[string][]*Card{}
-	for _, c := range cards {
-		charGroups[c.Character] = append(charGroups[c.Character], c)
-	}
-
-	type charEntry struct {
-		name     string
-		maxTotal float64
-	}
-	charEntries := make([]charEntry, 0, len(charGroups))
-	for name, group := range charGroups {
-		maxT := 0.0
-		for _, c := range group {
-			if c.Total > maxT {
-				maxT = c.Total
-			}
-		}
-		charEntries = append(charEntries, charEntry{name, maxT})
-	}
-	sort.Slice(charEntries, func(i, j int) bool {
-		if charEntries[i].maxTotal != charEntries[j].maxTotal {
-			return charEntries[i].maxTotal > charEntries[j].maxTotal
-		}
-		return charEntries[i].name < charEntries[j].name
-	})
-	charNames := make([]string, len(charEntries))
-	for i, e := range charEntries {
-		charNames[i] = e.name
-	}
-	nChars := len(charNames)
-	if nChars < 5 {
-		return nil
-	}
-
-	var bases []precomputedBase
-	for a := 0; a < nChars-4; a++ {
-		for b := a + 1; b < nChars-3; b++ {
-			for ci := b + 1; ci < nChars-2; ci++ {
-				for d := ci + 1; d < nChars-1; d++ {
-					for e := d + 1; e < nChars; e++ {
-						lists := [5][]*Card{
-							charGroups[charNames[a]],
-							charGroups[charNames[b]],
-							charGroups[charNames[ci]],
-							charGroups[charNames[d]],
-							charGroups[charNames[e]],
-						}
-						for _, c0 := range lists[0] {
-							for _, c1 := range lists[1] {
-								for _, c2 := range lists[2] {
-									for _, c3 := range lists[3] {
-										for _, c4 := range lists[4] {
-											team := [5]*Card{c0, c1, c2, c3, c4}
-											var bestBase *BaseScores
-											bestLI := 0
-											for li := 0; li < 5; li++ {
-												base := computeBaseScores(team, li, statScale, baseline, songLength)
-												if bestBase == nil || base.BasePower > bestBase.BasePower {
-													b := base
-													bestBase = &b
-													bestLI = li
-												}
-											}
-											bases = append(bases, precomputedBase{
-												base:      *bestBase,
-												leaderIdx: bestLI,
-												teamIDs:   [5]string{c0.ID, c1.ID, c2.ID, c3.ID, c4.ID},
-											})
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	return bases
-}
-
-// solveForcedCostumeFromBases finds the best team for a given forced costume
-// using precomputed base scores. O(bases) per call instead of full enumeration.
-func solveForcedCostumeFromBases(bases []precomputedBase, forcedCostume *CostumeSkill) (bestUnitScore float64, bestTeamIDs [5]string, bestLeaderIdx int) {
-	for _, pb := range bases {
-		us, _, _, _, _, _ := applyCostume(&pb.base, forcedCostume)
-		if us > bestUnitScore {
-			bestUnitScore = us
-			bestTeamIDs = pb.teamIDs
-			bestLeaderIdx = pb.leaderIdx
 		}
 	}
 	return
@@ -1014,6 +928,8 @@ func recommendWithProfiles(ownedSpecs map[string]CardSpec, allRawCards []CardRaw
 	baseScore := 0
 	if timelineCtx != nil {
 		baseScore = timelineCtx.baseScore
+	} else if len(profiles) > 0 && len(profiles[0].Steps) > 0 {
+		baseScore = profiles[0].Steps[0].NewScore - profiles[0].Steps[0].Delta
 	} else if sweepCostumes && fixedLeaderID == "" && effectiveCostumeOnly == "" {
 		rawCardMapPtr := map[string]*CardRaw{}
 		for i := range allRawCards {
@@ -1030,11 +946,10 @@ func recommendWithProfiles(ownedSpecs map[string]CardSpec, allRawCards []CardRaw
 		}
 	}
 
-	// Build costume skills list and precompute bases for sweep mode
+	// Build the owned costume pool for sweep mode.
 	// Costume pool is limited to owned cards only (consistent with solveSweepCostumes).
 	// Per-candidate costumes are handled separately in the evaluation loop.
 	var sweepCostumeSkills []CostumeEntry
-	var ownedBases []precomputedBase
 	if sweepCostumes && (timelineCtx == nil || acquireCount > 1) {
 		var rawCostumes []CostumeEntry
 		for i := range allRawCards {
@@ -1049,7 +964,6 @@ func recommendWithProfiles(ownedSpecs map[string]CardSpec, allRawCards []CardRaw
 			}
 		}
 		sweepCostumeSkills = pruneCostumes(rawCostumes)
-		ownedBases = precomputeOwnedBases(baseCards, statScale, baseline, songLength)
 	}
 
 	// Build candidates
@@ -1091,6 +1005,39 @@ func recommendWithProfiles(ownedSpecs map[string]CardSpec, allRawCards []CardRaw
 			}
 		}
 	}
+	if profiles == nil && acquireCount > 1 {
+		profiles = analyzePotential(ownedSpecs, nil, allRawCards, acquireCount, newCardLevel, statScale, baseline, songLength, fixedLeaderID, costumeOnlyLeaderID, sweepCostumes, &baseScore, nil, cf)
+	}
+	costumeProfileTeams := make(map[costumeSearchKey]RecommendBestTeam)
+	for _, profile := range profiles {
+		for _, step := range profile.Steps {
+			for _, team := range step.CandidateTeams {
+				if team.CostumeOnlyLeaderID != nil && *team.CostumeOnlyLeaderID == profile.CardID {
+					costumeProfileTeams[costumeSearchKey{cardID: profile.CardID, target: step.TargetPotential}] = team
+				}
+			}
+		}
+	}
+	var costumeResults map[costumeSearchKey]costumeSearchResult
+	if profiles == nil && sweepCostumes && fixedLeaderID == "" && effectiveCostumeOnly == "" {
+		requests := make([]costumeSearchRequest, 0, len(candidates))
+		for _, cand := range candidates {
+			if cand.cost != 1 {
+				continue
+			}
+			if raw := rawCardMap[cand.cardID]; raw != nil && len(raw.PotentialData) > cand.targetPotential {
+				excludeID := ""
+				if cand.action == "uncap" {
+					excludeID = cand.cardID
+				}
+				requests = append(requests, costumeSearchRequest{
+					key:   costumeSearchKey{cardID: cand.cardID, target: cand.targetPotential},
+					skill: raw.PotentialData[cand.targetPotential].CostumeSkill, excludeID: excludeID,
+				})
+			}
+		}
+		costumeResults = searchCostumeAlternatives(baseCards, requests, statScale, baseline, songLength)
+	}
 
 	// Phase 1: evaluate cost=1 candidates using required-card optimization
 	type singleResult struct {
@@ -1106,10 +1053,8 @@ func recommendWithProfiles(ownedSpecs map[string]CardSpec, allRawCards []CardRaw
 			cost1Count++
 		}
 	}
-	// Path B baseline: for sweep mode, pre-compute forcedCostume results for each candidate
-	// that has a costume skill. This checks if using the candidate's costume with existing
-	// members beats the baseline.
-	if timelineCtx != nil {
+	// Reuse the evaluated potential profiles when they are available.
+	if profiles != nil {
 		cost1Count = 0
 		for _, profile := range profiles {
 			if len(profile.Steps) == 0 || profile.Steps[0].Delta <= 0 {
@@ -1132,6 +1077,7 @@ func recommendWithProfiles(ownedSpecs map[string]CardSpec, allRawCards []CardRaw
 			}
 		}
 	} else {
+		reportStage("recommend", 0, cost1Count)
 		evaluated := 0
 		for _, cand := range candidates {
 			if cand.cost != 1 {
@@ -1187,14 +1133,13 @@ func recommendWithProfiles(ownedSpecs map[string]CardSpec, allRawCards []CardRaw
 				bestLeaderIdx = liA
 				bestCostumeID = costumeA
 
-				// Path B: candidate's costume with existing members (uses precomputed bases)
+				// Path B: candidate's costume with the original owned members.
 				if len(candRaw.PotentialData) > 0 {
-					candCostume := candRaw.PotentialData[cand.targetPotential].CostumeSkill
-					usB, teamB, liB := solveForcedCostumeFromBases(ownedBases, &candCostume)
-					if usB > bestUnitScore {
-						bestUnitScore = usB
-						bestTeamIDs = teamB
-						bestLeaderIdx = liB
+					outfit := costumeResults[costumeSearchKey{cardID: cand.cardID, target: cand.targetPotential}]
+					if outfit.score > bestUnitScore {
+						bestUnitScore = outfit.score
+						bestTeamIDs = outfit.team
+						bestLeaderIdx = outfit.leaderIdx
 						bestCostumeID = cand.cardID
 					}
 				}
@@ -1267,11 +1212,6 @@ func recommendWithProfiles(ownedSpecs map[string]CardSpec, allRawCards []CardRaw
 	} else {
 		// Every single-card milestone is evaluated before the approximate
 		// combination shortlist. A card with no one-copy effect may matter later.
-		if profiles == nil {
-			progressCallback = outerProgress
-			profiles = analyzePotential(ownedSpecs, nil, allRawCards, acquireCount, newCardLevel, statScale, baseline, songLength, fixedLeaderID, costumeOnlyLeaderID, sweepCostumes, cf)
-			progressCallback = nil
-		}
 		candidateByCost := map[string]map[int]candidate{}
 		for _, cand := range candidates {
 			if candidateByCost[cand.cardID] == nil {
@@ -1452,16 +1392,38 @@ func recommendWithProfiles(ownedSpecs map[string]CardSpec, allRawCards []CardRaw
 						bestCostumeID = costumeA
 					}
 
-					// Path B: this card's costume with existing+combo members
-					if len(candRaw.PotentialData) > 0 {
-						candCostume := candRaw.PotentialData[cand.targetPotential].CostumeSkill
-						// Use precomputed owned bases + also check trial cards
-						usB, teamB, liB := solveForcedCostumeFromBases(ownedBases, &candCostume)
-						if usB > bestUnitScore {
-							bestUnitScore = usB
-							bestTeamIDs = teamB
-							bestLeaderIdx = liB
-							bestCostumeID = cand.cardID
+					// Path B reuses the best costume-only team found while
+					// analyzing this milestone, with the combo's card levels.
+					if outfit, ok := costumeProfileTeams[costumeSearchKey{cardID: cand.cardID, target: cand.targetPotential}]; ok {
+						trialCardMap := make(map[string]*Card, len(trialCards))
+						for _, card := range trialCards {
+							trialCardMap[card.ID] = card
+						}
+						var outfitCards [5]*Card
+						var outfitIDs [5]string
+						leaderIdx := -1
+						valid := len(outfit.MemberIDs) == 5
+						if valid {
+							for i, id := range outfit.MemberIDs {
+								outfitCards[i] = trialCardMap[id]
+								outfitIDs[i] = id
+								if outfitCards[i] == nil {
+									valid = false
+								}
+								if id == outfit.LeaderID {
+									leaderIdx = i
+								}
+							}
+						}
+						if valid && leaderIdx >= 0 {
+							candCostume := candRaw.PotentialData[cand.targetPotential].CostumeSkill
+							usB := evaluateTeam(outfitCards, leaderIdx, statScale, baseline, songLength, &candCostume).UnitScore
+							if usB > bestUnitScore {
+								bestUnitScore = usB
+								bestTeamIDs = outfitIDs
+								bestLeaderIdx = leaderIdx
+								bestCostumeID = cand.cardID
+							}
 						}
 					}
 				} else {

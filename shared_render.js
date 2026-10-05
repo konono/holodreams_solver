@@ -2,6 +2,35 @@
 // cardLevels, defaultLevel, levelEnabled, window.SONGS
 const TYPE_LABELS = { happy: "Happy", pure: "Pure", cute: "Cute" };
 const MAX_LEVEL = 80;
+const RECOMMEND_STAGE_LABELS = {
+  baseline: "ベース編成を探索中",
+  baseline_timeline: "選択曲のTimelineとBoardを評価中",
+  costume: "各カードの衣装効果を評価中",
+  members: "各カード・凸段階の編成を評価中",
+  timeline: "各凸段階を選択曲で再評価中",
+  recommend: "レコメンドを集計中",
+  finalize: "結果を準備中",
+};
+
+function updateRecommendProgress(event, currentPhase, textEl, fillEl, barEl) {
+  const phase = event.type === "stage" ? event.phase : currentPhase;
+  const label = RECOMMEND_STAGE_LABELS[phase] || "強化レコメンドを分析中";
+  const current = Number(event.current) || 0;
+  const total = Number(event.total) || 0;
+  if (total > 0) {
+    const pct = Math.min(95, Math.max(0, current / total * 95));
+    barEl.style.display = "block";
+    fillEl.style.width = `${pct}%`;
+    textEl.textContent = current >= total
+      ? `${label}が終了。次の処理に進んでいます...`
+      : `${label}：${current.toLocaleString()} / ${total.toLocaleString()}`;
+  } else {
+    barEl.style.display = "none";
+    fillEl.style.width = "0%";
+    textEl.textContent = label + "...";
+  }
+  return phase;
+}
 
 function getCardPotential(id) { return cardPotentials[id] ?? defaultPotential; }
 function getCardLevel(id) {

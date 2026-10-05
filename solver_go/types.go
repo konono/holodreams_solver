@@ -137,6 +137,8 @@ type EvalResult struct {
 	ScoreBonus     float64
 	CostumeSSVal   float64
 	SupportSSVal   float64
+	typeCounts     map[string]int
+	groupCounts    map[string]int
 }
 
 type SolveResult struct {
@@ -382,6 +384,7 @@ type RecommendOutput struct {
 	ScoreMetric         string            `json:"score_metric,omitempty"`
 	BoardSearchMode     string            `json:"board_search_mode,omitempty"`
 	ComboCandidateLimit int               `json:"combo_candidate_limit,omitempty"`
+	TimingsMs           map[string]int64  `json:"timings_ms,omitempty"`
 }
 
 // PotentialStep is an exact single-card investment from the current collection.

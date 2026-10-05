@@ -1309,6 +1309,7 @@ async function doRecommend() {
       const progressBar = document.getElementById("progressBarBg");
       const progressFill = document.getElementById("progressFill");
       const progressText = document.getElementById("progressText");
+      let currentPhase = "baseline";
 
       fetch("/api/recommend/stream", {
         method: "POST",
@@ -1330,11 +1331,11 @@ async function doRecommend() {
               if (!line) continue;
               try {
                 const ev = JSON.parse(line);
-                if (ev.type === "progress") {
-                  progressBar.style.display = "block";
-                  const pct = Math.min(100, ev.current / ev.total * 100);
-                  progressFill.style.width = pct + "%";
-                  progressText.textContent = `${ev.current.toLocaleString()} / ${ev.total.toLocaleString()} 候補を評価中...`;
+                if (ev.type === "stage" || ev.type === "progress") {
+                  currentPhase = updateRecommendProgress(ev, currentPhase, progressText, progressFill, progressBar);
+                } else if (ev.type === "error") {
+                  reject(new Error(ev.message || "計算中にエラーが発生しました"));
+                  return;
                 } else if (ev.type === "done") {
                   resolve(ev.result);
                   return;
@@ -1353,8 +1354,9 @@ async function doRecommend() {
     document.getElementById("resultsWrapper").scrollIntoView({ behavior: "smooth" });
   } catch (e) {
     expandResults();
-    document.getElementById("resultsArea").innerHTML =
-      `<div class="empty-msg">エラーが発生しました: ${e.message}</div>`;
+    const area = document.getElementById("resultsArea");
+    area.innerHTML = '<div class="empty-msg"></div>';
+    area.firstElementChild.textContent = `エラーが発生しました: ${e.message}`;
   } finally {
     isComputing = false;
     btn.disabled = selected.size < 5;

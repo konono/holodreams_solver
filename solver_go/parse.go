@@ -529,18 +529,37 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 		}
 		sweepCostumes := input.SweepCostumes
 		ctx := newTimelineRecommendContext(input, ownedSpecs, cf.Cards, statScale, baseline, songLength, fixedLeader, costumeOnly, sweepCostumes, cf)
+		timings := map[string]int64{}
+		var knownBaseScore *int
+		if ctx != nil {
+			knownBaseScore = &ctx.legacyBaseScore
+			timings["baseline_solve"] = ctx.baselineSolveMs
+			timings["baseline_timeline"] = ctx.baselineTimelineMs
+		}
 		var profiles []PotentialCard
 		if input.IncludePotential || ctx != nil {
 			maxCopies := acquireCount
 			if input.IncludePotential {
 				maxCopies = 5
 			}
-			profiles = analyzePotential(ownedSpecs, nil, cf.Cards, maxCopies, input.NewCardLevel, statScale, baseline, songLength, fixedLeader, costumeOnly, sweepCostumes, cf)
+			potentialTimings := PotentialTimings{}
+			profiles = analyzePotential(ownedSpecs, nil, cf.Cards, maxCopies, input.NewCardLevel, statScale, baseline, songLength, fixedLeader, costumeOnly, sweepCostumes, knownBaseScore, &potentialTimings, cf)
+			if potentialTimings.BaselineMs > 0 {
+				timings["baseline_solve"] = potentialTimings.BaselineMs
+			}
+			timings["costume_search"] = potentialTimings.CostumeMs
+			timings["member_search"] = potentialTimings.MemberMs
 			if ctx != nil {
+				started := time.Now()
 				rerankPotentialByTimeline(profiles, ownedSpecs, input.NewCardLevel, ctx)
+				timings["potential_timeline"] = time.Since(started).Milliseconds()
 			}
 		}
+		reportStage("recommend", 0, 0)
+		recommendStarted := time.Now()
 		out := recommendWithProfiles(ownedSpecs, cf.Cards, topN, acquireCount, statScale, baseline, songLength, fixedLeader, costumeOnly, sweepCostumes, profiles, input.NewCardLevel, ctx, cf)
+		timings["recommend"] = time.Since(recommendStarted).Milliseconds()
+		out.TimingsMs = timings
 		if input.IncludePotential {
 			out.PotentialCards = profiles
 		}
@@ -548,6 +567,7 @@ func dispatchAction(input CLIInput, cf *CardsFile) (interface{}, error) {
 		if input.NewCardLevel != nil {
 			out.NewCardLevel = max(1, min(*input.NewCardLevel, 80))
 		}
+		reportStage("finalize", 0, 0)
 		return out, nil
 
 	case "whatif":

@@ -283,6 +283,8 @@ func evaluateTeam(team [5]*Card, leaderIdx int, statScale, baseline, songLength 
 		ScoreBonus:     scoreBonus,
 		CostumeSSVal:   costumeSSVal,
 		SupportSSVal:   supportSS,
+		typeCounts:     typeCounts,
+		groupCounts:    groupCounts,
 	}
 }
 
@@ -318,8 +320,8 @@ func computeBaseScores(team [5]*Card, leaderIdx int, statScale, baseline, songLe
 		PassiveSBPct:   scores.PassiveSBPct,
 		SpecialPct:     scores.SpecialPct,
 		SupportSS:      scores.SupportSSVal,
-		TypeCounts:     countTypes(team),
-		GroupCounts:    countGroups(team),
+		TypeCounts:     scores.typeCounts,
+		GroupCounts:    scores.groupCounts,
 		Leader:         team[leaderIdx],
 	}
 }
