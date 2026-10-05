@@ -474,6 +474,7 @@ class TestStaticRecommendWasm:
         ids = page.eval_on_selector_all(".card", "els => els.slice(0, 8).map(e => e.dataset.id)")
         for cid in ids:
             page.click(f'.card[data-id="{cid}"] .char-name')
+        page.select_option("#boardSearchMode", "fast")
         selected_count = page.evaluate("() => document.querySelectorAll('.card.selected').length")
         assert selected_count >= 5, f"Expected >=5 selected, got {selected_count}"
         page.click("#btnRecommend")
@@ -492,6 +493,7 @@ class TestStaticRecommendWasm:
         ids = page.eval_on_selector_all(".card", "els => els.slice(0, 8).map(e => e.dataset.id)")
         for cid in ids:
             page.click(f'.card[data-id="{cid}"] .char-name')
+        page.select_option("#boardSearchMode", "fast")
         page.click("#btnRecommend")
         page.wait_for_function(
             "document.getElementById('progressArea')?.classList.contains('visible') || "
@@ -516,6 +518,7 @@ class TestStaticRecommendWasm:
         ids = page.eval_on_selector_all(".card", "els => els.slice(0, 8).map(e => e.dataset.id)")
         for cid in ids:
             page.click(f'.card[data-id="{cid}"] .char-name')
+        page.select_option("#boardSearchMode", "fast")
         page.click("#btnRecommend")
         page.wait_for_selector(".result-card", timeout=120000)
         assert len(errors) == 0, f"JS errors during recommend: {errors}"
