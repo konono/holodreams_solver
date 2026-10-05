@@ -420,6 +420,26 @@ class TestStaticWasmResultParity:
 
 
 class TestStaticRecommendWasm:
+    def test_recommend_shows_worker_error(self, browser_context):
+        page = open_page(browser_context)
+        ids = page.eval_on_selector_all(".card", "els => els.slice(0, 5).map(e => e.dataset.id)")
+        for cid in ids:
+            page.click(f'.card[data-id="{cid}"] .char-name')
+        page.evaluate("""() => {
+          window.__mockRecommendWorker = {postMessage() {}, onmessage: null, onerror: null};
+          getWasmWorker = () => Promise.resolve(window.__mockRecommendWorker);
+        }""")
+        page.click("#btnRecommend")
+        page.wait_for_function("typeof window.__mockRecommendWorker.onmessage === 'function'")
+        page.evaluate("""() => {
+          window.__mockRecommendWorker.onmessage({data: {
+            type: 'error', message: 'WASM result was undefined'
+          }});
+        }""")
+        page.wait_for_function("document.getElementById('resultsArea').textContent.includes('WASM result was undefined')")
+        assert page.locator("#resultsArea [role=alert]").count() == 1
+        page.close()
+
     def test_recommend_uses_selected_song_timeline(self, browser_context):
         page = open_page(browser_context)
         ids = page.eval_on_selector_all(".card", "els => els.slice(0, 8).map(e => e.dataset.id)")
@@ -427,11 +447,25 @@ class TestStaticRecommendWasm:
             page.click(f'.card[data-id="{cid}"] .char-name')
         page.evaluate("selectSong('m0001')")
         page.select_option("#boardSearchMode", "fast")
+        page.evaluate("""async () => {
+          const worker = await getWasmWorker();
+          window.__recommendStages = [];
+          window.__recommendTimings = null;
+          worker.addEventListener('message', event => {
+            if (event.data.type === 'stage') window.__recommendStages.push(event.data.phase);
+            if (event.data.type === 'recommend_done') window.__recommendTimings = event.data.timings_ms;
+          });
+        }""")
         page.click("#btnRecommend")
         page.wait_for_selector(".result-card", timeout=120000)
         title = page.locator(".results-title").first.inner_text()
         assert "選択曲のライブ期待スコア" in title
         assert page.locator(".potential-card").count() > 0
+        stages = page.evaluate("window.__recommendStages")
+        assert {"baseline", "baseline_timeline", "costume", "members", "timeline", "finalize"}.issubset(stages)
+        assert stages.count("baseline") == 1
+        timings = page.evaluate("window.__recommendTimings")
+        assert timings["member_search"] >= 0 and timings["potential_timeline"] >= 0
         page.close()
 
     def test_recommend_best_team_shows_card_name(self, browser_context):
@@ -440,6 +474,7 @@ class TestStaticRecommendWasm:
         ids = page.eval_on_selector_all(".card", "els => els.slice(0, 8).map(e => e.dataset.id)")
         for cid in ids:
             page.click(f'.card[data-id="{cid}"] .char-name')
+        page.select_option("#boardSearchMode", "fast")
         selected_count = page.evaluate("() => document.querySelectorAll('.card.selected').length")
         assert selected_count >= 5, f"Expected >=5 selected, got {selected_count}"
         page.click("#btnRecommend")
@@ -458,6 +493,7 @@ class TestStaticRecommendWasm:
         ids = page.eval_on_selector_all(".card", "els => els.slice(0, 8).map(e => e.dataset.id)")
         for cid in ids:
             page.click(f'.card[data-id="{cid}"] .char-name')
+        page.select_option("#boardSearchMode", "fast")
         page.click("#btnRecommend")
         page.wait_for_function(
             "document.getElementById('progressArea')?.classList.contains('visible') || "
@@ -482,6 +518,7 @@ class TestStaticRecommendWasm:
         ids = page.eval_on_selector_all(".card", "els => els.slice(0, 8).map(e => e.dataset.id)")
         for cid in ids:
             page.click(f'.card[data-id="{cid}"] .char-name')
+        page.select_option("#boardSearchMode", "fast")
         page.click("#btnRecommend")
         page.wait_for_selector(".result-card", timeout=120000)
         assert len(errors) == 0, f"JS errors during recommend: {errors}"

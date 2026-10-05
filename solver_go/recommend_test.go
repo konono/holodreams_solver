@@ -89,7 +89,7 @@ func TestPotentialFindsUnownedCardAfterSeveralCopies(t *testing.T) {
 	}
 	owned := thresholdOwnedCards()
 	cardID := "ninomae_ina_nis_5"
-	profiles := analyzePotential(owned, []string{cardID}, cf.Cards, 5, nil, 1, 0, 192, "", "", false, cf)
+	profiles := analyzePotential(owned, []string{cardID}, cf.Cards, 5, nil, 1, 0, 192, "", "", false, nil, nil, cf)
 	if len(profiles) != 1 || len(profiles[0].Steps) != 5 {
 		t.Fatalf("expected five milestones for %s, got %+v", cardID, profiles)
 	}

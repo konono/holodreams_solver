@@ -3,12 +3,19 @@ package main
 import (
 	"math"
 	"sort"
+	"time"
 )
+
+type PotentialTimings struct {
+	BaselineMs int64
+	CostumeMs  int64
+	MemberMs   int64
+}
 
 // analyzePotential evaluates every reachable potential of each requested card.
 // It deliberately keeps cards whose first copy has no effect: those are the
 // cards the one-copy recommendation cannot discover.
-func analyzePotential(ownedSpecs map[string]CardSpec, candidateIDs []string, allRawCards []CardRaw, maxCopies int, newCardLevel *int, statScale, baseline, songLength float64, fixedLeaderID, costumeOnlyLeaderID string, sweepCostumes bool, cf *CardsFile) []PotentialCard {
+func analyzePotential(ownedSpecs map[string]CardSpec, candidateIDs []string, allRawCards []CardRaw, maxCopies int, newCardLevel *int, statScale, baseline, songLength float64, fixedLeaderID, costumeOnlyLeaderID string, sweepCostumes bool, knownBaseScore *int, timings *PotentialTimings, cf *CardsFile) []PotentialCard {
 	outerProgress := progressCallback
 	progressCallback = nil
 	defer func() { progressCallback = outerProgress }()
@@ -50,20 +57,31 @@ func analyzePotential(ownedSpecs map[string]CardSpec, candidateIDs []string, all
 	}
 	useSweep := sweepCostumes && fixedLeaderID == "" && effectiveCostumeOnly == ""
 	baseScore := 0
-	if useSweep {
+	if knownBaseScore != nil {
+		baseScore = *knownBaseScore
+	} else if useSweep {
+		reportStage("baseline", 0, 0)
+		started := time.Now()
 		base := solveSweepCostumes(baseCards, allRawCards, rawCardMap, 1, statScale, baseline, songLength, nil, cf)
 		if len(base.Results) > 0 {
 			baseScore = base.Results[0].UnitScore
 		}
+		if timings != nil {
+			timings.BaselineMs = time.Since(started).Milliseconds()
+		}
 	} else {
+		reportStage("baseline", 0, 0)
+		started := time.Now()
 		base := solve(baseCards, 1, statScale, baseline, songLength, fixedLeaderID, effectiveCostumeOnly, overrideCostume, nil)
 		if len(base.Results) > 0 {
 			baseScore = base.Results[0].UnitScore
 		}
+		if timings != nil {
+			timings.BaselineMs = time.Since(started).Milliseconds()
+		}
 	}
 
 	var ownedCostumes []CostumeEntry
-	var ownedBases []precomputedBase
 	if useSweep {
 		for id, spec := range ownedSpecs {
 			raw := rawCardMap[id]
@@ -74,7 +92,6 @@ func analyzePotential(ownedSpecs map[string]CardSpec, candidateIDs []string, all
 			ownedCostumes = append(ownedCostumes, CostumeEntry{id, raw.PotentialData[potential].CostumeSkill})
 		}
 		ownedCostumes = pruneCostumes(ownedCostumes)
-		ownedBases = precomputeOwnedBases(baseCards, statScale, baseline, songLength)
 	}
 
 	selected := map[string]bool{}
@@ -82,6 +99,7 @@ func analyzePotential(ownedSpecs map[string]CardSpec, candidateIDs []string, all
 		selected[id] = true
 	}
 	total := 0
+	var costumeRequests []costumeSearchRequest
 	for i := range allRawCards {
 		raw := &allRawCards[i]
 		if len(selected) > 0 && !selected[raw.ID] {
@@ -91,11 +109,35 @@ func analyzePotential(ownedSpecs map[string]CardSpec, candidateIDs []string, all
 		if spec, ok := ownedSpecs[raw.ID]; ok {
 			current = spec.Potential
 		}
-		total += max(0, min(maxCopies, len(raw.PotentialData)-1-current))
+		available := max(0, min(maxCopies, len(raw.PotentialData)-1-current))
+		total += available
+		if useSweep {
+			for copies := 1; copies <= available; copies++ {
+				target := current + copies
+				excludeID := ""
+				if current >= 0 {
+					excludeID = raw.ID
+				}
+				costumeRequests = append(costumeRequests, costumeSearchRequest{
+					key:   costumeSearchKey{cardID: raw.ID, target: target},
+					skill: raw.PotentialData[target].CostumeSkill, excludeID: excludeID,
+				})
+			}
+		}
+	}
+	var costumeResults map[costumeSearchKey]costumeSearchResult
+	if useSweep {
+		started := time.Now()
+		costumeResults = searchCostumeAlternatives(baseCards, costumeRequests, statScale, baseline, songLength)
+		if timings != nil {
+			timings.CostumeMs = time.Since(started).Milliseconds()
+		}
 	}
 
 	results := make([]PotentialCard, 0, len(allRawCards))
 	done := 0
+	reportStage("members", 0, total)
+	memberStarted := time.Now()
 	for i := range allRawCards {
 		raw := &allRawCards[i]
 		if len(selected) > 0 && !selected[raw.ID] {
@@ -115,16 +157,6 @@ func analyzePotential(ownedSpecs map[string]CardSpec, candidateIDs []string, all
 		entry := PotentialCard{
 			CardID: raw.ID, CardName: raw.CardName, Character: raw.Character,
 			CurrentPotential: currentPtr, Steps: make([]PotentialStep, 0, available),
-		}
-		var withoutCandidateBases []precomputedBase
-		if useSweep && current >= 0 {
-			without := make([]*Card, 0, len(baseCards)-1)
-			for _, c := range baseCards {
-				if c.ID != raw.ID {
-					without = append(without, c)
-				}
-			}
-			withoutCandidateBases = precomputeOwnedBases(without, statScale, baseline, songLength)
 		}
 		for copies := 1; copies <= available; copies++ {
 			target := current + copies
@@ -177,13 +209,8 @@ func analyzePotential(ownedSpecs map[string]CardSpec, candidateIDs []string, all
 				costumes = pruneCostumes(costumes)
 				score, team, leaderIdx, costumeID := solveWithRequiredCardSweep(trialCards, &candidate, costumes, statScale, baseline, songLength)
 				consider(score, team, leaderIdx, costumeID, "member")
-				bases := ownedBases
-				if current >= 0 {
-					bases = withoutCandidateBases
-				}
-				skill := raw.PotentialData[target].CostumeSkill
-				score, team, leaderIdx = solveForcedCostumeFromBases(bases, &skill)
-				consider(score, team, leaderIdx, raw.ID, "costume")
+				costumeResult := costumeResults[costumeSearchKey{cardID: raw.ID, target: target}]
+				consider(costumeResult.score, costumeResult.team, costumeResult.leaderIdx, raw.ID, "costume")
 			} else {
 				score, team, leaderIdx := solveWithRequiredCard(trialCards, &candidate, statScale, baseline, songLength, fixedLeaderID, overrideCostume)
 				consider(score.UnitScore, team, leaderIdx, effectiveCostumeOnly, "member")
@@ -194,11 +221,16 @@ func analyzePotential(ownedSpecs map[string]CardSpec, candidateIDs []string, all
 			}
 			entry.Steps = append(entry.Steps, step)
 			done++
-			if outerProgress != nil {
+			if stageCallback != nil {
+				reportStage("members", done, total)
+			} else if outerProgress != nil {
 				outerProgress(done, total)
 			}
 		}
 		results = append(results, entry)
+	}
+	if timings != nil {
+		timings.MemberMs = time.Since(memberStarted).Milliseconds()
 	}
 
 	finalizePotentialProfiles(results)

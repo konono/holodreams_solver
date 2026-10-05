@@ -29,10 +29,19 @@ self._solverProgress = function (current, total) {
   self.postMessage({ type: "progress", current, total });
 };
 
+self._solverStage = function (phase, current, total) {
+  self.postMessage({ type: "stage", phase, current, total });
+};
+
 function callSolver(payload) {
   if (!solverReady) throw new Error("Solver not ready");
   const resultJSON = _solverCall(JSON.stringify(payload));
-  return JSON.parse(resultJSON);
+  if (typeof resultJSON !== "string") {
+    throw new Error("WASM計算が結果を返しませんでした。メモリ不足などで処理が中断された可能性があります。");
+  }
+  const result = JSON.parse(resultJSON);
+  if (result.error) throw new Error(result.error);
+  return result;
 }
 
 self.onmessage = async function (e) {
@@ -139,6 +148,7 @@ self.onmessage = async function (e) {
         score_metric: result.score_metric || "unit_score",
         board_search_mode: result.board_search_mode || "",
         combo_candidate_limit: result.combo_candidate_limit || 20,
+        timings_ms: result.timings_ms || null,
       });
     } catch (err) {
       self.postMessage({ type: "error", message: err.message });

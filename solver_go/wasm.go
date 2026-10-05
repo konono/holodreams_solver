@@ -4,6 +4,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"syscall/js"
 )
 
@@ -23,7 +24,12 @@ func jsInitCards(this js.Value, args []js.Value) interface{} {
 	return js.ValueOf(map[string]interface{}{"ok": true, "count": len(cf.Cards)})
 }
 
-func jsSolve(this js.Value, args []js.Value) interface{} {
+func jsSolve(this js.Value, args []js.Value) (value interface{}) {
+	defer func() {
+		if caught := recover(); caught != nil {
+			value = js.ValueOf(errorJSON(fmt.Sprint(caught)))
+		}
+	}()
 	if len(args) < 1 || wasmCardsFile == nil {
 		return js.ValueOf(errorJSON("not initialized"))
 	}
@@ -39,7 +45,13 @@ func jsSolve(this js.Value, args []js.Value) interface{} {
 			progressFn.Invoke(current, total)
 		}
 	}
-	defer func() { progressCallback = nil }()
+	stageFn := js.Global().Get("_solverStage")
+	if stageFn.Truthy() {
+		stageCallback = func(phase string, current, total int) {
+			stageFn.Invoke(phase, current, total)
+		}
+	}
+	defer func() { progressCallback = nil; stageCallback = nil }()
 
 	result, err := dispatchAction(input, wasmCardsFile)
 	if err != nil {

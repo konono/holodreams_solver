@@ -338,10 +338,13 @@ def post_recommend_stream(req: RecommendRequest):
     dropped = len(req.cards) - len(card_specs)
 
     def event_stream():
-        for event in _call_go_stream(payload):
-            if event["type"] == "done" and dropped > 0:
-                event["result"].setdefault("warnings", []).append(f"{dropped}枚の不明または重複カードIDを除外しました")
-            yield f"data: {json.dumps(event)}\n\n"
+        try:
+            for event in _call_go_stream(payload):
+                if event["type"] == "done" and dropped > 0:
+                    event["result"].setdefault("warnings", []).append(f"{dropped}枚の不明または重複カードIDを除外しました")
+                yield f"data: {json.dumps(event)}\n\n"
+        except Exception as exc:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(exc)})}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 

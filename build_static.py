@@ -832,6 +832,18 @@ function doRecommend() {{
   const ownedSpecs = [...selected].map(id => ({{ id, potential: getCardPotential(id), level: getCardLevel(id) }}));
   const recCostumeVal = document.getElementById("costumeSelect").value || null;
   const recMemberInclude = document.getElementById("chkMemberInclude").checked;
+  let currentPhase = "baseline";
+  const showRecommendError = (message) => {{
+    isComputing = false;
+    btn.disabled = selected.size < 5; btnSolve.disabled = selected.size > 0 && selected.size < 5; btn.textContent = "強化レコメンド";
+    pa.classList.remove("visible");
+    setFabMode("solve");
+    expandResults();
+    const area = document.getElementById("resultsArea");
+    area.innerHTML = '<div class="empty-msg" role="alert"></div>';
+    area.firstElementChild.textContent = `計算中にエラーが発生しました: ${{message}}`;
+    document.getElementById("resultsWrapper").scrollIntoView({{ behavior: "smooth" }});
+  }};
   getWasmWorker().then(w => {{
   w.postMessage({{
     type: "recommend",
@@ -848,22 +860,16 @@ function doRecommend() {{
     sweepCostumes: !recCostumeVal && selected.size >= 5,
   }});
 
-  w.onerror = function() {{
+  w.onerror = function(ev) {{
     w.onmessage = null;
-    isComputing = false;
-    btn.disabled = selected.size < 5; btnSolve.disabled = selected.size > 0 && selected.size < 5; btn.textContent = "強化レコメンド";
-    pa.classList.remove("visible");
-    setFabMode("solve");
-    expandResults();
-    document.getElementById("resultsArea").innerHTML = '<div class="empty-msg">計算中にエラーが発生しました。</div>';
+    showRecommendError(ev?.message || "WASM Worker が停止しました。ページを再読み込みしてください。");
   }};
   w.onmessage = function(ev) {{
-    if (ev.data.type === "error") {{ w.onerror(); return; }}
-    if (ev.data.type === "progress") {{
-      const pct = Math.min(100, ev.data.current / ev.data.total * 100);
-      document.getElementById("progressFill").style.width = pct + "%";
-      document.getElementById("progressText").textContent =
-        `${{ev.data.current}} / ${{ev.data.total}} 候補を評価中...`;
+    if (ev.data.type === "error") {{ w.onmessage = null; showRecommendError(ev.data.message || "詳細不明"); return; }}
+    if (ev.data.type === "stage" || ev.data.type === "progress") {{
+      currentPhase = updateRecommendProgress(ev.data, currentPhase,
+        document.getElementById("progressText"), document.getElementById("progressFill"),
+        document.querySelector("#progressArea .progress-bar-bg"));
     }} else if (ev.data.type === "recommend_done") {{
       w.onmessage = null;
       isComputing = false;
@@ -877,19 +883,15 @@ function doRecommend() {{
       }} catch (renderErr) {{
         console.error("renderRecommendations error:", renderErr);
         expandResults();
-        document.getElementById("resultsArea").innerHTML =
-          `<div class="empty-msg">結果の表示中にエラーが発生しました: ${{renderErr.message}}</div>`;
+        const area = document.getElementById("resultsArea");
+        area.innerHTML = '<div class="empty-msg" role="alert"></div>';
+        area.firstElementChild.textContent = `結果の表示中にエラーが発生しました: ${{renderErr.message}}`;
       }}
       setFabMode("back");
     }}
   }};
-  }}).catch(() => {{
-    isComputing = false;
-    btn.disabled = selected.size < 5; btnSolve.disabled = selected.size > 0 && selected.size < 5; btn.textContent = "強化レコメンド";
-    pa.classList.remove("visible");
-    setFabMode("solve");
-    expandResults();
-    document.getElementById("resultsArea").innerHTML = '<div class="empty-msg">WASMの初期化に失敗しました。</div>';
+  }}).catch((err) => {{
+    showRecommendError("WASMの初期化に失敗しました: " + err.message);
   }});
 }}
 

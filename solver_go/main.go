@@ -33,6 +33,9 @@ func main() {
 	progressCallback = func(current, total int) {
 		fmt.Fprintf(os.Stderr, "PROGRESS:%d/%d\n", current, total)
 	}
+	stageCallback = func(phase string, current, total int) {
+		fmt.Fprintf(os.Stderr, "STAGE:%s:%d/%d\n", phase, current, total)
+	}
 
 	result, err := dispatchAction(input, cf)
 	if err != nil {
