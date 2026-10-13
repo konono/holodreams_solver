@@ -5,6 +5,9 @@ on:
     branches: [main]
   push:
     branches: [main]
+  # update-cards.yml dispatches this after auto-merging its PR: a push made
+  # with GITHUB_TOKEN does not trigger the push event above.
+  workflow_dispatch:
 
 jobs:
   test:
@@ -15,6 +18,8 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: solver_go/go.mod
+          # No external deps, so there is no go.sum to key the cache on.
+          cache: false
 
       - uses: astral-sh/setup-uv@v6
 

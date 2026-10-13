@@ -506,9 +506,14 @@ def test_recommend_acquire1_no_multi_uncap():
 
 
 def test_recommend_acquire2_has_multi_uncap():
-    """acquire_count=2 で同一カード複数凸（cost=2）が候補に含まれる"""
+    """acquire_count=2 で同一カード複数凸（cost=2）が候補に含まれる
+
+    cost=2 の単体プランが上位何位に来るかはカードプール次第で変動するため、
+    top_n は順位で足切りしない十分大きな値にする。検証したいのは
+    「cost=2 候補が生成されること」であって「上位に入ること」ではない。
+    """
     cards = [{"id": cid, "potential": 0} for cid in RECOMMEND_CARDS_7]
-    result = recommend(cards, top_n=10, acquire_count=2)
+    result = recommend(cards, top_n=1000, acquire_count=2)
     has_multi = any(
         c["cost"] > 1
         for r in result["recommendations"]
