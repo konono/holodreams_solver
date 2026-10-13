@@ -21,6 +21,8 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: solver_go/go.mod
+          # No external deps, so there is no go.sum to key the cache on.
+          cache: false
 
       - uses: astral-sh/setup-uv@v6
 
@@ -51,11 +53,15 @@ jobs:
       - name: Check for changes
         id: check
         run: |
-          if [ -n "$(git diff --name-only)" ]; then
+          # sync_holodori.py stamps a fresh "generated" timestamp on every run,
+          # so a plain `git diff` is always dirty and opens a no-op PR daily.
+          # -I drops hunks whose changed lines are *all* timestamps; a hunk that
+          # also touches source_commit or card data still counts as a change.
+          if ! git diff --quiet -I '^[[:space:]]*"generated":' -- data/; then
             echo "has_changes=true" >> $GITHUB_OUTPUT
           else
             echo "has_changes=false" >> $GITHUB_OUTPUT
-            echo "No changes detected"
+            echo "No substantive data changes detected"
           fi
 
       - name: Detect new cards
@@ -95,6 +101,7 @@ jobs:
 
       - name: Create Pull Request
         if: steps.check.outputs.has_changes == 'true'
+        id: cpr
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -114,3 +121,15 @@ jobs:
           labels: |
             dependencies
             automated
+
+      # The PR is created with GITHUB_TOKEN, so ci.yml never triggers on it.
+      # Waiting for checks would hang forever; instead we rely on the "Run tests"
+      # step above, which must pass before this step is reached. ci.yml still
+      # runs on the resulting push to main.
+      - name: Merge Pull Request
+        if: steps.cpr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr merge "${{ steps.cpr.outputs.pull-request-number }}" \
+            --squash --delete-branch
