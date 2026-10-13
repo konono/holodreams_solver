@@ -11,6 +11,8 @@ env:
 permissions:
   contents: write
   pull-requests: write
+  # Needed to dispatch ci.yml / deploy-pages.yml after the merge.
+  actions: write
 
 jobs:
   sync-cards:
@@ -124,8 +126,7 @@ jobs:
 
       # The PR is created with GITHUB_TOKEN, so ci.yml never triggers on it.
       # Waiting for checks would hang forever; instead we rely on the "Run tests"
-      # step above, which must pass before this step is reached. ci.yml still
-      # runs on the resulting push to main.
+      # step above, which must pass before this step is reached.
       - name: Merge Pull Request
         if: steps.cpr.outputs.pull-request-number
         env:
@@ -133,3 +134,16 @@ jobs:
         run: |
           gh pr merge "${{ steps.cpr.outputs.pull-request-number }}" \
             --squash --delete-branch
+
+      # The merge commit is also authored by GITHUB_TOKEN, so it does not fire
+      # the `push: branches: [main]` triggers either. workflow_dispatch is the
+      # documented exception -- it always creates a run -- so request both
+      # workflows explicitly. Note this bypasses the paths filter on
+      # deploy-pages.yml, which is fine: a card data change always matches it.
+      - name: Trigger downstream workflows
+        if: steps.cpr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run ci.yml --ref main
+          gh workflow run deploy-pages.yml --ref main

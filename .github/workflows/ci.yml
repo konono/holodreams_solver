@@ -5,6 +5,9 @@ on:
     branches: [main]
   push:
     branches: [main]
+  # update-cards.yml dispatches this after auto-merging its PR: a push made
+  # with GITHUB_TOKEN does not trigger the push event above.
+  workflow_dispatch:
 
 jobs:
   test:
