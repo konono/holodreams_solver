@@ -181,6 +181,12 @@
       "score_coefficient_permil": 5
     },
     {
+      "id": "m0360",
+      "name": "HOLOGRAM CIRCUS",
+      "playing_seconds": 157,
+      "score_coefficient_permil": 7
+    },
+    {
       "id": "m0331",
       "name": "Here I am",
       "playing_seconds": 148,
@@ -292,6 +298,12 @@
       "id": "m0139",
       "name": "Myth or Treat",
       "playing_seconds": 124,
+      "score_coefficient_permil": 6
+    },
+    {
+      "id": "m0378",
+      "name": "NEW[zom]BIE!!",
+      "playing_seconds": 122,
       "score_coefficient_permil": 6
     },
     {
@@ -619,6 +631,12 @@
       "score_coefficient_permil": 4
     },
     {
+      "id": "m0377",
+      "name": "ぐるぐる@まわる@まわルーナ",
+      "playing_seconds": 98,
+      "score_coefficient_permil": 6
+    },
+    {
       "id": "m0341",
       "name": "ころねの最凶天災☆わんだふぉー♡わーるど",
       "playing_seconds": 104,
@@ -841,6 +859,12 @@
       "score_coefficient_permil": 7
     },
     {
+      "id": "m0362",
+      "name": "トウキョウ・シャンディ・ランデヴ",
+      "playing_seconds": 115,
+      "score_coefficient_permil": 5
+    },
+    {
       "id": "m0353",
       "name": "ナイトループ",
       "playing_seconds": 134,
@@ -941,6 +965,12 @@
       "name": "メギツネ",
       "playing_seconds": 135,
       "score_coefficient_permil": 6
+    },
+    {
+      "id": "m0361",
+      "name": "ラミィズバリバリワークアウト",
+      "playing_seconds": 164,
+      "score_coefficient_permil": 9
     },
     {
       "id": "m0023",
