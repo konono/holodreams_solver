@@ -55,6 +55,12 @@
       "score_coefficient_permil": 8
     },
     {
+      "id": "m0367",
+      "name": "CORE//UNBREAKABLE",
+      "playing_seconds": 119,
+      "score_coefficient_permil": 4
+    },
+    {
       "id": "m0135",
       "name": "Capture the Moment",
       "playing_seconds": 117,
@@ -130,6 +136,12 @@
       "id": "m0106",
       "name": "FIRE BIRD",
       "playing_seconds": 136,
+      "score_coefficient_permil": 6
+    },
+    {
+      "id": "m0368",
+      "name": "Forge My Soul",
+      "playing_seconds": 105,
       "score_coefficient_permil": 6
     },
     {
@@ -431,6 +443,12 @@
       "name": "Secret Garden",
       "playing_seconds": 137,
       "score_coefficient_permil": 5
+    },
+    {
+      "id": "m0365",
+      "name": "Shallow Shadow",
+      "playing_seconds": 123,
+      "score_coefficient_permil": 10
     },
     {
       "id": "m9999",
@@ -749,6 +767,12 @@
       "name": "アイドル",
       "playing_seconds": 126,
       "score_coefficient_permil": 6
+    },
+    {
+      "id": "m0366",
+      "name": "アマリリス",
+      "playing_seconds": 109,
+      "score_coefficient_permil": 5
     },
     {
       "id": "m0053",
