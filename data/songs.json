@@ -31,6 +31,12 @@
       "score_coefficient_permil": 5
     },
     {
+      "id": "m0371",
+      "name": "BANZAI",
+      "playing_seconds": 134,
+      "score_coefficient_permil": 5
+    },
+    {
       "id": "m0154",
       "name": "BLUE CLAPPER",
       "playing_seconds": 128,
@@ -53,6 +59,12 @@
       "name": "Born to be \"BAU\"DOL☆★",
       "playing_seconds": 152,
       "score_coefficient_permil": 8
+    },
+    {
+      "id": "m0388",
+      "name": "Break It Down",
+      "playing_seconds": 141,
+      "score_coefficient_permil": 7
     },
     {
       "id": "m0367",
@@ -125,6 +137,12 @@
       "name": "Dream☆Story",
       "playing_seconds": 120,
       "score_coefficient_permil": 6
+    },
+    {
+      "id": "m0551",
+      "name": "ENDLESS FES",
+      "playing_seconds": 112,
+      "score_coefficient_permil": 8
     },
     {
       "id": "m0346",
@@ -292,6 +310,12 @@
       "id": "m0062",
       "name": "Mantra Hujan",
       "playing_seconds": 110,
+      "score_coefficient_permil": 6
+    },
+    {
+      "id": "m0372",
+      "name": "Miracle Palette",
+      "playing_seconds": 141,
       "score_coefficient_permil": 6
     },
     {
@@ -485,6 +509,12 @@
       "name": "Suspect",
       "playing_seconds": 117,
       "score_coefficient_permil": 4
+    },
+    {
+      "id": "m0373",
+      "name": "Sweetest Scarlet",
+      "playing_seconds": 138,
+      "score_coefficient_permil": 7
     },
     {
       "id": "m0326",
@@ -1181,6 +1211,12 @@
       "name": "強風オールバック",
       "playing_seconds": 135,
       "score_coefficient_permil": 7
+    },
+    {
+      "id": "m0369",
+      "name": "怪宴スペクタクル",
+      "playing_seconds": 116,
+      "score_coefficient_permil": 6
     },
     {
       "id": "m0091",
