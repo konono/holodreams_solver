@@ -127,6 +127,12 @@
       "score_coefficient_permil": 6
     },
     {
+      "id": "m0394",
+      "name": "Dramatic XViltration",
+      "playing_seconds": 121,
+      "score_coefficient_permil": 6
+    },
+    {
       "id": "m0005",
       "name": "Dreaming Days",
       "playing_seconds": 103,
@@ -283,6 +289,12 @@
       "score_coefficient_permil": 5
     },
     {
+      "id": "m0552",
+      "name": "LOVE MISSION♡",
+      "playing_seconds": 123,
+      "score_coefficient_permil": 8
+    },
+    {
       "id": "m0193",
       "name": "Let Me Be With You",
       "playing_seconds": 108,
@@ -307,6 +319,12 @@
       "score_coefficient_permil": 5
     },
     {
+      "id": "m0550",
+      "name": "Lucu Juga",
+      "playing_seconds": 117,
+      "score_coefficient_permil": 7
+    },
+    {
       "id": "m0062",
       "name": "Mantra Hujan",
       "playing_seconds": 110,
@@ -323,6 +341,12 @@
       "name": "Monsters and Men",
       "playing_seconds": 141,
       "score_coefficient_permil": 5
+    },
+    {
+      "id": "m0528",
+      "name": "Multiverse",
+      "playing_seconds": 136,
+      "score_coefficient_permil": 7
     },
     {
       "id": "m0037",
@@ -1025,6 +1049,12 @@
       "name": "メギツネ",
       "playing_seconds": 135,
       "score_coefficient_permil": 6
+    },
+    {
+      "id": "m0396",
+      "name": "メトロポリス (metropolis)",
+      "playing_seconds": 133,
+      "score_coefficient_permil": 7
     },
     {
       "id": "m0361",
