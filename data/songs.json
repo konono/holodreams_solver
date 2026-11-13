@@ -67,6 +67,12 @@
       "score_coefficient_permil": 7
     },
     {
+      "id": "m0385",
+      "name": "Burning hope",
+      "playing_seconds": 130,
+      "score_coefficient_permil": 5
+    },
+    {
       "id": "m0367",
       "name": "CORE//UNBREAKABLE",
       "playing_seconds": 119,
@@ -163,6 +169,12 @@
       "score_coefficient_permil": 6
     },
     {
+      "id": "m0398",
+      "name": "Fleur",
+      "playing_seconds": 121,
+      "score_coefficient_permil": 3
+    },
+    {
       "id": "m0368",
       "name": "Forge My Soul",
       "playing_seconds": 105,
@@ -220,6 +232,12 @@
       "id": "m0360",
       "name": "HOLOGRAM CIRCUS",
       "playing_seconds": 157,
+      "score_coefficient_permil": 7
+    },
+    {
+      "id": "m0386",
+      "name": "Halulu",
+      "playing_seconds": 122,
       "score_coefficient_permil": 7
     },
     {
@@ -685,6 +703,12 @@
       "score_coefficient_permil": 5
     },
     {
+      "id": "m0403",
+      "name": "お嫁♡HOLIC",
+      "playing_seconds": 145,
+      "score_coefficient_permil": 10
+    },
+    {
       "id": "m0548",
       "name": "きゃぴ",
       "playing_seconds": 123,
@@ -773,6 +797,12 @@
       "name": "ぷ・れ・あ・で・す！",
       "playing_seconds": 96,
       "score_coefficient_permil": 5
+    },
+    {
+      "id": "m0387",
+      "name": "ぺこらいざー",
+      "playing_seconds": 135,
+      "score_coefficient_permil": 4
     },
     {
       "id": "m0034",
@@ -1063,6 +1093,12 @@
       "score_coefficient_permil": 9
     },
     {
+      "id": "m0404",
+      "name": "リリカルMonster",
+      "playing_seconds": 141,
+      "score_coefficient_permil": 7
+    },
+    {
       "id": "m0023",
       "name": "リルビ",
       "playing_seconds": 142,
@@ -1126,6 +1162,12 @@
       "id": "m0141",
       "name": "刹那ティックコード",
       "playing_seconds": 105,
+      "score_coefficient_permil": 4
+    },
+    {
+      "id": "m0384",
+      "name": "前略、君に捧げるらびゅそんぐ！",
+      "playing_seconds": 104,
       "score_coefficient_permil": 4
     },
     {
@@ -1247,6 +1289,12 @@
       "name": "強風オールバック",
       "playing_seconds": 135,
       "score_coefficient_permil": 7
+    },
+    {
+      "id": "m0383",
+      "name": "微熱",
+      "playing_seconds": 129,
+      "score_coefficient_permil": 5
     },
     {
       "id": "m0369",
