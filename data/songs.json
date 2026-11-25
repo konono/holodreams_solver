@@ -253,6 +253,12 @@
       "score_coefficient_permil": 7
     },
     {
+      "id": "m0405",
+      "name": "Holiday Dream",
+      "playing_seconds": 135,
+      "score_coefficient_permil": 5
+    },
+    {
       "id": "m0018",
       "name": "Howling",
       "playing_seconds": 100,
@@ -487,6 +493,12 @@
       "score_coefficient_permil": 4
     },
     {
+      "id": "m0462",
+      "name": "SUNAO",
+      "playing_seconds": 108,
+      "score_coefficient_permil": 5
+    },
+    {
       "id": "m0184",
       "name": "SUPERNOVA",
       "playing_seconds": 118,
@@ -565,6 +577,12 @@
       "score_coefficient_permil": 7
     },
     {
+      "id": "m0408",
+      "name": "TAKO∞TAKOVER",
+      "playing_seconds": 133,
+      "score_coefficient_permil": 5
+    },
+    {
       "id": "m0326",
       "name": "TwiLight",
       "playing_seconds": 120,
@@ -611,6 +629,12 @@
       "name": "What an amazing swing",
       "playing_seconds": 128,
       "score_coefficient_permil": 6
+    },
+    {
+      "id": "m0409",
+      "name": "Whisper Whisper Whisper",
+      "playing_seconds": 125,
+      "score_coefficient_permil": 5
     },
     {
       "id": "m0145",
@@ -1385,6 +1409,12 @@
       "name": "神のまにまに",
       "playing_seconds": 130,
       "score_coefficient_permil": 7
+    },
+    {
+      "id": "m0407",
+      "name": "絶対忠誠♡なのなのら！",
+      "playing_seconds": 113,
+      "score_coefficient_permil": 5
     },
     {
       "id": "m0337",
